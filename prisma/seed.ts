@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const db = new PrismaClient()
 
@@ -63,6 +64,48 @@ async function main() {
     const created = await db.employee.create({ data: emp })
     createdEmployees[emp.employeeId] = created.id
     console.log(`  Created employee: ${emp.employeeId} - ${emp.firstName} ${emp.lastName}`)
+  }
+
+  // ─── Users (Authentication Accounts) ──────────────────────────────
+  console.log('Creating user accounts...')
+  const saltRounds = 10
+
+  const users = [
+    // Super Admin
+    { email: 'admin@company.com', password: 'Admin@2024', name: 'System Administrator', roleId: roleSuperAdmin.id, employeeId: null, isActive: true },
+    // HR Admin
+    { email: 'priya.sharma@company.com', password: 'HRAdmin@2024', name: 'Priya Sharma', roleId: roleHRAdmin.id, employeeId: createdEmployees['EMP002'], isActive: true },
+    // Payroll Specialist
+    { email: 'amit.patel@company.com', password: 'Payroll@2024', name: 'Amit Patel', roleId: rolePayrollSpec.id, employeeId: createdEmployees['EMP003'], isActive: true },
+    // Department Manager (Engineering)
+    { email: 'rajesh.kumar@company.com', password: 'Manager@2024', name: 'Rajesh Kumar', roleId: roleManager.id, employeeId: createdEmployees['EMP001'], isActive: true },
+    // Department Manager (Product)
+    { email: 'anita.desai@company.com', password: 'Manager@2024', name: 'Anita Desai', roleId: roleManager.id, employeeId: createdEmployees['EMP013'], isActive: true },
+    // Department Manager (Sales)
+    { email: 'vikram.singh@company.com', password: 'Manager@2024', name: 'Vikram Singh', roleId: roleManager.id, employeeId: createdEmployees['EMP005'], isActive: true },
+    // Employee
+    { email: 'sneha.reddy@company.com', password: 'Employee@2024', name: 'Sneha Reddy', roleId: roleEmployee.id, employeeId: createdEmployees['EMP006'], isActive: true },
+    { email: 'karthik.rao@company.com', password: 'Employee@2024', name: 'Karthik Rao', roleId: roleEmployee.id, employeeId: createdEmployees['EMP014'], isActive: true },
+    { email: 'rohit.verma@company.com', password: 'Employee@2024', name: 'Rohit Verma', roleId: roleEmployee.id, employeeId: createdEmployees['EMP009'], isActive: true },
+    // Recruiter
+    { email: 'fatima.khan@company.com', password: 'Recruiter@2024', name: 'Fatima Khan', roleId: roleRecruiter.id, employeeId: createdEmployees['EMP017'], isActive: true },
+    // L&D Manager
+    { email: 'meera.iyer@company.com', password: 'LDManager@2024', name: 'Meera Iyer', roleId: roleLDManager.id, employeeId: createdEmployees['EMP010'], isActive: true },
+  ]
+
+  for (const user of users) {
+    const passwordHash = await bcrypt.hash(user.password, saltRounds)
+    await db.user.create({
+      data: {
+        email: user.email,
+        passwordHash,
+        name: user.name,
+        roleId: user.roleId,
+        employeeId: user.employeeId,
+        isActive: user.isActive,
+      },
+    })
+    console.log(`  Created user: ${user.email} (${user.password}) - Role: ${user.name}`)
   }
 
   // ─── Skills ────────────────────────────────────────────────────────
@@ -264,12 +307,25 @@ async function main() {
     { jobId: createdJobs['Senior Full Stack Developer'], name: 'Aditya Sharma', email: 'aditya@email.com', phone: '+91-9900011122', currentCompany: 'TechCorp', experience: '6 years', skills: JSON.stringify(['React', 'Node.js', 'TypeScript']), education: 'B.Tech, IIT Delhi', source: 'portal', status: 'interview', aiFitScore: 87, interviewDate: '2024-01-20' },
     { jobId: createdJobs['Senior Full Stack Developer'], name: 'Lakshmi Iyer', email: 'lakshmi@email.com', phone: '+91-9900011123', currentCompany: 'StartupXYZ', experience: '5 years', skills: JSON.stringify(['React', 'Python', 'AWS']), education: 'M.Tech, BITS Pilani', source: 'referral', status: 'screening', aiFitScore: 72 },
     { jobId: createdJobs['Data Scientist'], name: 'Rahul Krishnan', email: 'rahul@email.com', phone: '+91-9900011124', currentCompany: 'DataMinds', experience: '4 years', skills: JSON.stringify(['Python', 'ML', 'TensorFlow']), education: 'M.Sc Statistics, ISI Kolkata', source: 'linkedin', status: 'offered', aiFitScore: 92, interviewDate: '2024-01-18', onboardingStatus: 'pending' },
-    { jobId: createdJobs['Marketing Coordinator'], name: 'Divya Patel', email: 'divya@email.com', phone: '+91-9900011125', currentCompany: 'AdAgency', experience: '3 years', skills: JSON.stringify(['Digital Marketing', 'SEO', 'Analytics']), education: 'MBA Marketing, IIM A', source: 'portal', status: 'applied', aiFitScore: 65 },
-    { jobId: createdJobs['DevOps Engineer'], name: 'Sanjay Reddy', email: 'sanjay@email.com', phone: '+91-9900011126', currentCompany: 'CloudFirst', experience: '5 years', skills: JSON.stringify(['AWS', 'Docker', 'Kubernetes', 'Terraform']), education: 'B.Tech, NIT Warangal', source: 'linkedin', status: 'interview', aiFitScore: 81, interviewDate: '2024-01-22' },
-    { jobId: createdJobs['HR Executive'], name: 'Asha Kumari', email: 'asha@email.com', phone: '+91-9900011127', currentCompany: 'HRCorp', experience: '2 years', skills: JSON.stringify(['HR Operations', 'Recruitment']), education: 'MBA HR, XLRI', source: 'referral', status: 'hired', aiFitScore: 78, interviewDate: '2024-01-10', onboardingStatus: 'completed' },
+    { jobId: createdJobs['Marketing Coordinator'], name: 'Priyanka Das', email: 'priyanka@email.com', phone: '+91-9900011125', currentCompany: 'AdWorld', experience: '3 years', skills: JSON.stringify(['Digital Marketing', 'Content', 'SEO']), education: 'MBA Marketing, XLRI', source: 'portal', status: 'applied', aiFitScore: 65 },
+    { jobId: createdJobs['DevOps Engineer'], name: 'Vivek Reddy', email: 'vivek@email.com', phone: '+91-9900011126', currentCompany: 'CloudFirst', experience: '5 years', skills: JSON.stringify(['AWS', 'Docker', 'Kubernetes', 'Terraform']), education: 'B.Tech, NIT Warangal', source: 'linkedin', status: 'interview', aiFitScore: 78, interviewDate: '2024-01-22' },
+    { jobId: createdJobs['Senior Full Stack Developer'], name: 'Nisha Agarwal', email: 'nisha@email.com', phone: '+91-9900011127', currentCompany: 'WebDev Co', experience: '7 years', skills: JSON.stringify(['React', 'Node.js', 'Python', 'AWS']), education: 'M.Tech, IIIT Hyderabad', source: 'referral', status: 'hired', aiFitScore: 95, interviewDate: '2024-01-12', onboardingStatus: 'in-progress' },
   ]
-  for (const cand of candidates) {
-    await db.candidate.create({ data: cand })
+  for (const candidate of candidates) {
+    await db.candidate.create({ data: candidate })
+  }
+
+  // ─── Company Policies ──────────────────────────────────────────────
+  console.log('Creating company policies...')
+  const policies = [
+    { title: 'Leave Policy', category: 'HR', content: 'Employees are entitled to 24 casual leaves, 12 sick leaves, and 15 earned leaves per year.', version: '3.0', effectiveDate: '2024-01-01' },
+    { title: 'Remote Work Policy', category: 'HR', content: 'Employees can work remotely up to 3 days per week with manager approval.', version: '2.1', effectiveDate: '2024-01-01' },
+    { title: 'Travel & Expense Policy', category: 'Finance', content: 'All business travel must be pre-approved. Expense claims must be submitted within 15 days.', version: '2.5', effectiveDate: '2024-01-01' },
+    { title: 'Code of Conduct', category: 'HR', content: 'All employees must adhere to professional conduct standards as outlined in this policy.', version: '4.0', effectiveDate: '2024-01-01' },
+    { title: 'IT Security Policy', category: 'IT', content: 'All employees must use company VPN for remote access and follow data protection guidelines.', version: '3.2', effectiveDate: '2024-01-01' },
+  ]
+  for (const policy of policies) {
+    await db.companyPolicy.create({ data: policy })
   }
 
   // ─── Holidays ──────────────────────────────────────────────────────
@@ -280,79 +336,30 @@ async function main() {
     { name: 'Good Friday', date: '2024-03-29', type: 'national' },
     { name: 'Eid ul-Fitr', date: '2024-04-10', type: 'national' },
     { name: 'Independence Day', date: '2024-08-15', type: 'national' },
-    { name: 'Company Foundation Day', date: '2024-05-20', type: 'company' },
     { name: 'Gandhi Jayanti', date: '2024-10-02', type: 'national' },
     { name: 'Dussehra', date: '2024-10-12', type: 'national' },
     { name: 'Diwali', date: '2024-11-01', type: 'national' },
     { name: 'Christmas', date: '2024-12-25', type: 'national' },
-    { name: 'New Year Eve (Half Day)', date: '2024-12-31', type: 'optional' },
+    { name: 'Company Foundation Day', date: '2024-06-15', type: 'company' },
   ]
   for (const holiday of holidays) {
     await db.holiday.create({ data: holiday })
   }
 
-  // ─── Company Policies ──────────────────────────────────────────────
-  console.log('Creating company policies...')
-  const policies = [
-    { title: 'Leave Policy 2024', category: 'Leave', content: 'Employees are entitled to 24 leaves per year: 12 Casual Leaves, 10 Sick Leaves, and 15 Earned Leaves (accrued quarterly). Leaves must be applied through the HRMS portal at least 3 days in advance for planned leaves. Sick leaves beyond 3 consecutive days require a medical certificate. Maternity leave of 26 weeks and Paternity leave of 15 days are available as per statutory requirements.', version: '3.1', effectiveDate: '2024-01-01' },
-    { title: 'Code of Conduct', category: 'Compliance', content: 'All employees must maintain professional conduct at all times. This includes respectful communication, adherence to company values, compliance with legal requirements, and protection of company assets. Any violation may result in disciplinary action up to and including termination. All disputes are subject to the company disciplinary committee review.', version: '2.0', effectiveDate: '2023-06-01' },
-    { title: 'Remote Work Guidelines', category: 'Work Policy', content: 'Employees may work remotely up to 3 days per week with manager approval. Remote workers must be available during core hours (10 AM - 4 PM IST), maintain a stable internet connection, and attend all required in-person meetings. Equipment for remote work is provided by the company. Data security protocols must be followed strictly.', version: '1.5', effectiveDate: '2023-09-01' },
-    { title: 'Travel & Expense Policy', category: 'Finance', content: 'Business travel must be pre-approved by the reporting manager and department head. Travel bookings should be made at least 7 days in advance. Accommodation is capped at ₹5,000/night for domestic travel. Meal expenses are capped at ₹1,500/day. All expenses must be submitted within 7 days of travel completion with valid receipts.', version: '4.0', effectiveDate: '2024-01-01' },
-    { title: 'Data Security & Privacy', category: 'Security', content: 'All employee and company data must be handled in accordance with the IT Act and company data classification policy. Access to sensitive data is governed by RBAC. No company data may be stored on personal devices without encryption. Violations must be reported to the IT Security team within 24 hours. Regular security awareness training is mandatory.', version: '2.2', effectiveDate: '2023-11-01' },
-    { title: 'Performance Review Framework', category: 'HR', content: 'Performance reviews are conducted quarterly with a comprehensive annual review. Reviews follow a 360-degree feedback model including self-review, peer feedback, and manager assessment. OKRs must be set at the beginning of each quarter. AI-assisted reviews provide data-driven insights. Rating scale: 1-5 with detailed rubrics for each level.', version: '3.0', effectiveDate: '2024-01-01' },
-  ]
-  for (const policy of policies) {
-    await db.companyPolicy.create({ data: policy })
-  }
-
-  // ─── Approval Workflows ────────────────────────────────────────────
-  console.log('Creating approval workflows...')
-  const approvalWorkflows = [
-    { type: 'leave', requesterId: createdEmployees['EMP006'], approverId: createdEmployees['EMP001'], level: 1, status: 'pending', comments: 'Awaiting manager approval' },
-    { type: 'leave', requesterId: createdEmployees['EMP007'], approverId: createdEmployees['EMP013'], level: 1, status: 'pending', comments: 'Awaiting manager approval' },
-    { type: 'expense', requesterId: createdEmployees['EMP006'], approverId: createdEmployees['EMP001'], level: 1, status: 'pending', comments: 'Awaiting manager approval' },
-    { type: 'expense', requesterId: createdEmployees['EMP009'], approverId: createdEmployees['EMP001'], level: 1, status: 'rejected', comments: 'Not pre-approved by department head' },
-  ]
-  for (const aw of approvalWorkflows) {
-    await db.approvalWorkflow.create({ data: aw })
-  }
-
-  // ─── Audit Logs ────────────────────────────────────────────────────
-  console.log('Creating audit logs...')
-  const auditLogs = [
-    { employeeId: createdEmployees['EMP001'], action: 'login', module: 'auth', details: 'Login from IP 192.168.1.100', ipAddress: '192.168.1.100' },
-    { employeeId: createdEmployees['EMP002'], action: 'create', module: 'hr', details: 'Created new employee record for Karthik Rao', ipAddress: '192.168.1.45' },
-    { employeeId: createdEmployees['EMP003'], action: 'modify', module: 'payroll', details: 'Updated payroll for December 2023', ipAddress: '192.168.1.78' },
-    { employeeId: null, action: 'delete', module: 'attendance', details: 'Auto-cleaned attendance records older than 2 years', ipAddress: '10.0.0.1' },
-    { employeeId: createdEmployees['EMP004'], action: 'read', module: 'hr', details: 'Viewed employee salary data', ipAddress: '192.168.1.92' },
-    { employeeId: createdEmployees['EMP005'], action: 'modify', module: 'performance', details: 'Updated performance review for Q4 2023', ipAddress: '192.168.1.55' },
-    { employeeId: createdEmployees['EMP002'], action: 'create', module: 'rbac', details: 'Updated permissions for Recruiter role', ipAddress: '192.168.1.45' },
-    { employeeId: null, action: 'modify', module: 'backup', details: 'Automated daily backup completed', ipAddress: '10.0.0.1' },
-    { employeeId: createdEmployees['EMP009'], action: 'read', module: 'attendance', details: 'Viewed attendance report for January', ipAddress: '192.168.1.110' },
-    { employeeId: createdEmployees['EMP010'], action: 'create', module: 'learning', details: 'Added new course: Advanced React Patterns', ipAddress: '192.168.1.134' },
-  ]
-  for (const log of auditLogs) {
-    await db.auditLog.create({ data: log })
-  }
-
-  console.log('✅ Database seeded successfully!')
-  console.log(`   - ${employees.length} employees`)
-  console.log(`   - ${skillsData.length} skills`)
-  console.log(`   - ${attendanceRecords.length} attendance records`)
-  console.log(`   - ${leaves.length} leave records`)
-  console.log(`   - ${payrolls.length} payroll records`)
-  console.log(`   - ${expenses.length} expense records`)
-  console.log(`   - ${performances.length} performance reviews`)
-  console.log(`   - ${assets.length} assets`)
-  console.log(`   - ${documents.length} documents`)
-  console.log(`   - ${courses.length} courses`)
-  console.log(`   - ${enrollments.length} course enrollments`)
-  console.log(`   - ${jobs.length} job postings`)
-  console.log(`   - ${candidates.length} candidates`)
-  console.log(`   - ${holidays.length} holidays`)
-  console.log(`   - ${policies.length} company policies`)
-  console.log(`   - ${approvalWorkflows.length} approval workflows`)
-  console.log(`   - ${auditLogs.length} audit logs`)
+  console.log('✅ Seeding completed successfully!')
+  console.log('')
+  console.log('📋 Login Credentials:')
+  console.log('┌─────────────────────┬───────────────────────────────────┬──────────────────┐')
+  console.log('│ Role                │ Email                             │ Password         │')
+  console.log('├─────────────────────┼───────────────────────────────────┼──────────────────┤')
+  console.log('│ Super Admin         │ admin@company.com                 │ Admin@2024       │')
+  console.log('│ HR Admin            │ priya.sharma@company.com          │ HRAdmin@2024     │')
+  console.log('│ Payroll Specialist  │ amit.patel@company.com            │ Payroll@2024     │')
+  console.log('│ Department Manager  │ rajesh.kumar@company.com          │ Manager@2024     │')
+  console.log('│ Employee            │ sneha.reddy@company.com           │ Employee@2024    │')
+  console.log('│ Recruiter           │ fatima.khan@company.com           │ Recruiter@2024   │')
+  console.log('│ L&D Manager         │ meera.iyer@company.com            │ LDManager@2024   │')
+  console.log('└─────────────────────┴───────────────────────────────────┴──────────────────┘')
 }
 
 main()
