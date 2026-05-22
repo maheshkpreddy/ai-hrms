@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Search,
   UserPlus,
@@ -24,6 +24,7 @@ import {
   X,
   User,
   Users,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -78,7 +79,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { employees, departments, assets, employeeDocuments } from '@/lib/data'
+import { useApi, apiPost, apiPut, apiDelete } from '@/lib/useApi'
 import { useToast } from '@/hooks/use-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -104,6 +105,54 @@ interface Employee {
   panNumber: string
   pfNumber: string
   avatar: string
+}
+
+interface Department {
+  id: string
+  name: string
+  head: string
+  budget: number
+  count: number
+}
+
+interface Asset {
+  id: string
+  employeeId: string
+  assetType: string
+  assetName: string
+  serialNo: string
+  assignedDate: string
+  condition: string
+  status: string
+}
+
+interface EmployeeDocument {
+  id: string
+  employeeId: string
+  name: string
+  type: string
+  uploadedDate: string
+  status: string
+}
+
+interface EmployeesResponse {
+  employees: Employee[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+interface DepartmentsResponse {
+  departments: Department[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+interface AssetsResponse {
+  assets: Asset[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+interface DocumentsResponse {
+  documents: EmployeeDocument[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -191,24 +240,6 @@ function getContractBadge(type: string) {
   )
 }
 
-// ─── Org Chart Data ───────────────────────────────────────────────────────────
-
-function buildOrgTree() {
-  const deptGroups = employees.reduce<Record<string, Employee[]>>((acc, emp) => {
-    if (!acc[emp.department]) acc[emp.department] = []
-    acc[emp.department].push(emp)
-    return acc
-  }, {})
-
-  return departments
-    .map((dept) => ({
-      name: dept.name,
-      head: dept.head,
-      employees: deptGroups[dept.name] || [],
-    }))
-    .filter((d) => d.employees.length > 0)
-}
-
 // ─── Detail Info Row ──────────────────────────────────────────────────────────
 
 function InfoRow({
@@ -231,6 +262,17 @@ function InfoRow({
   )
 }
 
+// ─── Loading Spinner ──────────────────────────────────────────────────────────
+
+function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-16">
+      <Loader2 className="h-8 w-8 animate-spin text-emerald-600 dark:text-emerald-400" />
+      <p className="text-muted-foreground text-sm">{message}</p>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function EmployeeManagement() {
@@ -248,6 +290,8 @@ export default function EmployeeManagement() {
   const [salaryVisible, setSalaryVisible] = useState(false)
   const [orgChartOpen, setOrgChartOpen] = useState(false)
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Add Employee Form State
   const [addForm, setAddForm] = useState({
@@ -270,85 +314,208 @@ export default function EmployeeManagement() {
     pfNumber: '',
   })
 
-  // Filtered employees
+  // ── API hooks ─────────────────────────────────────────────────────────────
+
+  // Employees list with server-side search, department, and status filters
+  const {
+    data: employeesData,
+    loading: employeesLoading,
+    error: employeesError,
+    refetch: refetchEmployees,
+  } = useApi<EmployeesResponse>({
+    baseUrl: '/api/employees',
+    params: {
+      page: 1,
+      limit: 100,
+      department: filterDept !== 'all' ? filterDept : undefined,
+      status: filterStatus !== 'all' ? filterStatus : undefined,
+      search: searchQuery || undefined,
+    },
+  })
+
+  // Departments list
+  const {
+    data: departmentsData,
+    loading: departmentsLoading,
+  } = useApi<DepartmentsResponse>({
+    baseUrl: '/api/departments',
+    params: { limit: 100 },
+  })
+
+  // Assets for selected employee
+  const {
+    data: assetsData,
+    loading: assetsLoading,
+  } = useApi<AssetsResponse>({
+    baseUrl: '/api/assets',
+    params: { employeeId: selectedEmployee?.id, limit: 100 },
+    enabled: !!selectedEmployee,
+  })
+
+  // Documents for selected employee
+  const {
+    data: documentsData,
+    loading: documentsLoading,
+  } = useApi<DocumentsResponse>({
+    baseUrl: '/api/documents',
+    params: { employeeId: selectedEmployee?.id, limit: 100 },
+    enabled: !!selectedEmployee,
+  })
+
+  // Derived data from API responses
+  const employees = employeesData?.employees ?? []
+  const departments = departmentsData?.departments ?? []
+  const selectedAssets = assetsData?.assets ?? []
+  const selectedDocs = documentsData?.documents ?? []
+
+  // Client-side contract type filter (API doesn't support it)
   const filteredEmployees = useMemo(() => {
-    return employees.filter((emp) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        `${emp.firstName} ${emp.lastName}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.id.toLowerCase().includes(searchQuery.toLowerCase())
+    if (filterContract === 'all') return employees
+    return employees.filter((emp) => emp.contractType === filterContract)
+  }, [employees, filterContract])
 
-      const matchesDept =
-        filterDept === 'all' || emp.department === filterDept
-      const matchesStatus =
-        filterStatus === 'all' || emp.status === filterStatus
-      const matchesContract =
-        filterContract === 'all' || emp.contractType === filterContract
-
-      return matchesSearch && matchesDept && matchesStatus && matchesContract
-    })
-  }, [searchQuery, filterDept, filterStatus, filterContract])
+  // Reporting manager lookup
+  const reportingManager = selectedEmployee?.reportingTo
+    ? employees.find((e) => e.id === selectedEmployee.reportingTo)
+    : null
 
   // Org chart data
-  const orgTree = useMemo(() => buildOrgTree(), [])
+  const orgTree = useMemo(() => {
+    const deptGroups = employees.reduce<Record<string, Employee[]>>((acc, emp) => {
+      if (!acc[emp.department]) acc[emp.department] = []
+      acc[emp.department].push(emp)
+      return acc
+    }, {})
 
-  // Handlers
+    return departments
+      .map((dept) => ({
+        name: dept.name,
+        head: dept.head,
+        employees: deptGroups[dept.name] || [],
+      }))
+      .filter((d) => d.employees.length > 0)
+  }, [employees, departments])
+
+  // Active counts for badges
+  const activeCount = employees.filter((e) => e.status === 'active').length
+  const onboardingCount = employees.filter((e) => e.status === 'onboarding').length
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   function handleView(emp: Employee) {
     setSelectedEmployee(emp)
     setSalaryVisible(false)
     setDetailOpen(true)
   }
 
-  function handleEdit(emp: Employee) {
-    toast({
-      title: 'Edit Employee',
-      description: `Editing ${emp.firstName} ${emp.lastName}`,
+  async function handleEdit(emp: Employee) {
+    // Open a simple edit flow: populate the add form with existing data, reuse the dialog
+    setAddForm({
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      email: emp.email,
+      phone: emp.phone,
+      dob: emp.dob,
+      gender: emp.gender,
+      address: emp.address,
+      department: emp.department,
+      designation: emp.designation,
+      jobTitle: emp.jobTitle,
+      contractType: emp.contractType,
+      joinDate: emp.joinDate,
+      reportingTo: emp.reportingTo ?? '',
+      salary: String(emp.salary),
+      bankAccount: emp.bankAccount,
+      panNumber: emp.panNumber,
+      pfNumber: emp.pfNumber,
     })
+    setEditingEmployeeId(emp.id)
+    setAddOpen(true)
   }
+
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
 
   function handleDelete(id: string) {
     setDeleteConfirm(id)
   }
 
-  function confirmDelete() {
-    if (deleteConfirm) {
+  async function confirmDelete() {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    try {
+      await apiDelete(`/api/employees/${deleteConfirm}`)
       toast({
         title: 'Employee Deleted',
         description: `Employee ${deleteConfirm} has been removed.`,
         variant: 'destructive',
       })
       setDeleteConfirm(null)
+      refetchEmployees()
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to delete employee',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleting(false)
     }
   }
 
-  function handleAddEmployee() {
-    toast({
-      title: 'Employee Added',
-      description: `${addForm.firstName} ${addForm.lastName} has been added successfully.`,
-    })
-    setAddOpen(false)
-    setAddForm({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      dob: '',
-      gender: '',
-      address: '',
-      department: '',
-      designation: '',
-      jobTitle: '',
-      contractType: '',
-      joinDate: '',
-      reportingTo: '',
-      salary: '',
-      bankAccount: '',
-      panNumber: '',
-      pfNumber: '',
-    })
+  async function handleAddEmployee() {
+    setSaving(true)
+    try {
+      const body = {
+        ...addForm,
+        salary: addForm.salary ? Number(addForm.salary) : 0,
+        reportingTo: addForm.reportingTo || null,
+      }
+
+      if (editingEmployeeId) {
+        await apiPut(`/api/employees/${editingEmployeeId}`, body)
+        toast({
+          title: 'Employee Updated',
+          description: `${addForm.firstName} ${addForm.lastName} has been updated successfully.`,
+        })
+      } else {
+        await apiPost('/api/employees', body)
+        toast({
+          title: 'Employee Added',
+          description: `${addForm.firstName} ${addForm.lastName} has been added successfully.`,
+        })
+      }
+
+      setAddOpen(false)
+      setEditingEmployeeId(null)
+      setAddForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        dob: '',
+        gender: '',
+        address: '',
+        department: '',
+        designation: '',
+        jobTitle: '',
+        contractType: '',
+        joinDate: '',
+        reportingTo: '',
+        salary: '',
+        bankAccount: '',
+        panNumber: '',
+        pfNumber: '',
+      })
+      refetchEmployees()
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to save employee',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   function toggleDept(name: string) {
@@ -360,19 +527,32 @@ export default function EmployeeManagement() {
     })
   }
 
-  // Employee assets and docs
-  const selectedAssets = selectedEmployee
-    ? assets.filter((a) => a.employeeId === selectedEmployee.id)
-    : []
-  const selectedDocs = selectedEmployee
-    ? employeeDocuments.filter((d) => d.employeeId === selectedEmployee.id)
-    : []
-  const reportingManager = selectedEmployee?.reportingTo
-    ? employees.find((e) => e.id === selectedEmployee.reportingTo)
-    : null
-
-  // Active counts for badges
-  const activeCount = employees.filter((e) => e.status === 'active').length
+  // Reset editing state when dialog closes
+  const handleAddDialogChange = useCallback((open: boolean) => {
+    setAddOpen(open)
+    if (!open) {
+      setEditingEmployeeId(null)
+      setAddForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        dob: '',
+        gender: '',
+        address: '',
+        department: '',
+        designation: '',
+        jobTitle: '',
+        contractType: '',
+        joinDate: '',
+        reportingTo: '',
+        salary: '',
+        bankAccount: '',
+        panNumber: '',
+        pfNumber: '',
+      })
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -392,11 +572,11 @@ export default function EmployeeManagement() {
                   variant="secondary"
                   className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
                 >
-                  {employees.length}
+                  {employeesData?.pagination?.total ?? employees.length}
                 </Badge>
               </div>
               <p className="text-muted-foreground text-sm">
-                {activeCount} active · {employees.filter((e) => e.status === 'onboarding').length} onboarding
+                {activeCount} active · {onboardingCount} onboarding
               </p>
             </div>
           </div>
@@ -419,7 +599,10 @@ export default function EmployeeManagement() {
               <span className="hidden sm:inline">Org Chart</span>
             </Button>
             <Button
-              onClick={() => setAddOpen(true)}
+              onClick={() => {
+                setEditingEmployeeId(null)
+                setAddOpen(true)
+              }}
               className="gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800"
             >
               <UserPlus className="h-4 w-4" />
@@ -589,132 +772,145 @@ export default function EmployeeManagement() {
         {/* ─── Employee Table ──────────────────────────────────────── */}
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="pl-4">Employee</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead className="hidden md:table-cell">
-                      Department
-                    </TableHead>
-                    <TableHead className="hidden lg:table-cell">
-                      Designation
-                    </TableHead>
-                    <TableHead className="hidden sm:table-cell">
-                      Contract Type
-                    </TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden xl:table-cell">
-                      Join Date
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEmployees.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="h-32 text-center text-muted-foreground"
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <Search className="h-8 w-8 text-muted-foreground/50" />
-                          <p>No employees found</p>
-                          <p className="text-xs">
-                            Try adjusting your search or filters
-                          </p>
-                        </div>
-                      </TableCell>
+            {employeesLoading ? (
+              <LoadingSpinner message="Loading employees..." />
+            ) : employeesError ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-16">
+                <p className="text-destructive text-sm">{employeesError}</p>
+                <Button variant="outline" size="sm" onClick={refetchEmployees}>
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="pl-4">Employee</TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Department
+                      </TableHead>
+                      <TableHead className="hidden lg:table-cell">
+                        Designation
+                      </TableHead>
+                      <TableHead className="hidden sm:table-cell">
+                        Contract Type
+                      </TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden xl:table-cell">
+                        Join Date
+                      </TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredEmployees.map((emp) => (
-                      <TableRow key={emp.id} className="group">
-                        <TableCell className="pl-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400">
-                              {getInitials(emp.firstName, emp.lastName)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">
-                                {emp.firstName} {emp.lastName}
-                              </p>
-                              <p className="text-muted-foreground truncate text-xs">
-                                {emp.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
-                            {emp.id}
-                          </code>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <span className="text-sm">{emp.department}</span>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <span className="text-sm">{emp.designation}</span>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {getContractBadge(emp.contractType)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(emp.status)}</TableCell>
-                        <TableCell className="hidden xl:table-cell text-sm">
-                          {formatDate(emp.joinDate)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
-                              onClick={() => handleView(emp)}
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
-                              onClick={() => handleEdit(emp)}
-                              title="Edit"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
-                              onClick={() => handleDelete(emp.id)}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEmployees.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={8}
+                          className="h-32 text-center text-muted-foreground"
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Search className="h-8 w-8 text-muted-foreground/50" />
+                            <p>No employees found</p>
+                            <p className="text-xs">
+                              Try adjusting your search or filters
+                            </p>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : (
+                      filteredEmployees.map((emp) => (
+                        <TableRow key={emp.id} className="group">
+                          <TableCell className="pl-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400">
+                                {getInitials(emp.firstName, emp.lastName)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {emp.firstName} {emp.lastName}
+                                </p>
+                                <p className="text-muted-foreground truncate text-xs">
+                                  {emp.email}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+                              {emp.id}
+                            </code>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <span className="text-sm">{emp.department}</span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <span className="text-sm">{emp.designation}</span>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            {getContractBadge(emp.contractType)}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(emp.status)}</TableCell>
+                          <TableCell className="hidden xl:table-cell text-sm">
+                            {formatDate(emp.joinDate)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                                onClick={() => handleView(emp)}
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                                onClick={() => handleEdit(emp)}
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
+                                onClick={() => handleDelete(emp.id)}
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             {/* Table Footer */}
-            <div className="flex items-center justify-between border-t px-4 py-3">
-              <p className="text-muted-foreground text-sm">
-                Showing{' '}
-                <span className="font-medium text-foreground">
-                  {filteredEmployees.length}
-                </span>{' '}
-                of{' '}
-                <span className="font-medium text-foreground">
-                  {employees.length}
-                </span>{' '}
-                employees
-              </p>
-            </div>
+            {!employeesLoading && !employeesError && (
+              <div className="flex items-center justify-between border-t px-4 py-3">
+                <p className="text-muted-foreground text-sm">
+                  Showing{' '}
+                  <span className="font-medium text-foreground">
+                    {filteredEmployees.length}
+                  </span>{' '}
+                  of{' '}
+                  <span className="font-medium text-foreground">
+                    {employeesData?.pagination?.total ?? employees.length}
+                  </span>{' '}
+                  employees
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -894,7 +1090,11 @@ export default function EmployeeManagement() {
                     {selectedAssets.length}
                   </Badge>
                 </h3>
-                {selectedAssets.length === 0 ? (
+                {assetsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : selectedAssets.length === 0 ? (
                   <p className="text-muted-foreground py-4 text-center text-sm">
                     No assets assigned
                   </p>
@@ -945,7 +1145,11 @@ export default function EmployeeManagement() {
                     {selectedDocs.length}
                   </Badge>
                 </h3>
-                {selectedDocs.length === 0 ? (
+                {documentsLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : selectedDocs.length === 0 ? (
                   <p className="text-muted-foreground py-4 text-center text-sm">
                     No documents uploaded
                   </p>
@@ -985,16 +1189,18 @@ export default function EmployeeManagement() {
         </SheetContent>
       </Sheet>
 
-      {/* ─── Add Employee Dialog ──────────────────────────────────── */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      {/* ─── Add / Edit Employee Dialog ────────────────────────────── */}
+      <Dialog open={addOpen} onOpenChange={handleAddDialogChange}>
         <DialogContent className="max-h-[85vh] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              Add New Employee
+              {editingEmployeeId ? 'Edit Employee' : 'Add New Employee'}
             </DialogTitle>
             <DialogDescription>
-              Fill in the details to add a new employee to the system.
+              {editingEmployeeId
+                ? 'Update the employee details below.'
+                : 'Fill in the details to add a new employee to the system.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1268,15 +1474,20 @@ export default function EmployeeManagement() {
           </Tabs>
 
           <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
+            <Button variant="outline" onClick={() => handleAddDialogChange(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleAddEmployee}
+              disabled={saving}
               className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800"
             >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Employee
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="mr-2 h-4 w-4" />
+              )}
+              {editingEmployeeId ? 'Save Changes' : 'Add Employee'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1301,11 +1512,15 @@ export default function EmployeeManagement() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
+              disabled={deleting}
               className="bg-red-600 hover:bg-red-700"
             >
+              {deleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Banknote,
   CheckCircle2,
@@ -30,6 +30,7 @@ import {
   Home,
   ReceiptText,
   Calculator,
+  Loader2,
 } from 'lucide-react'
 import {
   PieChart,
@@ -77,7 +78,141 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { payrollData, expenseData } from '@/lib/data'
+import { useApi, apiPost, apiPatch } from '@/lib/useApi'
+
+// ─── API Response Types ──────────────────────────────────────────────────────
+interface PayrollRecord {
+  id: string
+  employeeId: string
+  month: string
+  year: number
+  basicSalary: number
+  hra: number
+  da: number
+  conveyance: number
+  medical: number
+  bonus: number
+  grossPay: number
+  pf: number
+  esi: number
+  tax: number
+  professionalTax: number
+  totalDeductions: number
+  netPay: number
+  status: string
+  employee: {
+    id: string
+    firstName: string
+    lastName: string
+    employeeId: string
+    department: string | null
+    avatar: string | null
+  }
+}
+
+interface ExpenseRecord {
+  id: string
+  employeeId: string
+  category: string
+  amount: number
+  description: string | null
+  receiptUrl: string | null
+  date: string
+  status: string
+  approvedBy: string | null
+  comments: string | null
+  employee: {
+    id: string
+    firstName: string
+    lastName: string
+    employeeId: string
+    department: string | null
+    avatar: string | null
+  }
+}
+
+interface PayrollApiResponse {
+  records: PayrollRecord[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+interface ExpenseApiResponse {
+  expenses: ExpenseRecord[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+}
+
+// ─── Flattened display types (matches component expectations) ────────────────
+interface PayrollRow {
+  id: string
+  employeeId: string
+  name: string
+  month: string
+  year: number
+  basicSalary: number
+  hra: number
+  da: number
+  conveyance: number
+  medical: number
+  bonus: number
+  grossPay: number
+  pf: number
+  esi: number
+  tax: number
+  professionalTax: number
+  totalDeductions: number
+  netPay: number
+  status: string
+}
+
+interface ExpenseRow {
+  id: string
+  employeeId: string
+  name: string
+  category: string
+  amount: number
+  description: string
+  date: string
+  status: string
+  approvedBy: string | null
+}
+
+function flattenPayroll(r: PayrollRecord): PayrollRow {
+  return {
+    id: r.id,
+    employeeId: r.employee.employeeId,
+    name: `${r.employee.firstName} ${r.employee.lastName}`,
+    month: r.month,
+    year: r.year,
+    basicSalary: r.basicSalary,
+    hra: r.hra,
+    da: r.da,
+    conveyance: r.conveyance,
+    medical: r.medical,
+    bonus: r.bonus,
+    grossPay: r.grossPay,
+    pf: r.pf,
+    esi: r.esi,
+    tax: r.tax,
+    professionalTax: r.professionalTax,
+    totalDeductions: r.totalDeductions,
+    netPay: r.netPay,
+    status: r.status,
+  }
+}
+
+function flattenExpense(r: ExpenseRecord): ExpenseRow {
+  return {
+    id: r.id,
+    employeeId: r.employee.employeeId,
+    name: `${r.employee.firstName} ${r.employee.lastName}`,
+    category: r.category,
+    amount: r.amount,
+    description: r.description ?? '',
+    date: r.date,
+    status: r.status,
+    approvedBy: r.approvedBy,
+  }
+}
 
 // ─── Color palette (emerald-centric, no blue/indigo) ────────────────────────
 const EMERALD = '#10b981'
@@ -110,6 +245,9 @@ const fmtShort = (n: number) => {
   if (n >= 100000) return `₹${(n / 100000).toFixed(1)} L`
   return fmt(n)
 }
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_INDEX: Record<string, number> = Object.fromEntries(MONTHS.map((m, i) => [m, i + 1]))
 
 // ─── Tax Declarations Mock ────────────────────────────────────────────────────
 interface TaxSection {
@@ -163,8 +301,8 @@ const taxSections: TaxSection[] = [
   },
 ]
 
-// ─── Monthly expense trend mock ──────────────────────────────────────────────
-const monthlyExpenseTrend = [
+// ─── Monthly expense trend (computed from API data when available) ──────────
+const defaultMonthlyExpenseTrend = [
   { month: 'Aug', amount: 42000 },
   { month: 'Sep', amount: 38500 },
   { month: 'Oct', amount: 51200 },
@@ -200,7 +338,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ─── Salary Breakdown Dialog ─────────────────────────────────────────────────
-function SalaryBreakdownDialog({ row }: { row: (typeof payrollData)[number] }) {
+function SalaryBreakdownDialog({ row }: { row: PayrollRow }) {
   const pieData = [
     { name: 'Basic Salary', value: row.basicSalary },
     { name: 'HRA', value: row.hra },
@@ -308,8 +446,30 @@ function SalaryBreakdownDialog({ row }: { row: (typeof payrollData)[number] }) {
 }
 
 // ─── Submit Expense Dialog ───────────────────────────────────────────────────
-function SubmitExpenseDialog() {
+function SubmitExpenseDialog({ onSubmit }: { onSubmit: (data: { category: string; amount: number; date: string; description: string }) => Promise<void> }) {
   const [open, setOpen] = useState(false)
+  const [category, setCategory] = useState('')
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState('')
+  const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!category || !amount || !date) return
+    setSubmitting(true)
+    try {
+      await onSubmit({ category, amount: Number(amount), date, description })
+      setOpen(false)
+      setCategory('')
+      setAmount('')
+      setDate('')
+      setDescription('')
+    } catch {
+      // error handled by parent
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -327,7 +487,7 @@ function SubmitExpenseDialog() {
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
             <Label htmlFor="exp-category">Category</Label>
-            <Select>
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger id="exp-category" className="w-full">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
@@ -341,15 +501,15 @@ function SubmitExpenseDialog() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="exp-amount">Amount (₹)</Label>
-            <Input id="exp-amount" type="number" placeholder="Enter amount" />
+            <Input id="exp-amount" type="number" placeholder="Enter amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="exp-date">Date</Label>
-            <Input id="exp-date" type="date" />
+            <Input id="exp-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="exp-desc">Description</Label>
-            <Textarea id="exp-desc" placeholder="Describe the expense..." rows={3} />
+            <Textarea id="exp-desc" placeholder="Describe the expense..." rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="exp-receipt">Upload Receipt</Label>
@@ -357,16 +517,48 @@ function SubmitExpenseDialog() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={() => setOpen(false)}>
-            <Send className="h-4 w-4" />
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={handleSubmit} disabled={submitting || !category || !amount || !date}>
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Submit
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Loading skeleton for table rows ─────────────────────────────────────────
+function TableSkeleton({ cols }: { cols: number }) {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <TableRow key={i}>
+          {Array.from({ length: cols }).map((__, j) => (
+            <TableCell key={j}>
+              <div className="h-4 w-full animate-pulse rounded bg-muted" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  )
+}
+
+// ─── Loading skeleton for stat cards ─────────────────────────────────────────
+function StatCardSkeleton() {
+  return (
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-4 sm:p-6">
+        <div className="space-y-3">
+          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          <div className="h-8 w-32 animate-pulse rounded bg-muted" />
+          <div className="h-3 w-28 animate-pulse rounded bg-muted" />
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -376,20 +568,80 @@ function SubmitExpenseDialog() {
 export default function PayrollExpense() {
   const [selectedMonth, setSelectedMonth] = useState('January')
   const [selectedYear, setSelectedYear] = useState('2024')
+  const [processingPayroll, setProcessingPayroll] = useState(false)
+  const [processingAll, setProcessingAll] = useState(false)
+  const [mutationError, setMutationError] = useState<string | null>(null)
+
+  // ─── Fetch payroll data from API ────────────────────────────────────────
+  const {
+    data: payrollResponse,
+    loading: payrollLoading,
+    error: payrollError,
+    refetch: refetchPayroll,
+  } = useApi<PayrollApiResponse>({
+    baseUrl: '/api/payroll',
+    params: {
+      page: 1,
+      limit: 50,
+      month: selectedMonth,
+      year: Number(selectedYear),
+    },
+  })
+
+  // ─── Fetch expense data from API ───────────────────────────────────────
+  const {
+    data: expenseResponse,
+    loading: expenseLoading,
+    error: expenseError,
+    refetch: refetchExpenses,
+  } = useApi<ExpenseApiResponse>({
+    baseUrl: '/api/expenses',
+    params: {
+      page: 1,
+      limit: 50,
+    },
+  })
+
+  // ─── Flatten API data for display ───────────────────────────────────────
+  const payrollRows: PayrollRow[] = useMemo(
+    () => (payrollResponse?.records ?? []).map(flattenPayroll),
+    [payrollResponse]
+  )
+
+  const expenseRows: ExpenseRow[] = useMemo(
+    () => (expenseResponse?.expenses ?? []).map(flattenExpense),
+    [expenseResponse]
+  )
 
   // ─── Payroll stats ────────────────────────────────────────────────────────
-  const totalPayroll = useMemo(() => payrollData.reduce((s, r) => s + r.grossPay, 0), [])
-  const processedCount = payrollData.filter((r) => r.status !== 'pending').length
-  const pendingCount = payrollData.filter((r) => r.status === 'pending').length
-  const totalEmployees = 170
+  const totalPayroll = useMemo(() => payrollRows.reduce((s, r) => s + r.grossPay, 0), [payrollRows])
+  const processedCount = payrollRows.filter((r) => r.status !== 'pending').length
+  const pendingCount = payrollRows.filter((r) => r.status === 'pending').length
+  const totalEmployees = payrollResponse?.pagination.total ?? 0
 
   // ─── Expense stats ────────────────────────────────────────────────────────
-  const totalClaims = expenseData.reduce((s, r) => s + r.amount, 0)
-  const approvedAmount = expenseData
-    .filter((r) => r.status === 'approved' || r.status === 'reimbursed')
-    .reduce((s, r) => s + r.amount, 0)
-  const pendingAmount = expenseData.filter((r) => r.status === 'pending').reduce((s, r) => s + r.amount, 0)
-  const rejectedAmount = expenseData.filter((r) => r.status === 'rejected').reduce((s, r) => s + r.amount, 0)
+  const totalClaims = expenseRows.reduce((s, r) => s + r.amount, 0)
+  const approvedExpenses = expenseRows.filter((r) => r.status === 'approved' || r.status === 'reimbursed')
+  const approvedAmount = approvedExpenses.reduce((s, r) => s + r.amount, 0)
+  const pendingExpenses = expenseRows.filter((r) => r.status === 'pending')
+  const pendingAmount = pendingExpenses.reduce((s, r) => s + r.amount, 0)
+  const rejectedExpenses = expenseRows.filter((r) => r.status === 'rejected')
+  const rejectedAmount = rejectedExpenses.reduce((s, r) => s + r.amount, 0)
+
+  // ─── Monthly expense trend (derive from API data or use default) ──────────
+  const monthlyExpenseTrend = useMemo(() => {
+    if (expenseRows.length === 0) return defaultMonthlyExpenseTrend
+    // Group expenses by month from the data
+    const monthMap: Record<string, number> = {}
+    for (const row of expenseRows) {
+      const d = new Date(row.date)
+      const monthStr = d.toLocaleString('en', { month: 'short' })
+      monthMap[monthStr] = (monthMap[monthStr] || 0) + row.amount
+    }
+    // Convert to chart data, sorted by recent 6 months
+    const entries = Object.entries(monthMap).map(([month, amount]) => ({ month, amount }))
+    return entries.length >= 3 ? entries.slice(-6) : defaultMonthlyExpenseTrend
+  }, [expenseRows])
 
   // ─── Tax computation ──────────────────────────────────────────────────────
   const totalDeclared = taxSections.reduce((s, sec) => s + sec.items.reduce((a, it) => a + it.declared, 0), 0)
@@ -402,6 +654,74 @@ export default function PayrollExpense() {
     : taxableIncome > 500000
       ? taxableIncome * 0.2
       : taxableIncome * 0.05
+
+  // ─── Payroll processing handler ──────────────────────────────────────────
+  const handleProcessPayroll = useCallback(async (employeeId?: string) => {
+    setMutationError(null)
+    const isAll = !employeeId
+    if (isAll) setProcessingAll(true)
+    else setProcessingPayroll(true)
+
+    try {
+      if (isAll) {
+        // Process all pending payroll records
+        const pending = payrollRows.filter((r) => r.status === 'pending')
+        for (const row of pending) {
+          await apiPost('/api/payroll', {
+            employeeId: row.employeeId,
+            month: selectedMonth,
+            year: Number(selectedYear),
+          })
+        }
+      } else {
+        await apiPost('/api/payroll', {
+          employeeId,
+          month: selectedMonth,
+          year: Number(selectedYear),
+        })
+      }
+      refetchPayroll()
+    } catch (err) {
+      setMutationError(err instanceof Error ? err.message : 'Failed to process payroll')
+    } finally {
+      setProcessingPayroll(false)
+      setProcessingAll(false)
+    }
+  }, [payrollRows, selectedMonth, selectedYear, refetchPayroll])
+
+  // ─── Expense submission handler ──────────────────────────────────────────
+  const handleExpenseSubmit = useCallback(async (data: { category: string; amount: number; date: string; description: string }) => {
+    setMutationError(null)
+    try {
+      // Use a default employee ID for the current user; in a real app this would come from auth context
+      await apiPost('/api/expenses', {
+        employeeId: 'EMP001', // default — would be current user's ID in production
+        category: data.category,
+        amount: data.amount,
+        date: data.date,
+        description: data.description,
+      })
+      refetchExpenses()
+    } catch (err) {
+      setMutationError(err instanceof Error ? err.message : 'Failed to submit expense')
+      throw err
+    }
+  }, [refetchExpenses])
+
+  // ─── Expense approve/reject handler ──────────────────────────────────────
+  const handleExpenseAction = useCallback(async (id: string, status: 'approved' | 'rejected') => {
+    setMutationError(null)
+    try {
+      await apiPatch('/api/expenses', {
+        id,
+        status,
+        approvedBy: 'HR Admin', // would be current user in production
+      })
+      refetchExpenses()
+    } catch (err) {
+      setMutationError(err instanceof Error ? err.message : `Failed to ${status} expense`)
+    }
+  }, [refetchExpenses])
 
   return (
     <div className="min-h-screen bg-background">
@@ -428,6 +748,17 @@ export default function PayrollExpense() {
           </Badge>
         </div>
 
+        {/* Mutation Error Banner */}
+        {mutationError && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {mutationError}
+            <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={() => setMutationError(null)}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+
         {/* ─── Tabs ──────────────────────────────────────────────────────── */}
         <Tabs defaultValue="payroll" className="space-y-6">
           <TabsList className="h-10 w-full sm:w-auto">
@@ -451,82 +782,104 @@ export default function PayrollExpense() {
           <TabsContent value="payroll" className="space-y-6">
             {/* Top Stats */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Total Payroll</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">₹1.85 Cr</p>
-                      <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                        <TrendingUp className="h-3 w-3" />
-                        +2.8% vs last month
+              {payrollLoading ? (
+                <>
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                </>
+              ) : (
+                <>
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Total Payroll</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(totalPayroll)}</p>
+                          <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                            <TrendingUp className="h-3 w-3" />
+                            +2.8% vs last month
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                          <IndianRupee className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                      <IndianRupee className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #10b981, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #10b981, transparent)' }} />
+                  </Card>
 
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Employees Processed</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">{processedCount}/{totalEmployees}</p>
-                      <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        88% completed
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Employees Processed</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{processedCount}/{totalEmployees}</p>
+                          <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {totalEmployees > 0 ? Math.round((processedCount / totalEmployees) * 100) : 0}% completed
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-teal-100 p-2.5 text-teal-700 dark:bg-teal-950 dark:text-teal-400">
+                          <Users className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-teal-100 p-2.5 text-teal-700 dark:bg-teal-950 dark:text-teal-400">
-                      <Users className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #14b8a6, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #14b8a6, transparent)' }} />
+                  </Card>
 
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Pending</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">{pendingCount}</p>
-                      <div className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
-                        <AlertCircle className="h-3 w-3" />
-                        Requires attention
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Pending</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{pendingCount}</p>
+                          <div className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
+                            <AlertCircle className="h-3 w-3" />
+                            Requires attention
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-amber-100 p-2.5 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                          <Clock className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-amber-100 p-2.5 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                      <Clock className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b, transparent)' }} />
+                  </Card>
 
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Next Pay Date</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">28 Feb</p>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <CalendarDays className="h-3 w-3" />
-                        Auto-scheduled
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Next Pay Date</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">28 Feb</p>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <CalendarDays className="h-3 w-3" />
+                            Auto-scheduled
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-cyan-100 p-2.5 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400">
+                          <CalendarDays className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-cyan-100 p-2.5 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400">
-                      <CalendarDays className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4, transparent)' }} />
+                  </Card>
+                </>
+              )}
             </div>
+
+            {/* API Error */}
+            {payrollError && (
+              <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                Failed to load payroll data: {payrollError}
+                <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={refetchPayroll}>
+                  Retry
+                </Button>
+              </div>
+            )}
 
             {/* Month/Year selector + Bulk Actions */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -536,7 +889,7 @@ export default function PayrollExpense() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m) => (
+                    {MONTHS.map((m) => (
                       <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
                   </SelectContent>
@@ -552,12 +905,21 @@ export default function PayrollExpense() {
                 </Select>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                  <Play className="h-4 w-4" />
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+                  onClick={() => handleProcessPayroll()}
+                  disabled={processingPayroll}
+                >
+                  {processingPayroll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                   Process Payroll
                 </Button>
-                <Button variant="outline" className="gap-1.5">
-                  <CheckCircle2 className="h-4 w-4" />
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => handleProcessPayroll()}
+                  disabled={processingAll}
+                >
+                  {processingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Process All
                 </Button>
                 <Button variant="outline" className="gap-1.5">
@@ -588,47 +950,59 @@ export default function PayrollExpense() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {payrollData.map((row) => (
-                        <TableRow key={row.id} className="cursor-pointer">
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                                {row.name.split(' ').map((n) => n[0]).join('')}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">{row.name}</p>
-                                <p className="text-muted-foreground text-xs">{row.employeeId}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right text-sm">{fmt(row.basicSalary)}</TableCell>
-                          <TableCell className="text-right text-sm">{fmt(row.hra)}</TableCell>
-                          <TableCell className="text-right text-sm">{fmt(row.da)}</TableCell>
-                          <TableCell className="text-right text-sm font-semibold">{fmt(row.grossPay)}</TableCell>
-                          <TableCell className="text-right text-sm text-rose-600 dark:text-rose-400">−{fmt(row.pf)}</TableCell>
-                          <TableCell className="text-right text-sm text-rose-600 dark:text-rose-400">−{fmt(row.esi)}</TableCell>
-                          <TableCell className="text-right text-sm text-rose-600 dark:text-rose-400">−{fmt(row.tax)}</TableCell>
-                          <TableCell className="text-right text-sm font-bold text-emerald-700 dark:text-emerald-400">{fmt(row.netPay)}</TableCell>
-                          <TableCell><StatusBadge status={row.status} /></TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-                                    <FileText className="h-3.5 w-3.5" />
-                                    <span className="hidden sm:inline">Breakdown</span>
-                                  </Button>
-                                </DialogTrigger>
-                                <SalaryBreakdownDialog row={row} />
-                              </Dialog>
-                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
-                                <Download className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Payslip</span>
-                              </Button>
-                            </div>
+                      {payrollLoading ? (
+                        <TableSkeleton cols={11} />
+                      ) : payrollRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={11} className="py-12 text-center text-muted-foreground">
+                            <IndianRupee className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                            <p className="text-sm">No payroll records found for {selectedMonth} {selectedYear}</p>
+                            <p className="text-xs mt-1">Try selecting a different month/year or process payroll</p>
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        payrollRows.map((row) => (
+                          <TableRow key={row.id} className="cursor-pointer">
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                                  {row.name.split(' ').map((n) => n[0]).join('')}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium">{row.name}</p>
+                                  <p className="text-muted-foreground text-xs">{row.employeeId}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right text-sm">{fmt(row.basicSalary)}</TableCell>
+                            <TableCell className="text-right text-sm">{fmt(row.hra)}</TableCell>
+                            <TableCell className="text-right text-sm">{fmt(row.da)}</TableCell>
+                            <TableCell className="text-right text-sm font-semibold">{fmt(row.grossPay)}</TableCell>
+                            <TableCell className="text-right text-sm text-rose-600 dark:text-rose-400">−{fmt(row.pf)}</TableCell>
+                            <TableCell className="text-right text-sm text-rose-600 dark:text-rose-400">−{fmt(row.esi)}</TableCell>
+                            <TableCell className="text-right text-sm text-rose-600 dark:text-rose-400">−{fmt(row.tax)}</TableCell>
+                            <TableCell className="text-right text-sm font-bold text-emerald-700 dark:text-emerald-400">{fmt(row.netPay)}</TableCell>
+                            <TableCell><StatusBadge status={row.status} /></TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+                                      <FileText className="h-3.5 w-3.5" />
+                                      <span className="hidden sm:inline">Breakdown</span>
+                                    </Button>
+                                  </DialogTrigger>
+                                  <SalaryBreakdownDialog row={row} />
+                                </Dialog>
+                                <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+                                  <Download className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">Payslip</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -642,84 +1016,106 @@ export default function PayrollExpense() {
           <TabsContent value="expenses" className="space-y-6">
             {/* Stats */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Total Claims</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(totalClaims)}</p>
-                      <p className="text-xs text-muted-foreground">{expenseData.length} claims submitted</p>
-                    </div>
-                    <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                      <Receipt className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #10b981, transparent)' }} />
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Approved</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(approvedAmount)}</p>
-                      <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        2 claims
+              {expenseLoading ? (
+                <>
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                </>
+              ) : (
+                <>
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Total Claims</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(totalClaims)}</p>
+                          <p className="text-xs text-muted-foreground">{expenseRows.length} claims submitted</p>
+                        </div>
+                        <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                          <Receipt className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-teal-100 p-2.5 text-teal-700 dark:bg-teal-950 dark:text-teal-400">
-                      <CheckCircle2 className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #14b8a6, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #10b981, transparent)' }} />
+                  </Card>
 
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Pending</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(pendingAmount)}</p>
-                      <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                        <Clock className="h-3 w-3" />
-                        Awaiting approval
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Approved</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(approvedAmount)}</p>
+                          <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {approvedExpenses.length} claims
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-teal-100 p-2.5 text-teal-700 dark:bg-teal-950 dark:text-teal-400">
+                          <CheckCircle2 className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-amber-100 p-2.5 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                      <Clock className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #14b8a6, transparent)' }} />
+                  </Card>
 
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground text-sm font-medium">Rejected</p>
-                      <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(rejectedAmount)}</p>
-                      <div className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
-                        <XCircle className="h-3 w-3" />
-                        1 claim
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Pending</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(pendingAmount)}</p>
+                          <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                            <Clock className="h-3 w-3" />
+                            Awaiting approval
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-amber-100 p-2.5 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                          <Clock className="h-5 w-5" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-rose-100 p-2.5 text-rose-700 dark:bg-rose-950 dark:text-rose-400">
-                      <XCircle className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-                <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #f43f5e, transparent)' }} />
-              </Card>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b, transparent)' }} />
+                  </Card>
+
+                  <Card className="relative overflow-hidden">
+                    <CardContent className="p-4 sm:p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <p className="text-muted-foreground text-sm font-medium">Rejected</p>
+                          <p className="text-2xl font-bold tracking-tight sm:text-3xl">{fmtShort(rejectedAmount)}</p>
+                          <div className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
+                            <XCircle className="h-3 w-3" />
+                            {rejectedExpenses.length} claim{rejectedExpenses.length !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <div className="rounded-lg bg-rose-100 p-2.5 text-rose-700 dark:bg-rose-950 dark:text-rose-400">
+                          <XCircle className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </CardContent>
+                    <div className="absolute bottom-0 left-0 h-1 w-full" style={{ background: 'linear-gradient(90deg, #f43f5e, transparent)' }} />
+                  </Card>
+                </>
+              )}
             </div>
+
+            {/* API Error */}
+            {expenseError && (
+              <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                Failed to load expense data: {expenseError}
+                <Button variant="ghost" size="sm" className="ml-auto h-6 text-xs" onClick={refetchExpenses}>
+                  Retry
+                </Button>
+              </div>
+            )}
 
             {/* Expense Table + Submit */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Expense Claims</h2>
-              <SubmitExpenseDialog />
+              <SubmitExpenseDialog onSubmit={handleExpenseSubmit} />
             </div>
 
             <Card>
@@ -738,54 +1134,76 @@ export default function PayrollExpense() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {expenseData.map((row) => {
-                        const catCfg = categoryConfig[row.category] ?? {
-                          icon: Receipt,
-                          bg: 'bg-muted',
-                          text: 'text-muted-foreground',
-                        }
-                        const CatIcon = catCfg.icon
-                        return (
-                          <TableRow key={row.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                                  {row.name.split(' ').map((n) => n[0]).join('')}
+                      {expenseLoading ? (
+                        <TableSkeleton cols={7} />
+                      ) : expenseRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                            <Receipt className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                            <p className="text-sm">No expense claims found</p>
+                            <p className="text-xs mt-1">Submit a new expense claim to get started</p>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        expenseRows.map((row) => {
+                          const catCfg = categoryConfig[row.category] ?? {
+                            icon: Receipt,
+                            bg: 'bg-muted',
+                            text: 'text-muted-foreground',
+                          }
+                          const CatIcon = catCfg.icon
+                          return (
+                            <TableRow key={row.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                                    {row.name.split(' ').map((n) => n[0]).join('')}
+                                  </div>
+                                  <span className="text-sm font-medium">{row.name}</span>
                                 </div>
-                                <span className="text-sm font-medium">{row.name}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className={`gap-1 ${catCfg.bg} ${catCfg.text}`}>
-                                <CatIcon className="h-3 w-3" />
-                                {row.category}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right text-sm font-semibold">{fmt(row.amount)}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{row.description}</TableCell>
-                            <TableCell className="text-sm text-muted-foreground">{row.date}</TableCell>
-                            <TableCell><StatusBadge status={row.status} /></TableCell>
-                            <TableCell className="text-right">
-                              {row.status === 'pending' ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950">
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Approve
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-rose-600 hover:bg-rose-100 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950">
-                                    <XCircle className="h-3.5 w-3.5" />
-                                    Reject
-                                  </Button>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  {row.approvedBy ? `By ${row.approvedBy}` : '—'}
-                                </span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="secondary" className={`gap-1 ${catCfg.bg} ${catCfg.text}`}>
+                                  <CatIcon className="h-3 w-3" />
+                                  {row.category}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right text-sm font-semibold">{fmt(row.amount)}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{row.description}</TableCell>
+                              <TableCell className="text-sm text-muted-foreground">{row.date}</TableCell>
+                              <TableCell><StatusBadge status={row.status} /></TableCell>
+                              <TableCell className="text-right">
+                                {row.status === 'pending' ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 gap-1 text-xs text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                                      onClick={() => handleExpenseAction(row.id, 'approved')}
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 gap-1 text-xs text-rose-600 hover:bg-rose-100 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
+                                      onClick={() => handleExpenseAction(row.id, 'rejected')}
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      Reject
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    {row.approvedBy ? `By ${row.approvedBy}` : '—'}
+                                  </span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      )}
                     </TableBody>
                   </Table>
                 </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   Shield,
   ShieldCheck,
@@ -12,15 +12,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
-  Eye,
   EyeOff,
   CheckCircle2,
   ArrowRight,
   FileCheck,
   ClipboardList,
   UserCheck,
-  CircleDot,
   Clock,
+  Loader2,
 } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -52,8 +51,85 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { roles, auditLogs, modules, permissionTypes } from '@/lib/data'
-import type { RoleModulePermissions, ModuleName, PermissionType } from '@/lib/data'
+import { useApi, apiPost, apiPatch } from '@/lib/useApi'
+
+// ─── Static constants (schema structure, not data) ────────────────────────
+const permissionTypes = ['read', 'write', 'modify', 'delete', 'admin'] as const
+type PermissionType = typeof permissionTypes[number]
+
+const modules = ['HR', 'Payroll', 'Attendance', 'Performance', 'Learning', 'Analytics'] as const
+type ModuleName = typeof modules[number]
+
+type RoleModulePermissions = Record<ModuleName, Record<PermissionType, boolean>>
+
+// ─── API response types ───────────────────────────────────────────────────
+interface ApiUser {
+  id: string
+  name: string
+  email: string
+}
+
+interface ApiRole {
+  id: string
+  name: string
+  description: string | null
+  permissions: string | null
+  level: number
+  users: ApiUser[]
+  createdAt: string
+  updatedAt: string
+}
+
+interface RolesApiResponse {
+  roles: ApiRole[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+interface ApiAuditEmployee {
+  id: string
+  firstName: string
+  lastName: string
+  employeeId: string
+  avatar: string | null
+}
+
+interface ApiAuditLog {
+  id: string
+  userId: string | null
+  employeeId: string | null
+  action: string
+  module: string
+  details: string | null
+  ipAddress: string | null
+  employee: ApiAuditEmployee | null
+  createdAt: string
+}
+
+interface AuditApiResponse {
+  logs: ApiAuditLog[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+// ─── UI-facing role type (transformed from API) ───────────────────────────
+interface UIRole {
+  id: string
+  name: string
+  description: string
+  level: number
+  permissions: PermissionType[]
+  userCount: number
+  modulePermissions: RoleModulePermissions
+}
 
 // ─── Permission badge styling ─────────────────────────────────────────────
 const permissionStyles: Record<string, string> = {
@@ -68,6 +144,7 @@ const permissionStyles: Record<string, string> = {
 const actionStyles: Record<string, string> = {
   read: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
   create: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400',
+  update: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
   modify: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
   delete: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
   login: 'bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-400',
@@ -123,6 +200,84 @@ const approvalWorkflows = [
     activeStep: 4,
   },
 ]
+
+// ─── Default module permissions (all false) ───────────────────────────────
+function getDefaultModulePermissions(): RoleModulePermissions {
+  const result = {} as RoleModulePermissions
+  for (const mod of modules) {
+    result[mod] = {} as Record<PermissionType, boolean>
+    for (const perm of permissionTypes) {
+      result[mod][perm] = false
+    }
+  }
+  return result
+}
+
+// ─── Parse permissions JSON from API ──────────────────────────────────────
+function parsePermissions(raw: string | null): { flat: PermissionType[], module: RoleModulePermissions } {
+  const defaultMp = getDefaultModulePermissions()
+
+  if (!raw) {
+    return { flat: [], module: defaultMp }
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+
+    // If it's already a modulePermissions object (Record<ModuleName, Record<PermissionType, boolean>>)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const mp = getDefaultModulePermissions()
+      const flatSet = new Set<PermissionType>()
+
+      for (const mod of modules) {
+        if (parsed[mod] && typeof parsed[mod] === 'object') {
+          for (const perm of permissionTypes) {
+            const val = !!parsed[mod][perm]
+            mp[mod][perm] = val
+            if (val) flatSet.add(perm)
+          }
+        }
+      }
+
+      return { flat: permissionTypes.filter((p) => flatSet.has(p)), module: mp }
+    }
+
+    // If it's a flat array like ['read', 'write', 'modify']
+    if (Array.isArray(parsed)) {
+      const validPerms = parsed.filter((p: string) => permissionTypes.includes(p as PermissionType)) as PermissionType[]
+      return { flat: validPerms, module: defaultMp }
+    }
+
+    return { flat: [], module: defaultMp }
+  } catch {
+    return { flat: [], module: defaultMp }
+  }
+}
+
+// ─── Transform API role to UI role ────────────────────────────────────────
+function transformRole(apiRole: ApiRole): UIRole {
+  const { flat, module: modulePerms } = parsePermissions(apiRole.permissions)
+  return {
+    id: apiRole.id,
+    name: apiRole.name,
+    description: apiRole.description ?? '',
+    level: apiRole.level,
+    permissions: flat,
+    userCount: apiRole.users?.length ?? 0,
+    modulePermissions: modulePerms,
+  }
+}
+
+// ─── Format date for audit display ────────────────────────────────────────
+function formatAuditDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  } catch {
+    return dateStr
+  }
+}
 
 // ─── Circular Progress Component ──────────────────────────────────────────
 function CircularProgress({ value, size = 140, strokeWidth = 10 }: { value: number; size?: number; strokeWidth?: number }) {
@@ -204,20 +359,64 @@ function StepIndicator({ steps, activeStep }: { steps: string[]; activeStep: num
   )
 }
 
+// ─── Skeleton Loader ──────────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <Card className="relative overflow-hidden">
+      <div className="h-1.5 w-full bg-muted animate-pulse" />
+      <CardContent className="p-4 sm:p-5 space-y-3">
+        <div className="h-5 w-2/3 rounded bg-muted animate-pulse" />
+        <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
+        <div className="h-4 w-1/3 rounded bg-muted animate-pulse" />
+        <div className="flex gap-1.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-5 w-12 rounded-full bg-muted animate-pulse" />
+          ))}
+        </div>
+        <div className="h-8 w-full rounded bg-muted animate-pulse" />
+      </CardContent>
+    </Card>
+  )
+}
+
+function SkeletonTable() {
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="space-y-3">
+          <div className="h-8 w-full rounded bg-muted animate-pulse" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 w-full rounded bg-muted animate-pulse" />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────
 export default function RBACSecurity() {
   // ── Roles & Permissions state ─────────────────────────────────────────
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [editingRole, setEditingRole] = useState<typeof roles[0] | null>(null)
+  const [editingRole, setEditingRole] = useState<UIRole | null>(null)
   const [editingPermissions, setEditingPermissions] = useState<RoleModulePermissions | null>(null)
   const [addRoleDialogOpen, setAddRoleDialogOpen] = useState(false)
+  const [savingPermissions, setSavingPermissions] = useState(false)
+  const [creatingRole, setCreatingRole] = useState(false)
+
+  // ── Add Role form state ────────────────────────────────────────────────
+  const [newRoleName, setNewRoleName] = useState('')
+  const [newRoleDescription, setNewRoleDescription] = useState('')
+  const [newRoleLevel, setNewRoleLevel] = useState('4')
 
   // ── Audit Trails state ────────────────────────────────────────────────
   const [moduleFilter, setModuleFilter] = useState('all')
   const [actionFilter, setActionFilter] = useState('all')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const rowsPerPage = 8
+  const [auditPage, setAuditPage] = useState(1)
+  const auditLimit = 8
 
   // ── Data Security state ───────────────────────────────────────────────
   const [maskingRules, setMaskingRules] = useState<MaskingRule[]>([
@@ -243,45 +442,128 @@ export default function RBACSecurity() {
     },
   ])
 
-  // ── Filtered audit logs ───────────────────────────────────────────────
+  // ── API: Fetch roles ──────────────────────────────────────────────────
+  const { data: rolesData, loading: rolesLoading, error: rolesError, refetch: refetchRoles } = useApi<RolesApiResponse>({
+    baseUrl: '/api/roles',
+    params: { page: 1, limit: 50 },
+  })
+
+  // ── API: Fetch audit logs ─────────────────────────────────────────────
+  const { data: auditData, loading: auditLoading, error: auditError, refetch: refetchAudit } = useApi<AuditApiResponse>({
+    baseUrl: '/api/audit',
+    params: {
+      page: auditPage,
+      limit: auditLimit,
+      action: actionFilter !== 'all' ? actionFilter : undefined,
+      module: moduleFilter !== 'all' ? moduleFilter : undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    },
+  })
+
+  // ── Transform API data ────────────────────────────────────────────────
+  const roles: UIRole[] = useMemo(() => {
+    if (!rolesData?.roles) return []
+    return rolesData.roles.map(transformRole)
+  }, [rolesData])
+
+  const auditLogs = auditData?.logs ?? []
+  const auditPagination = auditData?.pagination
+
+  // ── Client-side search filter on audit logs ───────────────────────────
   const filteredLogs = useMemo(() => {
+    if (!searchQuery) return auditLogs
+    const q = searchQuery.toLowerCase()
     return auditLogs.filter((log) => {
-      const matchesModule = moduleFilter === 'all' || log.module === moduleFilter
-      const matchesAction = actionFilter === 'all' || log.action === actionFilter
-      const matchesSearch = searchQuery === '' || log.user.toLowerCase().includes(searchQuery.toLowerCase())
-      return matchesModule && matchesAction && matchesSearch
+      const userName = log.employee
+        ? `${log.employee.firstName} ${log.employee.lastName}`.toLowerCase()
+        : ''
+      return userName.includes(q)
     })
-  }, [moduleFilter, actionFilter, searchQuery])
+  }, [auditLogs, searchQuery])
 
-  const totalPages = Math.ceil(filteredLogs.length / rowsPerPage)
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage,
-  )
+  const auditTotalPages = auditPagination?.totalPages ?? 1
+  const auditTotal = auditPagination?.total ?? 0
 
-  // ── Unique modules and actions for filters ─────────────────────────────
-  const uniqueModules = [...new Set(auditLogs.map((l) => l.module))]
-  const uniqueActions = [...new Set(auditLogs.map((l) => l.action))]
+  // ── Unique modules and actions for filter dropdowns ────────────────────
+  const uniqueModules = useMemo(() => {
+    const modSet = new Set<string>()
+    if (auditData?.logs) {
+      auditData.logs.forEach((l) => modSet.add(l.module))
+    }
+    return [...modSet]
+  }, [auditData])
+
+  const uniqueActions = useMemo(() => {
+    const actSet = new Set<string>()
+    if (auditData?.logs) {
+      auditData.logs.forEach((l) => actSet.add(l.action))
+    }
+    return [...actSet]
+  }, [auditData])
 
   // ── Handlers ──────────────────────────────────────────────────────────
-  function handleEditPermissions(role: typeof roles[0]) {
+  const handleEditPermissions = useCallback((role: UIRole) => {
     setEditingRole(role)
     setEditingPermissions(structuredClone(role.modulePermissions))
     setEditDialogOpen(true)
-  }
+  }, [])
 
-  function handleTogglePermission(module: ModuleName, perm: PermissionType) {
-    if (!editingPermissions) return
-    setEditingPermissions({
-      ...editingPermissions,
-      [module]: {
-        ...editingPermissions[module],
-        [perm]: !editingPermissions[module][perm],
-      },
+  const handleTogglePermission = useCallback((module: ModuleName, perm: PermissionType) => {
+    setEditingPermissions((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        [module]: {
+          ...prev[module],
+          [perm]: !prev[module][perm],
+        },
+      }
     })
-  }
+  }, [])
 
-  function handleMaskingToggle(ruleIndex: number, role: string) {
+  const handleSavePermissions = useCallback(async () => {
+    if (!editingRole || !editingPermissions) return
+    setSavingPermissions(true)
+    try {
+      await apiPatch('/api/roles', {
+        id: editingRole.id,
+        permissions: editingPermissions,
+      })
+      setEditDialogOpen(false)
+      refetchRoles()
+      refetchAudit()
+    } catch (err) {
+      console.error('Failed to save permissions:', err)
+    } finally {
+      setSavingPermissions(false)
+    }
+  }, [editingRole, editingPermissions, refetchRoles, refetchAudit])
+
+  const handleCreateRole = useCallback(async () => {
+    if (!newRoleName.trim()) return
+    setCreatingRole(true)
+    try {
+      await apiPost('/api/roles', {
+        name: newRoleName.trim(),
+        description: newRoleDescription.trim(),
+        level: parseInt(newRoleLevel),
+        permissions: getDefaultModulePermissions(),
+      })
+      setAddRoleDialogOpen(false)
+      setNewRoleName('')
+      setNewRoleDescription('')
+      setNewRoleLevel('4')
+      refetchRoles()
+      refetchAudit()
+    } catch (err) {
+      console.error('Failed to create role:', err)
+    } finally {
+      setCreatingRole(false)
+    }
+  }, [newRoleName, newRoleDescription, newRoleLevel, refetchRoles, refetchAudit])
+
+  const handleMaskingToggle = useCallback((ruleIndex: number, role: string) => {
     setMaskingRules((prev) => {
       const next = [...prev]
       next[ruleIndex] = {
@@ -293,7 +575,7 @@ export default function RBACSecurity() {
       }
       return next
     })
-  }
+  }, [])
 
   // ─── Render ────────────────────────────────────────────────────────────
   return (
@@ -344,7 +626,15 @@ export default function RBACSecurity() {
           <TabsContent value="roles">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                {roles.length} roles configured · {roles.reduce((sum, r) => sum + r.userCount, 0)} total users
+                {rolesLoading ? (
+                  <span className="inline-block h-4 w-48 rounded bg-muted animate-pulse" />
+                ) : rolesError ? (
+                  <span className="text-red-500">Failed to load roles</span>
+                ) : (
+                  <>
+                    {roles.length} roles configured · {roles.reduce((sum, r) => sum + r.userCount, 0)} total users
+                  </>
+                )}
               </p>
               <Button
                 className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -355,76 +645,101 @@ export default function RBACSecurity() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {roles.map((role) => {
-                const levelColor =
-                  role.level === 0
-                    ? 'from-emerald-500 to-emerald-600'
-                    : role.level === 1
-                      ? 'from-teal-500 to-teal-600'
-                      : role.level === 2
-                        ? 'from-amber-500 to-amber-600'
-                        : role.level === 3
-                          ? 'from-orange-500 to-orange-600'
-                          : 'from-gray-400 to-gray-500'
+            {rolesLoading ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            ) : rolesError ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <ShieldAlert className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-sm">Failed to load roles. Please try again.</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={refetchRoles}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : roles.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Shield className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-sm">No roles configured yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {roles.map((role) => {
+                  const levelColor =
+                    role.level === 0
+                      ? 'from-emerald-500 to-emerald-600'
+                      : role.level === 1
+                        ? 'from-teal-500 to-teal-600'
+                        : role.level === 2
+                          ? 'from-amber-500 to-amber-600'
+                          : role.level === 3
+                            ? 'from-orange-500 to-orange-600'
+                            : 'from-gray-400 to-gray-500'
 
-                return (
-                  <Card key={role.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
-                    {/* Top accent bar */}
-                    <div className={`h-1.5 w-full bg-gradient-to-r ${levelColor}`} />
-                    <CardContent className="p-4 sm:p-5">
-                      {/* Role header */}
-                      <div className="mb-3 flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h3 className="text-base font-semibold truncate">{role.name}</h3>
-                          <p className="text-muted-foreground text-xs mt-0.5">{role.description}</p>
+                  return (
+                    <Card key={role.id} className="relative overflow-hidden transition-shadow hover:shadow-md">
+                      {/* Top accent bar */}
+                      <div className={`h-1.5 w-full bg-gradient-to-r ${levelColor}`} />
+                      <CardContent className="p-4 sm:p-5">
+                        {/* Role header */}
+                        <div className="mb-3 flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-semibold truncate">{role.name}</h3>
+                            <p className="text-muted-foreground text-xs mt-0.5">{role.description}</p>
+                          </div>
+                          <Badge variant="outline" className="shrink-0 text-[10px] font-mono">
+                            {levelLabels[role.level] ?? `L${role.level}`}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="shrink-0 text-[10px] font-mono">
-                          {levelLabels[role.level] ?? `L${role.level}`}
-                        </Badge>
-                      </div>
 
-                      {/* User count */}
-                      <div className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" />
-                        <span>{role.userCount} {role.userCount === 1 ? 'user' : 'users'}</span>
-                      </div>
+                        {/* User count */}
+                        <div className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" />
+                          <span>{role.userCount} {role.userCount === 1 ? 'user' : 'users'}</span>
+                        </div>
 
-                      {/* Permission badges */}
-                      <div className="mb-4 flex flex-wrap gap-1.5">
-                        {permissionTypes.map((perm) => {
-                          const isActive = role.permissions.includes(perm)
-                          return (
-                            <Badge
-                              key={perm}
-                              variant="outline"
-                              className={`text-[10px] capitalize transition-colors ${
-                                isActive
-                                  ? permissionStyles[perm]
-                                  : 'bg-muted/50 text-muted-foreground/50 border-muted/50 line-through'
-                              }`}
-                            >
-                              {perm}
-                            </Badge>
-                          )
-                        })}
-                      </div>
+                        {/* Permission badges */}
+                        <div className="mb-4 flex flex-wrap gap-1.5">
+                          {permissionTypes.map((perm) => {
+                            const isActive = role.permissions.includes(perm)
+                            return (
+                              <Badge
+                                key={perm}
+                                variant="outline"
+                                className={`text-[10px] capitalize transition-colors ${
+                                  isActive
+                                    ? permissionStyles[perm]
+                                    : 'bg-muted/50 text-muted-foreground/50 border-muted/50 line-through'
+                                }`}
+                              >
+                                {perm}
+                              </Badge>
+                            )
+                          })}
+                        </div>
 
-                      {/* Edit button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-1.5 hover:border-emerald-300 hover:text-emerald-700 dark:hover:border-emerald-700 dark:hover:text-emerald-400"
-                        onClick={() => handleEditPermissions(role)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit Permissions
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+                        {/* Edit button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-1.5 hover:border-emerald-300 hover:text-emerald-700 dark:hover:border-emerald-700 dark:hover:text-emerald-400"
+                          onClick={() => handleEditPermissions(role)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit Permissions
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
           </TabsContent>
 
           {/* ═══════════════════════════════════════════════════════════════
@@ -436,7 +751,7 @@ export default function RBACSecurity() {
               <CardContent className="p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
                   {/* Module filter */}
-                  <Select value={moduleFilter} onValueChange={(v) => { setModuleFilter(v); setCurrentPage(1) }}>
+                  <Select value={moduleFilter} onValueChange={(v) => { setModuleFilter(v); setAuditPage(1) }}>
                     <SelectTrigger className="w-full sm:w-[160px]" size="sm">
                       <SelectValue placeholder="Module" />
                     </SelectTrigger>
@@ -451,7 +766,7 @@ export default function RBACSecurity() {
                   </Select>
 
                   {/* Action filter */}
-                  <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setCurrentPage(1) }}>
+                  <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setAuditPage(1) }}>
                     <SelectTrigger className="w-full sm:w-[160px]" size="sm">
                       <SelectValue placeholder="Action" />
                     </SelectTrigger>
@@ -465,11 +780,20 @@ export default function RBACSecurity() {
                     </SelectContent>
                   </Select>
 
-                  {/* Date range (static display) */}
+                  {/* Date range */}
                   <Input
                     type="date"
-                    defaultValue="2024-01-15"
-                    className="w-full sm:w-[160px] h-8 text-sm"
+                    value={startDate}
+                    onChange={(e) => { setStartDate(e.target.value); setAuditPage(1) }}
+                    className="w-full sm:w-[150px] h-8 text-sm"
+                    placeholder="Start date"
+                  />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => { setEndDate(e.target.value); setAuditPage(1) }}
+                    className="w-full sm:w-[150px] h-8 text-sm"
+                    placeholder="End date"
                   />
 
                   {/* User search */}
@@ -478,7 +802,7 @@ export default function RBACSecurity() {
                     <Input
                       placeholder="Search user..."
                       value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
+                      onChange={(e) => { setSearchQuery(e.target.value) }}
                       className="pl-8 h-8 text-sm"
                     />
                   </div>
@@ -487,103 +811,141 @@ export default function RBACSecurity() {
             </Card>
 
             {/* Audit table */}
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[160px]">Timestamp</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Module</TableHead>
-                      <TableHead className="hidden md:table-cell">Details</TableHead>
-                      <TableHead className="hidden lg:table-cell">IP Address</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedLogs.length === 0 ? (
+            {auditLoading ? (
+              <SkeletonTable />
+            ) : auditError ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <ShieldAlert className="h-10 w-10 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-sm">Failed to load audit logs.</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={refetchAudit}>
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                          No audit logs found.
-                        </TableCell>
+                        <TableHead className="w-[160px]">Timestamp</TableHead>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Module</TableHead>
+                        <TableHead className="hidden md:table-cell">Details</TableHead>
+                        <TableHead className="hidden lg:table-cell">IP Address</TableHead>
                       </TableRow>
-                    ) : (
-                      paginatedLogs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
-                            {log.timestamp}
-                          </TableCell>
-                          <TableCell className="font-medium text-sm">{log.user}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="secondary"
-                              className={`capitalize text-[10px] ${actionStyles[log.action] ?? 'bg-gray-100 text-gray-700'}`}
-                            >
-                              {log.action}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-[10px]">
-                              {log.module}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[250px] truncate">
-                            {log.details}
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
-                            {log.ip}
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLogs.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                            No audit logs found.
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredLogs.map((log) => {
+                          const userName = log.employee
+                            ? `${log.employee.firstName} ${log.employee.lastName}`
+                            : 'System'
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatAuditDate(log.createdAt)}
+                              </TableCell>
+                              <TableCell className="font-medium text-sm">{userName}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="secondary"
+                                  className={`capitalize text-[10px] ${actionStyles[log.action] ?? 'bg-gray-100 text-gray-700'}`}
+                                >
+                                  {log.action}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize text-[10px]">
+                                  {log.module}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[250px] truncate">
+                                {log.details}
+                              </TableCell>
+                              <TableCell className="hidden lg:table-cell font-mono text-xs text-muted-foreground">
+                                {log.ipAddress ?? '—'}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
 
-                {/* Pagination */}
-                <div className="flex items-center justify-between border-t px-4 py-3">
-                  <p className="text-xs text-muted-foreground">
-                    Showing {(currentPage - 1) * rowsPerPage + 1}–
-                    {Math.min(currentPage * rowsPerPage, filteredLogs.length)} of{' '}
-                    {filteredLogs.length} logs
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  {/* Pagination */}
+                  <div className="flex items-center justify-between border-t px-4 py-3">
+                    <p className="text-xs text-muted-foreground">
+                      {auditTotal > 0 ? (
+                        <>
+                          Showing {(auditPage - 1) * auditLimit + 1}–
+                          {Math.min(auditPage * auditLimit, auditTotal)} of{' '}
+                          {auditTotal} logs
+                        </>
+                      ) : (
+                        'No logs'
+                      )}
+                    </p>
+                    <div className="flex items-center gap-1">
                       <Button
-                        key={page}
-                        variant={page === currentPage ? 'default' : 'outline'}
+                        variant="outline"
                         size="icon"
-                        className={`h-7 w-7 text-xs ${
-                          page === currentPage
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                            : ''
-                        }`}
-                        onClick={() => setCurrentPage(page)}
+                        className="h-7 w-7"
+                        onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                        disabled={auditPage === 1}
                       >
-                        {page}
+                        <ChevronLeft className="h-3.5 w-3.5" />
                       </Button>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
+                      {Array.from({ length: Math.min(auditTotalPages, 5) }, (_, i) => {
+                        // Show pages around current page
+                        let page: number
+                        if (auditTotalPages <= 5) {
+                          page = i + 1
+                        } else if (auditPage <= 3) {
+                          page = i + 1
+                        } else if (auditPage >= auditTotalPages - 2) {
+                          page = auditTotalPages - 4 + i
+                        } else {
+                          page = auditPage - 2 + i
+                        }
+                        return (
+                          <Button
+                            key={page}
+                            variant={page === auditPage ? 'default' : 'outline'}
+                            size="icon"
+                            className={`h-7 w-7 text-xs ${
+                              page === auditPage
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : ''
+                            }`}
+                            onClick={() => setAuditPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        )
+                      })}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setAuditPage((p) => Math.min(auditTotalPages, p + 1))}
+                        disabled={auditPage === auditTotalPages}
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ═══════════════════════════════════════════════════════════════
@@ -830,14 +1192,22 @@ export default function RBACSecurity() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={savingPermissions}>
               Cancel
             </Button>
             <Button
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => setEditDialogOpen(false)}
+              onClick={handleSavePermissions}
+              disabled={savingPermissions}
             >
-              Save Permissions
+              {savingPermissions ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Permissions'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -861,15 +1231,23 @@ export default function RBACSecurity() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <label className="text-sm font-medium">Role Name</label>
-              <Input placeholder="e.g. Team Lead" />
+              <Input
+                placeholder="e.g. Team Lead"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>
-              <Input placeholder="Brief description of the role" />
+              <Input
+                placeholder="Brief description of the role"
+                value={newRoleDescription}
+                onChange={(e) => setNewRoleDescription(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Access Level</label>
-              <Select>
+              <Select value={newRoleLevel} onValueChange={setNewRoleLevel}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select level" />
                 </SelectTrigger>
@@ -885,14 +1263,22 @@ export default function RBACSecurity() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddRoleDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setAddRoleDialogOpen(false)} disabled={creatingRole}>
               Cancel
             </Button>
             <Button
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => setAddRoleDialogOpen(false)}
+              onClick={handleCreateRole}
+              disabled={creatingRole || !newRoleName.trim()}
             >
-              Create Role
+              {creatingRole ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Role'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import {
   Calendar,
   FileText,
@@ -31,6 +31,7 @@ import {
   Loader2,
   Bot,
   User,
+  AlertCircle,
 } from 'lucide-react'
 import {
   Card,
@@ -52,14 +53,8 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from '@/components/ui/collapsible'
-import {
-  policies,
-  leaveData,
-  selfServiceLeaveBalances,
-  selfServicePayslips,
-  selfServiceDocuments,
-  selfServiceAssets,
-} from '@/lib/data'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useApi } from '@/lib/useApi'
 import { cn } from '@/lib/utils'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -69,6 +64,89 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+}
+
+interface PolicyRecord {
+  id: string
+  title: string
+  category?: string | null
+  content?: string | null
+  version?: string | null
+  effectiveDate?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface LeaveRecord {
+  id: string
+  employeeId: string
+  leaveType: string
+  startDate: string
+  endDate: string
+  days: number
+  reason?: string | null
+  status: string
+  approvedBy?: string | null
+  comments?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface PayrollRecord {
+  id: string
+  employeeId: string
+  month: string
+  year: number
+  basicSalary: number
+  hra: number
+  da: number
+  conveyance: number
+  medical: number
+  bonus: number
+  grossPay: number
+  pf: number
+  esi: number
+  tax: number
+  professionalTax: number
+  totalDeductions: number
+  netPay: number
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface DocumentRecord {
+  id: string
+  employeeId: string
+  docType: string
+  title: string
+  fileUrl?: string | null
+  accessLevel?: string | null
+  uploadedBy?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface AssetRecord {
+  id: string
+  employeeId: string
+  assetType: string
+  assetName: string
+  serialNo?: string | null
+  assignedDate?: string | null
+  returnDate?: string | null
+  condition?: string | null
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface LeaveBalance {
+  type: string
+  total: number
+  used: number
+  balance: number
+  color: string
 }
 
 // ─── Employee Profile Data ─────────────────────────────────────────────────────
@@ -168,6 +246,16 @@ const suggestedQueries = [
   'What are my tax benefits?',
 ]
 
+// ─── Leave Balance Config ──────────────────────────────────────────────────────
+
+const leaveTypeConfig: Record<string, { total: number; color: string; label: string }> = {
+  casual: { total: 12, color: 'bg-emerald-500', label: 'Casual Leave' },
+  sick: { total: 10, color: 'bg-amber-500', label: 'Sick Leave' },
+  earned: { total: 15, color: 'bg-teal-500', label: 'Earned Leave' },
+  maternity: { total: 26, color: 'bg-rose-500', label: 'Maternity/Paternity' },
+  paternity: { total: 26, color: 'bg-rose-500', label: 'Maternity/Paternity' },
+}
+
 // ─── Asset Icon Helper ─────────────────────────────────────────────────────────
 
 function getAssetIcon(type: string) {
@@ -261,6 +349,34 @@ function renderSimpleMarkdown(text: string) {
   return elements
 }
 
+// ─── Loading Skeleton ──────────────────────────────────────────────────────────
+
+function CardSkeleton({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="space-y-3 p-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <Skeleton key={i} className="h-4 w-full" style={{ maxWidth: `${90 - i * 15}%` }} />
+      ))}
+    </div>
+  )
+}
+
+// ─── Error Banner ──────────────────────────────────────────────────────────────
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/50">
+      <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+      <p className="text-sm text-red-700 dark:text-red-400">{message}</p>
+      {onRetry && (
+        <Button variant="outline" size="sm" className="ml-auto text-xs" onClick={onRetry}>
+          Retry
+        </Button>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function SelfService() {
@@ -290,6 +406,155 @@ export default function SelfService() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
 
+  // ─── API Data Fetching ─────────────────────────────────────────────────────
+
+  // Current employee ID for API calls (in a real app, this comes from auth context)
+  const currentEmployeeId = employeeProfile.employeeId
+
+  // Policies - fetch all, then filter client-side for search/category
+  const {
+    data: policiesData,
+    loading: policiesLoading,
+    error: policiesError,
+    refetch: refetchPolicies,
+  } = useApi<{ policies: PolicyRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+    baseUrl: '/api/policies',
+    params: { limit: 50 },
+  })
+
+  // Leaves - fetch for current employee
+  const {
+    data: leavesData,
+    loading: leavesLoading,
+    error: leavesError,
+    refetch: refetchLeaves,
+  } = useApi<{ leaves: LeaveRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+    baseUrl: '/api/leaves',
+    params: { employeeId: currentEmployeeId, limit: 50 },
+  })
+
+  // Payroll - fetch for current employee
+  const {
+    data: payrollData,
+    loading: payrollLoading,
+    error: payrollError,
+    refetch: refetchPayroll,
+  } = useApi<{ records: PayrollRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+    baseUrl: '/api/payroll',
+    params: { employeeId: currentEmployeeId, limit: 10 },
+  })
+
+  // Documents - fetch for current employee
+  const {
+    data: documentsData,
+    loading: documentsLoading,
+    error: documentsError,
+    refetch: refetchDocuments,
+  } = useApi<{ documents: DocumentRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+    baseUrl: '/api/documents',
+    params: { employeeId: currentEmployeeId, limit: 20 },
+  })
+
+  // Assets - fetch assigned assets for current employee
+  const {
+    data: assetsData,
+    loading: assetsLoading,
+    error: assetsError,
+    refetch: refetchAssets,
+  } = useApi<{ assets: AssetRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+    baseUrl: '/api/assets',
+    params: { employeeId: currentEmployeeId, status: 'assigned', limit: 20 },
+  })
+
+  // ─── Derived Data ──────────────────────────────────────────────────────────
+
+  const policies = useMemo(() => policiesData?.policies ?? [], [policiesData])
+  const leaves = useMemo(() => leavesData?.leaves ?? [], [leavesData])
+  const payrollRecords = useMemo(() => payrollData?.records ?? [], [payrollData])
+  const documents = useMemo(() => documentsData?.documents ?? [], [documentsData])
+  const assets = useMemo(() => assetsData?.assets ?? [], [assetsData])
+
+  // Compute leave balances from API data
+  const leaveBalances: LeaveBalance[] = useMemo(() => {
+    const usedByType: Record<string, number> = {}
+
+    // Sum up approved leave days by type
+    leaves.forEach((leave) => {
+      if (leave.status === 'approved') {
+        const key = leave.leaveType.toLowerCase()
+        usedByType[key] = (usedByType[key] || 0) + leave.days
+      }
+    })
+
+    // Build leave balance entries for all known types
+    const balances: LeaveBalance[] = []
+    const seenTypes = new Set<string>()
+
+    // Add types that have configuration
+    Object.entries(leaveTypeConfig).forEach(([key, config]) => {
+      if (!seenTypes.has(config.label)) {
+        const used = Math.round(usedByType[key] || 0)
+        balances.push({
+          type: config.label,
+          total: config.total,
+          used,
+          balance: config.total - used,
+          color: config.color,
+        })
+        seenTypes.add(config.label)
+      }
+    })
+
+    // Add types from data that aren't in the config
+    Object.entries(usedByType).forEach(([key, used]) => {
+      if (!leaveTypeConfig[key]) {
+        const label = key.charAt(0).toUpperCase() + key.slice(1) + ' Leave'
+        if (!seenTypes.has(label)) {
+          const total = 15 // default allocation
+          balances.push({
+            type: label,
+            total,
+            used: Math.round(used),
+            balance: total - Math.round(used),
+            color: 'bg-emerald-500',
+          })
+          seenTypes.add(label)
+        }
+      }
+    })
+
+    return balances
+  }, [leaves])
+
+  // Compute total leave balance for the welcome banner
+  const totalLeaveBalance = useMemo(
+    () => leaveBalances.reduce((sum, lb) => sum + lb.balance, 0),
+    [leaveBalances]
+  )
+
+  // Compute pending leaves count for the welcome banner
+  const pendingLeaves = useMemo(
+    () => leaves.filter((l) => l.status === 'pending').length,
+    [leaves]
+  )
+
+  // Pending tasks count
+  const pendingTasks = pendingLeaves
+
+  // Filter policies by search and category
+  const filteredPolicies = useMemo(() => {
+    return policies.filter((p) => {
+      const matchesSearch =
+        p.title.toLowerCase().includes(policySearch.toLowerCase()) ||
+        (p.content || '').toLowerCase().includes(policySearch.toLowerCase())
+      const matchesCategory =
+        policyCategory === 'All' || p.category === policyCategory
+      return matchesSearch && matchesCategory
+    })
+  }, [policies, policySearch, policyCategory])
+
+  // ─── Chat Logic ────────────────────────────────────────────────────────────
+
   // Scroll to bottom of chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -307,20 +572,6 @@ export default function SelfService() {
       return next
     })
   }, [])
-
-  // Filter policies
-  const filteredPolicies = policies.filter((p) => {
-    const matchesSearch =
-      p.title.toLowerCase().includes(policySearch.toLowerCase()) ||
-      p.content.toLowerCase().includes(policySearch.toLowerCase())
-    const matchesCategory =
-      policyCategory === 'All' || p.category === policyCategory
-    return matchesSearch && matchesCategory
-  })
-
-  // Pending leave count for stats
-  const pendingLeaves = leaveData.filter((l) => l.status === 'pending').length
-  const pendingTasks = 2 // Mock
 
   // Send chat message
   const sendMessage = useCallback(
@@ -392,6 +643,28 @@ export default function SelfService() {
     [sendMessage]
   )
 
+  // ─── Format Pay Period ─────────────────────────────────────────────────────
+
+  function formatPayPeriod(record: PayrollRecord) {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ]
+    const monthIndex = parseInt(record.month) - 1
+    const monthName = monthNames[monthIndex] || record.month
+    return `${monthName} ${record.year}`
+  }
+
+  function formatCurrency(amount: number) {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -417,11 +690,23 @@ export default function SelfService() {
             <div className="flex gap-3">
               <div className="rounded-lg bg-white/15 px-4 py-2 backdrop-blur-sm">
                 <p className="text-xs text-emerald-100">Leave Balance</p>
-                <p className="text-lg font-bold">25 days</p>
+                <p className="text-lg font-bold">
+                  {leavesLoading ? (
+                    <span className="inline-block h-5 w-8 animate-pulse rounded bg-white/30" />
+                  ) : (
+                    `${totalLeaveBalance} days`
+                  )}
+                </p>
               </div>
               <div className="rounded-lg bg-white/15 px-4 py-2 backdrop-blur-sm">
                 <p className="text-xs text-emerald-100">Pending Tasks</p>
-                <p className="text-lg font-bold">{pendingTasks + pendingLeaves}</p>
+                <p className="text-lg font-bold">
+                  {leavesLoading ? (
+                    <span className="inline-block h-5 w-8 animate-pulse rounded bg-white/30" />
+                  ) : (
+                    pendingTasks
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -630,38 +915,49 @@ export default function SelfService() {
                   <CardDescription>Your available leave days</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {selfServiceLeaveBalances.map((leave) => {
-                      const percentage = Math.round(
-                        (leave.used / leave.total) * 100
-                      )
-                      return (
-                        <div key={leave.type} className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium">{leave.type}</span>
-                            <span className="text-muted-foreground">
-                              <span className="font-semibold text-foreground">
-                                {leave.balance}
-                              </span>{' '}
-                              / {leave.total} days
-                            </span>
+                  {leavesLoading ? (
+                    <CardSkeleton lines={4} />
+                  ) : leavesError ? (
+                    <ErrorBanner message={leavesError} onRetry={refetchLeaves} />
+                  ) : leaveBalances.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <Calendar className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No leave data available</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {leaveBalances.map((leave) => {
+                        const percentage = Math.round(
+                          (leave.used / leave.total) * 100
+                        )
+                        return (
+                          <div key={leave.type} className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium">{leave.type}</span>
+                              <span className="text-muted-foreground">
+                                <span className="font-semibold text-foreground">
+                                  {leave.balance}
+                                </span>{' '}
+                                / {leave.total} days
+                              </span>
+                            </div>
+                            <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                              <div
+                                className={cn(
+                                  'h-full rounded-full transition-all duration-500',
+                                  leave.color
+                                )}
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {leave.used} day{leave.used !== 1 ? 's' : ''} used
+                            </p>
                           </div>
-                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className={cn(
-                                'h-full rounded-full transition-all duration-500',
-                                leave.color
-                              )}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {leave.used} day{leave.used !== 1 ? 's' : ''} used
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -672,36 +968,47 @@ export default function SelfService() {
                   <CardDescription>Download your payslips</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-72 overflow-y-auto custom-scrollbar">
-                    <div className="space-y-2">
-                      {selfServicePayslips.map((payslip) => (
-                        <div
-                          key={payslip.id}
-                          className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
-                              <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">{payslip.month}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Net Pay: {payslip.netPay}
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
-                          >
-                            <Download className="h-4 w-4" />
-                            <span className="sr-only">Download payslip</span>
-                          </Button>
-                        </div>
-                      ))}
+                  {payrollLoading ? (
+                    <CardSkeleton lines={4} />
+                  ) : payrollError ? (
+                    <ErrorBanner message={payrollError} onRetry={refetchPayroll} />
+                  ) : payrollRecords.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <FileText className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No payslips available</p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                      <div className="space-y-2">
+                        {payrollRecords.map((record) => (
+                          <div
+                            key={record.id}
+                            className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/50">
+                                <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{formatPayPeriod(record)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Net Pay: {formatCurrency(record.netPay)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                            >
+                              <Download className="h-4 w-4" />
+                              <span className="sr-only">Download payslip</span>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -712,36 +1019,47 @@ export default function SelfService() {
                   <CardDescription>Your uploaded documents</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-72 overflow-y-auto custom-scrollbar">
-                    <div className="space-y-2">
-                      {selfServiceDocuments.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/50">
-                              <File className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium">{doc.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {doc.type} · {doc.size} · {formatDate(doc.uploadedDate)}
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-amber-600 hover:bg-amber-100 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
-                          >
-                            <Download className="h-4 w-4" />
-                            <span className="sr-only">Download document</span>
-                          </Button>
-                        </div>
-                      ))}
+                  {documentsLoading ? (
+                    <CardSkeleton lines={4} />
+                  ) : documentsError ? (
+                    <ErrorBanner message={documentsError} onRetry={refetchDocuments} />
+                  ) : documents.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <File className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No documents available</p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                      <div className="space-y-2">
+                        {documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950/50">
+                                <File className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{doc.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {doc.docType} · {formatDate(doc.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-amber-600 hover:bg-amber-100 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                            >
+                              <Download className="h-4 w-4" />
+                              <span className="sr-only">Download document</span>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -752,45 +1070,56 @@ export default function SelfService() {
                   <CardDescription>Company assets assigned to you</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-72 overflow-y-auto custom-scrollbar">
-                    <div className="space-y-2">
-                      {selfServiceAssets.map((asset) => {
-                        const AssetIcon = getAssetIcon(asset.assetType)
-                        return (
-                          <div
-                            key={asset.id}
-                            className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950/50">
-                                <AssetIcon className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {asset.assetName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  S/N: {asset.serialNo} · Assigned:{' '}
-                                  {formatDate(asset.assignedDate)}
-                                </p>
-                              </div>
-                            </div>
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                'text-[10px]',
-                                asset.condition === 'New'
-                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
-                              )}
-                            >
-                              {asset.condition}
-                            </Badge>
-                          </div>
-                        )
-                      })}
+                  {assetsLoading ? (
+                    <CardSkeleton lines={4} />
+                  ) : assetsError ? (
+                    <ErrorBanner message={assetsError} onRetry={refetchAssets} />
+                  ) : assets.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-center">
+                      <Monitor className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No assets assigned</p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar">
+                      <div className="space-y-2">
+                        {assets.map((asset) => {
+                          const AssetIcon = getAssetIcon(asset.assetType)
+                          return (
+                            <div
+                              key={asset.id}
+                              className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-950/50">
+                                  <AssetIcon className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {asset.assetName}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {asset.serialNo ? `S/N: ${asset.serialNo} · ` : ''}
+                                    {asset.assignedDate ? `Assigned: ${formatDate(asset.assignedDate)}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  'text-[10px]',
+                                  asset.condition?.toLowerCase() === 'new'
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                                )}
+                              >
+                                {asset.condition || 'N/A'}
+                              </Badge>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -840,19 +1169,30 @@ export default function SelfService() {
                 </div>
 
                 {/* Policy List */}
-                <div className="space-y-2">
-                  {filteredPolicies.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <BookOpen className="mb-2 h-8 w-8 text-muted-foreground/50" />
-                      <p className="text-sm text-muted-foreground">
-                        No policies found
-                      </p>
-                      <p className="text-xs text-muted-foreground/70">
-                        Try adjusting your search or category filter
-                      </p>
-                    </div>
-                  ) : (
-                    filteredPolicies.map((policy) => (
+                {policiesLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="rounded-lg border p-4">
+                        <Skeleton className="mb-2 h-4 w-1/3" />
+                        <Skeleton className="h-3 w-1/4" />
+                      </div>
+                    ))}
+                  </div>
+                ) : policiesError ? (
+                  <ErrorBanner message={policiesError} onRetry={refetchPolicies} />
+                ) : filteredPolicies.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <BookOpen className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">
+                      No policies found
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      Try adjusting your search or category filter
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredPolicies.map((policy) => (
                       <Collapsible
                         key={policy.id}
                         open={expandedPolicies.has(policy.id)}
@@ -870,22 +1210,28 @@ export default function SelfService() {
                                     {policy.title}
                                   </p>
                                   <div className="mt-1 flex items-center gap-2">
-                                    <Badge
-                                      variant="secondary"
-                                      className={cn(
-                                        'text-[10px]',
-                                        categoryColors[policy.category] ||
-                                          ''
-                                      )}
-                                    >
-                                      {policy.category}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">
-                                      v{policy.version}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      · Effective: {formatDate(policy.effectiveDate)}
-                                    </span>
+                                    {policy.category && (
+                                      <Badge
+                                        variant="secondary"
+                                        className={cn(
+                                          'text-[10px]',
+                                          categoryColors[policy.category] ||
+                                            ''
+                                        )}
+                                      >
+                                        {policy.category}
+                                      </Badge>
+                                    )}
+                                    {policy.version && (
+                                      <span className="text-xs text-muted-foreground">
+                                        v{policy.version}
+                                      </span>
+                                    )}
+                                    {policy.effectiveDate && (
+                                      <span className="text-xs text-muted-foreground">
+                                        · Effective: {formatDate(policy.effectiveDate)}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -899,15 +1245,18 @@ export default function SelfService() {
                           <CollapsibleContent>
                             <div className="border-t px-4 py-4">
                               <div className="prose prose-sm max-w-none dark:prose-invert">
-                                {renderSimpleMarkdown(policy.content)}
+                                {policy.content
+                                  ? renderSimpleMarkdown(policy.content)
+                                  : <p className="text-sm text-muted-foreground italic">No content available</p>
+                                }
                               </div>
                             </div>
                           </CollapsibleContent>
                         </div>
                       </Collapsible>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
