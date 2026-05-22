@@ -192,6 +192,8 @@ model Skill {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  employeeSkills EmployeeSkill[]
 }
 
 model EmployeeSkill {
@@ -201,6 +203,7 @@ model EmployeeSkill {
   proficiency String?  // beginner, intermediate, advanced, expert
   certified   Boolean  @default(false)
   employee    Employee @relation(fields: [employeeId], references: [id])
+  skill       Skill    @relation(fields: [skillId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
