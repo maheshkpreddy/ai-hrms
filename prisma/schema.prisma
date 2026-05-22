@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  firstName     String
+  lastName      String
+  email         String   @unique
+  phone         String?
+  avatar        String?
+  dateOfBirth   String?
+  gender        String?
+  address       String?
+  department    String?
+  designation   String?
+  jobTitle      String?
+  contractType  String?  // full-time, part-time, contract, intern
+  reportingTo   String?  // manager employee id
+  joinDate      String?
+  exitDate      String?
+  status        String   @default("active") // active, inactive, onboarding, exited
+  salary        Float?
+  bankAccount   String?
+  panNumber     String?
+  pfNumber      String?
+  esiNumber     String?
+  emergencyContact String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  attendance    Attendance[]
+  leaves        Leave[]
+  expenses      Expense[]
+  payroll       Payroll[]
+  performance   Performance[]
+  assets        Asset[]
+  skills        EmployeeSkill[]
+  enrollments   CourseEnrollment[]
+  documents     Document[]
+  auditLogs     AuditLog[]
+}
+
+model Department {
+  id          String @id @default(cuid())
+  name        String @unique
+  head        String?
+  description String?
+  budget      Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Role {
+  id          String @id @default(cuid())
+  name        String @unique
+  description String?
+  permissions String? // JSON string of permissions
+  level       Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  date       String
+  checkIn    String?
+  checkOut   String?
+  status     String   @default("present") // present, absent, late, half-day
+  shift      String?  // morning, evening, night
+  location   String?
+  notes      String?
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Leave {
+  id          String   @id @default(cuid())
+  employeeId  String
+  leaveType   String   // casual, sick, earned, maternity, paternity
+  startDate   String
+  endDate     String
+  days        Float
+  reason      String?
+  status      String   @default("pending") // pending, approved, rejected
+  approvedBy  String?
+  comments    String?
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payroll {
+  id             String   @id @default(cuid())
+  employeeId     String
+  month          String
+  year           Int
+  basicSalary    Float
+  hra            Float
+  da             Float
+  conveyance     Float
+  medical        Float
+  bonus          Float    @default(0)
+  grossPay       Float
+  pf             Float
+  esi            Float
+  tax            Float
+  professionalTax Float
+  totalDeductions Float
+  netPay         Float
+  status         String   @default("processed") // processed, paid, pending
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  employeeId  String
+  category    String   // travel, food, accommodation, equipment, other
+  amount      Float
+  description String?
+  receiptUrl  String?
+  date        String
+  status      String   @default("pending") // pending, approved, rejected, reimbursed
+  approvedBy  String?
+  comments    String?
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Performance {
+  id              String   @id @default(cuid())
+  employeeId      String
+  reviewPeriod    String
+  reviewerId      String?
+  rating          Float    @default(0)
+  objectives      String?  // JSON string of OKRs
+  achievements    String?
+  feedback        String?
+  selfReview      String?
+  goals           String?
+  attritionRisk   Float    @default(0) // 0-1 score
+  status          String   @default("draft") // draft, in-review, completed
+  employee        Employee @relation(fields: [employeeId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Asset {
+  id          String   @id @default(cuid())
+  employeeId  String
+  assetType   String   // laptop, phone, access-card, peripheral, other
+  assetName   String
+  serialNo    String?
+  assignedDate String?
+  returnDate  String?
+  condition   String?  // new, good, fair, damaged
+  status      String   @default("assigned") // assigned, returned, lost
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  employeeId  String
+  docType     String   // contract, policy, certificate, id-proof, other
+  title       String
+  fileUrl     String?
+  accessLevel String?  // public, hr-only, manager, private
+  uploadedBy  String?
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Skill {
+  id          String @id @default(cuid())
+  name        String @unique
+  category    String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmployeeSkill {
+  id          String   @id @default(cuid())
+  employeeId  String
+  skillId     String
+  proficiency String?  // beginner, intermediate, advanced, expert
+  certified   Boolean  @default(false)
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Course {
+  id          String @id @default(cuid())
+  title       String
+  description String?
+  category    String?
+  duration    Int?   // hours
+  provider    String?
+  url         String?
+  skills      String? // JSON array of skill ids
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CourseEnrollment {
+  id          String   @id @default(cuid())
+  employeeId  String
+  courseId    String
+  status      String   @default("enrolled") // enrolled, in-progress, completed, dropped
+  progress    Float    @default(0) // 0-100
+  score       Float?
+  completedAt String?
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Job {
+  id           String   @id @default(cuid())
+  title        String
+  department   String?
+  location     String?
+  type         String?  // full-time, part-time, contract, remote
+  experience   String?
+  salary       String?
+  description  String?
+  requirements String?  // JSON array of requirements
+  skills       String?  // JSON array of required skills
+  status       String   @default("open") // open, closed, on-hold
+  postedDate   String?
+  closingDate  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  candidates   Candidate[]
+}
+
+model Candidate {
+  id            String   @id @default(cuid())
+  jobId         String
+  name          String
+  email         String
+  phone         String?
+  resumeUrl     String?
+  currentCompany String?
+  experience    String?
+  skills        String?  // JSON array
+  education     String?
+  source        String?  // referral, portal, linkedin, other
+  status        String   @default("applied") // applied, screening, interview, offered, hired, rejected
+  aiFitScore    Float?   // 0-100 AI calculated score
+  interviewDate String?
+  interviewNotes String?
+  onboardingStatus String? // pending, in-progress, completed
+  job           Job      @relation(fields: [jobId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  employeeId String?
+  action     String   // create, read, update, delete, login, logout
+  module     String   // hr, payroll, attendance, etc.
+  details    String?
+  ipAddress  String?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model ApprovalWorkflow {
+  id          String @id @default(cuid())
+  type        String // leave, expense, promotion
+  requesterId String
+  approverId  String
+  level       Int    @default(1)
+  status      String @default("pending") // pending, approved, rejected
+  comments    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CompanyPolicy {
+  id          String @id @default(cuid())
+  title       String
+  category    String?
+  content     String?
+  version     String?
+  effectiveDate String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Shift {
+  id        String @id @default(cuid())
+  name      String
+  startTime String
+  endTime   String
+  graceTime Int?   // minutes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Holiday {
+  id        String @id @default(cuid())
+  name      String
+  date      String
+  type      String? // national, company, optional
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
