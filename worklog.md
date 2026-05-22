@@ -109,3 +109,34 @@ Stage Summary:
 - All 9 modules render correctly on the live site with mock data
 - API routes return 500 on Vercel (expected - no database in serverless env)
 - Frontend is fully functional with built-in mock data
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Add authentication system with role-based login to AI-HRMS
+
+Work Log:
+- Added User model to Prisma schema with email, passwordHash, name, roleId, employeeId, isActive, lastLoginAt
+- Added relations: User->Role and User->Employee
+- Installed bcryptjs for password hashing
+- Created NextAuth.js configuration with CredentialsProvider (src/lib/auth.ts)
+- Created NextAuth API route handler (src/app/api/auth/[...nextauth]/route.ts)
+- Created professional login page with dark theme and demo credentials panel (src/app/login/page.tsx)
+- Added middleware.ts for route protection
+- Created Providers.tsx component for SessionProvider wrapper
+- Updated layout.tsx to include Providers wrapper
+- Updated main page.tsx with session check, user menu, sign-out functionality
+- Updated seed.ts with 11 user accounts across 7 roles with bcrypt hashed passwords
+- Pushed schema to Neon PostgreSQL database
+- Seeded database with all users and data
+- Built Next.js successfully
+- Pushed to GitHub (maheshkpreddy/ai-hrms)
+- Redeployed on Vercel (https://ai-hrms-rho.vercel.app)
+- Updated NEXTAUTH_URL environment variable in Vercel
+
+Stage Summary:
+- 7 role-based login accounts created with hashed passwords
+- Full authentication flow: login page -> session check -> protected routes
+- Login page shows demo credentials on the right panel for easy access
+- Production URL: https://ai-hrms-rho.vercel.app
+- GitHub: https://github.com/maheshkpreddy/ai-hrms
