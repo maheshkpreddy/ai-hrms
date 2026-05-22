@@ -219,6 +219,8 @@ model Course {
   skills      String? // JSON array of skill ids
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  enrollments CourseEnrollment[]
 }
 
 model CourseEnrollment {
@@ -230,6 +232,7 @@ model CourseEnrollment {
   score       Float?
   completedAt String?
   employee    Employee @relation(fields: [employeeId], references: [id])
+  course      Course   @relation(fields: [courseId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
