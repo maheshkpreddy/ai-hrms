@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Clock,
   Calendar,
@@ -385,7 +385,7 @@ export default function TimeAttendance() {
   })
 
   // Set current employee DB ID when data loads
-  useMemo(() => {
+  useEffect(() => {
     if (firstEmpData?.employees?.[0]?.id) {
       setCurrentEmployeeDbId(firstEmpData.employees[0].id)
     }
@@ -397,7 +397,7 @@ export default function TimeAttendance() {
     loading: attendanceLoading,
     error: attendanceError,
     refetch: refetchAttendance,
-  } = useApi<{ records: AttendanceRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+  } = useApi<any>({
     baseUrl: '/api/attendance',
     params: { page: 1, limit: 20, status: statusFilter !== 'all' ? statusFilter : undefined },
   })
@@ -407,7 +407,7 @@ export default function TimeAttendance() {
     loading: leavesLoading,
     error: leavesError,
     refetch: refetchLeaves,
-  } = useApi<{ leaves: LeaveRecord[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>({
+  } = useApi<any>({
     baseUrl: '/api/leaves',
     params: { page: 1, limit: 10 },
   })
@@ -430,8 +430,59 @@ export default function TimeAttendance() {
   })
 
   // ── Derived Data ─────────────────────────────────────────────────────────────
-  const attendanceRecords = attendanceResponse?.records ?? []
-  const leaveRecords = leavesResponse?.leaves ?? []
+  // Transform API attendance data to flat format
+  const attendanceRecords: AttendanceRecord[] = useMemo(() => {
+    const raw = attendanceResponse?.records ?? []
+    return raw.map((r: any) => {
+      const emp = r.employee || {}
+      const checkIn = r.checkIn || ''
+      const checkOut = r.checkOut || ''
+      // Calculate hours from checkIn/checkOut if both exist
+      let hours = 0
+      if (checkIn && checkOut && checkIn !== '00:00' && checkOut !== '00:00') {
+        const [h1, m1] = checkIn.split(':').map(Number)
+        const [h2, m2] = checkOut.split(':').map(Number)
+        if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
+          hours = Math.max(0, ((h2 * 60 + m2) - (h1 * 60 + m1)) / 60)
+          hours = Math.round(hours * 10) / 10
+        }
+      }
+      return {
+        id: r.id,
+        employeeId: r.employeeId,
+        name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || r.employeeId,
+        date: r.date,
+        checkIn: r.checkIn || '—',
+        checkOut: r.checkOut || '—',
+        status: r.status || 'present',
+        shift: r.shift || '—',
+        hours,
+        department: emp.department || '—',
+        location: r.location || '—',
+      }
+    })
+  }, [attendanceResponse])
+
+  // Transform API leave data to flat format
+  const leaveRecords: LeaveRecord[] = useMemo(() => {
+    const raw = leavesResponse?.leaves ?? []
+    return raw.map((l: any) => {
+      const emp = l.employee || {}
+      return {
+        id: l.id,
+        employeeId: l.employeeId,
+        name: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || l.employeeId,
+        leaveType: l.leaveType,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        days: l.days || 0,
+        reason: l.reason || '',
+        status: l.status,
+        approvedBy: l.approvedBy,
+      }
+    })
+  }, [leavesResponse])
+
   const shiftRecords = shiftsResponse?.shifts ?? []
   const holidayRecords = holidaysResponse?.holidays ?? []
 
@@ -519,11 +570,18 @@ export default function TimeAttendance() {
     if (!currentEmployeeDbId) return
     setSubmittingLeave(true)
     try {
+      // Calculate days between start and end date
+      const start = new Date(leaveForm.startDate)
+      const end = new Date(leaveForm.endDate)
+      const diffTime = end.getTime() - start.getTime()
+      const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1)
+
       await apiPost('/api/leaves', {
         employeeId: currentEmployeeDbId,
         leaveType: leaveForm.leaveType,
         startDate: leaveForm.startDate,
         endDate: leaveForm.endDate,
+        days,
         reason: leaveForm.reason,
       })
       setLeaveDialogOpen(false)

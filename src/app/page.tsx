@@ -13,6 +13,7 @@ import Performance from '@/components/hrms/Performance'
 import LearningDevelopment from '@/components/hrms/LearningDevelopment'
 import Analytics from '@/components/hrms/Analytics'
 import SelfService from '@/components/hrms/SelfService'
+import Settings from '@/components/hrms/Settings'
 import { LogOut, User, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
@@ -27,6 +28,7 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   learning: LearningDevelopment,
   analytics: Analytics,
   selfservice: SelfService,
+  settings: Settings,
 }
 
 const moduleTitles: Record<ModuleKey, string> = {
@@ -40,6 +42,7 @@ const moduleTitles: Record<ModuleKey, string> = {
   learning: 'Learning & Development',
   analytics: 'Analytics & Reporting',
   selfservice: 'Employee Self-Service',
+  settings: 'Settings',
 }
 
 export default function Home() {

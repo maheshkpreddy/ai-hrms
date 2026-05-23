@@ -62,6 +62,7 @@ const navItems: NavItem[] = [
   { key: 'learning', label: 'Learning & Development', icon: GraduationCap, aiPowered: true },
   { key: 'analytics', label: 'Analytics & Reporting', icon: BarChart3, aiPowered: true },
   { key: 'selfservice', label: 'Self-Service', icon: MessageSquare, aiPowered: false },
+  { key: 'settings', label: 'Settings', icon: Settings, aiPowered: false },
 ]
 
 // ─── Notification Count ──────────────────────────────────────────────────────
@@ -277,6 +278,7 @@ function SidebarContent({
             variant="ghost"
             size="sm"
             className="flex-1 justify-start gap-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            onClick={() => onNavSelect('settings')}
           >
             <Settings className="size-4" />
             <span className="text-xs">Settings</span>
@@ -302,6 +304,7 @@ function SidebarContent({
                   variant="ghost"
                   size="icon"
                   className="size-8 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                  onClick={() => onNavSelect('settings')}
                 >
                   <Settings className="size-4" />
                 </Button>

@@ -25,3 +25,27 @@ Stage Summary:
 - Sidebar displays current user info from session
 - Quick Actions in Dashboard and Self-Service are functional navigation buttons
 - Database is seeded and all CRUD operations work via 22 API endpoints
+
+---
+Task ID: 2
+Agent: Main
+Task: Fix Attendance Module client-side crash and add Settings page
+
+Work Log:
+- Fixed TimeAttendance.tsx: Changed import to add `useEffect`
+- Fixed TimeAttendance.tsx: Replaced `useMemo` side effect (calling setCurrentEmployeeDbId) with proper `useEffect`
+- Fixed TimeAttendance.tsx: Changed `useApi` generic types for attendance and leaves from typed interfaces to `any` to match raw API response
+- Fixed TimeAttendance.tsx: Added `useMemo` transformation for attendance data to flatten nested `employee` relation object into `name`, `hours`, `department` fields
+- Fixed TimeAttendance.tsx: Added `useMemo` transformation for leave data to flatten nested `employee` relation object into `name` field
+- Fixed TimeAttendance.tsx: Added `days` calculation in `handleApplyLeave` based on startDate/endDate difference
+- Updated store.ts: Added 'settings' to ModuleKey union type
+- Created Settings.tsx: Comprehensive settings page with 5 tabs (General, Appearance, Notifications, Security, Data & Privacy)
+- Updated Sidebar.tsx: Added 'settings' to navItems array, added onClick handlers to Settings buttons in both expanded and collapsed sidebar sections
+- Updated page.tsx: Added Settings import and module registration in moduleComponents and moduleTitles records
+- Verified build and lint pass with zero errors
+
+Stage Summary:
+- Attendance module no longer crashes - API data is properly transformed from nested Prisma format to flat interface
+- Leave form now calculates and sends `days` field to API
+- Settings page is fully functional with localStorage persistence
+- Settings navigation works from sidebar nav items and bottom section buttons

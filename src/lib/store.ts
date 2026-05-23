@@ -11,6 +11,7 @@ export type ModuleKey =
   | 'learning' 
   | 'analytics' 
   | 'selfservice'
+  | 'settings'
 
 interface HRMSState {
   activeModule: ModuleKey
