@@ -68,6 +68,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    if (!body.employeeId || !body.leaveType || !body.startDate || !body.endDate || !body.days) {
+      return NextResponse.json(
+        { error: 'employeeId, leaveType, startDate, endDate, and days are required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify employee exists
+    const employee = await db.employee.findUnique({ where: { id: body.employeeId } });
+    if (!employee) {
+      return NextResponse.json(
+        { error: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
     const leave = await db.leave.create({
       data: {
         employeeId: body.employeeId,
@@ -112,11 +128,11 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, status, approvedBy, comments } = body;
+    const { id, status, approvedBy, comments, leaveType, startDate, endDate, days, reason } = body;
 
-    if (!id || !status || !['approved', 'rejected'].includes(status)) {
+    if (!id) {
       return NextResponse.json(
-        { error: 'Valid id and status (approved/rejected) are required' },
+        { error: 'Leave id is required' },
         { status: 400 }
       );
     }
@@ -129,20 +145,36 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    if (existingLeave.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Leave request has already been processed' },
-        { status: 409 }
-      );
+    // If status change is requested
+    if (status) {
+      if (!['approved', 'rejected', 'cancelled'].includes(status)) {
+        return NextResponse.json(
+          { error: 'Status must be approved, rejected, or cancelled' },
+          { status: 400 }
+        );
+      }
+
+      if (existingLeave.status !== 'pending' && status !== 'cancelled') {
+        return NextResponse.json(
+          { error: 'Leave request has already been processed' },
+          { status: 409 }
+        );
+      }
     }
+
+    const updateData: Record<string, unknown> = {};
+    if (status) updateData.status = status;
+    if (approvedBy) updateData.approvedBy = approvedBy;
+    if (comments) updateData.comments = comments;
+    if (leaveType) updateData.leaveType = leaveType;
+    if (startDate) updateData.startDate = startDate;
+    if (endDate) updateData.endDate = endDate;
+    if (days !== undefined) updateData.days = days;
+    if (reason !== undefined) updateData.reason = reason;
 
     const leave = await db.leave.update({
       where: { id },
-      data: {
-        status,
-        approvedBy,
-        comments,
-      },
+      data: updateData,
       include: {
         employee: {
           select: {
@@ -160,7 +192,7 @@ export async function PATCH(request: NextRequest) {
         employeeId: existingLeave.employeeId,
         action: 'update',
         module: 'leave',
-        details: `Leave request ${status} for ${leave.employee.firstName} ${leave.employee.lastName}: ${existingLeave.leaveType} (${existingLeave.startDate} - ${existingLeave.endDate})`,
+        details: `Leave request ${status || 'updated'} for ${leave.employee.firstName} ${leave.employee.lastName}: ${existingLeave.leaveType} (${existingLeave.startDate} - ${existingLeave.endDate})`,
       },
     });
 
@@ -169,6 +201,48 @@ export async function PATCH(request: NextRequest) {
     console.error('Error updating leave:', error);
     return NextResponse.json(
       { error: 'Failed to update leave request' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Leave id is required' },
+        { status: 400 }
+      );
+    }
+
+    const existingLeave = await db.leave.findUnique({ where: { id } });
+    if (!existingLeave) {
+      return NextResponse.json(
+        { error: 'Leave request not found' },
+        { status: 404 }
+      );
+    }
+
+    await db.leave.delete({ where: { id } });
+
+    // Create audit log
+    await db.auditLog.create({
+      data: {
+        employeeId: existingLeave.employeeId,
+        action: 'delete',
+        module: 'leave',
+        details: `Leave request deleted: ${existingLeave.leaveType} (${existingLeave.startDate} - ${existingLeave.endDate})`,
+      },
+    });
+
+    return NextResponse.json({ message: 'Leave request deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting leave:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete leave request' },
       { status: 500 }
     );
   }

@@ -144,6 +144,13 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    if (existingExpense.status === 'reimbursed') {
+      return NextResponse.json(
+        { error: 'Cannot update a reimbursed expense' },
+        { status: 409 }
+      );
+    }
+
     if (status === 'reimbursed' && existingExpense.status !== 'approved') {
       return NextResponse.json(
         { error: 'Expense must be approved before it can be reimbursed' },
@@ -184,6 +191,55 @@ export async function PATCH(request: NextRequest) {
     console.error('Error updating expense:', error);
     return NextResponse.json(
       { error: 'Failed to update expense' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Expense id is required' },
+        { status: 400 }
+      );
+    }
+
+    const existingExpense = await db.expense.findUnique({ where: { id } });
+    if (!existingExpense) {
+      return NextResponse.json(
+        { error: 'Expense not found' },
+        { status: 404 }
+      );
+    }
+
+    if (existingExpense.status === 'reimbursed') {
+      return NextResponse.json(
+        { error: 'Cannot delete a reimbursed expense for audit purposes' },
+        { status: 409 }
+      );
+    }
+
+    await db.expense.delete({ where: { id } });
+
+    // Create audit log
+    await db.auditLog.create({
+      data: {
+        employeeId: existingExpense.employeeId,
+        action: 'delete',
+        module: 'expense',
+        details: `Expense deleted: ${existingExpense.category} - Rs.${existingExpense.amount}`,
+      },
+    });
+
+    return NextResponse.json({ message: 'Expense deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting expense:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete expense' },
       { status: 500 }
     );
   }

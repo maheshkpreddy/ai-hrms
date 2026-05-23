@@ -3,6 +3,10 @@ import { db } from '@/lib/db';
 
 export async function GET() {
   try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const currentMonth = new Date().toLocaleString('en-US', { month: 'long' }); // e.g., "January"
+    const currentYear = new Date().getFullYear();
+
     // Run all count queries in parallel
     const [
       totalEmployees,
@@ -22,16 +26,18 @@ export async function GET() {
       db.employee.count({ where: { status: 'active' } }),
       db.department.count(),
       db.leave.count({ where: { status: 'pending' } }),
-      db.leave.count({ where: { status: 'approved' } }),
+      db.leave.count({ where: { status: 'approved', startDate: { lte: today }, endDate: { gte: today } } }),
       db.expense.count({ where: { status: 'pending' } }),
       db.job.count({ where: { status: 'open' } }),
       db.candidate.count(),
-      db.attendance.count({ where: { status: 'present' } }),
-      db.attendance.count({ where: { status: 'absent' } }),
+      db.attendance.count({ where: { status: 'present', date: today } }),
+      db.attendance.count({ where: { status: 'absent', date: today } }),
       db.payroll.aggregate({
         _sum: { netPay: true },
         where: {
           status: { in: ['processed', 'paid'] },
+          month: currentMonth,
+          year: currentYear,
         },
       }),
       db.courseEnrollment.count({
@@ -42,7 +48,7 @@ export async function GET() {
     // Get employees by department
     const employeesByDepartment = await db.employee.groupBy({
       by: ['department'],
-      where: { status: 'active', department: { not: '' } },
+      where: { status: 'active', department: { notIn: ['', null] } },
       _count: { id: true },
     });
 

@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
-        { employeeId: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { employeeId: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -67,6 +67,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Validate required fields
+    if (!body.firstName || !body.lastName || !body.email) {
+      return NextResponse.json(
+        { error: 'firstName, lastName, and email are required' },
+        { status: 400 }
+      );
+    }
+
+    // Check for duplicate email
+    const existingEmail = await db.employee.findUnique({ where: { email: body.email } });
+    if (existingEmail) {
+      return NextResponse.json(
+        { error: 'An employee with this email already exists' },
+        { status: 409 }
+      );
+    }
 
     // Auto-generate employeeId if not provided
     let employeeId = body.employeeId;

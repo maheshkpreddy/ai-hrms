@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+function safeJsonParse(str: string | null, fallback: unknown = []) {
+  if (!str) return fallback
+  try {
+    return JSON.parse(str)
+  } catch {
+    return fallback
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -38,11 +47,11 @@ export async function GET(request: NextRequest) {
 
     const candidatesWithParsed = candidates.map((c) => ({
       ...c,
-      skills: c.skills ? JSON.parse(c.skills) : [],
+      skills: safeJsonParse(c.skills, []),
       job: c.job
         ? {
             ...c.job,
-            requirements: c.job.requirements ? JSON.parse(c.job.requirements) : [],
+            requirements: safeJsonParse(c.job.requirements, []),
           }
         : null,
     }))
@@ -78,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate AI fit score (simple heuristic based on skill matching)
-    const jobRequirements: string[] = job.requirements ? JSON.parse(job.requirements) : []
+    const jobRequirements: string[] = safeJsonParse(job.requirements, [])
     const candidateSkills: string[] = skills || []
     const matchedSkills = candidateSkills.filter((s: string) =>
       jobRequirements.some((r: string) => r.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(r.toLowerCase()))
@@ -108,16 +117,91 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...candidate,
-      skills: candidate.skills ? JSON.parse(candidate.skills) : [],
+      skills: safeJsonParse(candidate.skills, []),
       job: candidate.job
         ? {
             ...candidate.job,
-            requirements: candidate.job.requirements ? JSON.parse(candidate.job.requirements) : [],
+            requirements: safeJsonParse(candidate.job.requirements, []),
           }
         : null,
     }, { status: 201 })
   } catch (error) {
     console.error('Error creating candidate:', error)
     return NextResponse.json({ error: 'Failed to create candidate' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, status, interviewDate, interviewNotes, onboardingStatus, phone, currentCompany, experience, skills, education, source } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Candidate id is required' }, { status: 400 })
+    }
+
+    const existingCandidate = await db.candidate.findUnique({ where: { id } })
+    if (!existingCandidate) {
+      return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
+    }
+
+    const updateData: Record<string, unknown> = {}
+    if (status && ['applied', 'screening', 'interview', 'offered', 'hired', 'rejected'].includes(status)) {
+      updateData.status = status
+    }
+    if (interviewDate !== undefined) updateData.interviewDate = interviewDate
+    if (interviewNotes !== undefined) updateData.interviewNotes = interviewNotes
+    if (onboardingStatus !== undefined) updateData.onboardingStatus = onboardingStatus
+    if (phone !== undefined) updateData.phone = phone
+    if (currentCompany !== undefined) updateData.currentCompany = currentCompany
+    if (experience !== undefined) updateData.experience = experience
+    if (skills !== undefined) updateData.skills = JSON.stringify(skills)
+    if (education !== undefined) updateData.education = education
+    if (source !== undefined) updateData.source = source
+
+    const candidate = await db.candidate.update({
+      where: { id },
+      data: updateData,
+      include: {
+        job: { select: { id: true, title: true, requirements: true } },
+      },
+    })
+
+    return NextResponse.json({
+      ...candidate,
+      skills: safeJsonParse(candidate.skills, []),
+      job: candidate.job
+        ? {
+            ...candidate.job,
+            requirements: safeJsonParse(candidate.job.requirements, []),
+          }
+        : null,
+    })
+  } catch (error) {
+    console.error('Error updating candidate:', error)
+    return NextResponse.json({ error: 'Failed to update candidate' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Candidate id is required' }, { status: 400 })
+    }
+
+    const existingCandidate = await db.candidate.findUnique({ where: { id } })
+    if (!existingCandidate) {
+      return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
+    }
+
+    await db.candidate.delete({ where: { id } })
+
+    return NextResponse.json({ message: 'Candidate deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting candidate:', error)
+    return NextResponse.json({ error: 'Failed to delete candidate' }, { status: 500 })
   }
 }
