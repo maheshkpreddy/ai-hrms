@@ -25,6 +25,7 @@ import {
   Building2,
   ListTodo,
   Video,
+  FolderKanban,
   UserCircle,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
@@ -63,6 +64,7 @@ const navItems: NavItem[] = [
   { key: 'company', label: 'Company', icon: Building2, aiPowered: false },
   { key: 'tasks', label: 'Task Management', icon: ListTodo, aiPowered: false },
   { key: 'meetings', label: 'Meetings', icon: Video, aiPowered: false },
+  { key: 'projects', label: 'Projects', icon: FolderKanban, aiPowered: false },
   { key: 'assets', label: 'Asset Management', icon: Laptop, aiPowered: false },
   { key: 'documents', label: 'Document Management', icon: FileText, aiPowered: false },
   { key: 'rbac', label: 'RBAC & Security', icon: Shield, aiPowered: false },

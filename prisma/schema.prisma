@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model Employee {
@@ -50,6 +50,7 @@ model Employee {
   taskAssignments TaskAssignment[]
   taskComments  TaskComment[]
   meetingInvitations MeetingInvitation[]
+  projectMembers     ProjectMember[]
 }
 
 model Department {
@@ -260,6 +261,7 @@ model Job {
   updatedAt    DateTime @updatedAt
 
   candidates   Candidate[]
+  aiInterviews AIInterview[]
 }
 
 model Candidate {
@@ -282,6 +284,8 @@ model Candidate {
   job           Job      @relation(fields: [jobId], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  interviews    AIInterview[]
 }
 
 model User {
@@ -494,6 +498,73 @@ model MeetingInvitation {
   updatedAt   DateTime @updatedAt
 
   @@unique([meetingId, employeeId])
+}
+
+// ─── Project Management ──────────────────────────────────────────────────────
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("planning") // planning, active, on-hold, completed, cancelled
+  priority    String   @default("medium")   // low, medium, high, critical
+  startDate   String?
+  endDate     String?
+  budget      Float?
+  progress    Float    @default(0) // 0-100 percentage
+  companyId   String?
+  createdBy   String?  // employee ID of project creator
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     ProjectMember[]
+  milestones  ProjectMilestone[]
+}
+
+model ProjectMember {
+  id          String   @id @default(cuid())
+  projectId   String
+  employeeId  String
+  role        String   @default("member") // lead, manager, member
+  project     Project  @relation(fields: [projectId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([projectId, employeeId])
+}
+
+model ProjectMilestone {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  dueDate     String?
+  completedDate String?
+  status      String   @default("pending") // pending, completed, overdue
+  project     Project  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── AI Interview ────────────────────────────────────────────────────────────
+
+model AIInterview {
+  id            String   @id @default(cuid())
+  candidateId   String
+  jobId         String
+  status        String   @default("scheduled") // scheduled, in_progress, completed, cancelled
+  questions     String?  // JSON array of interview questions
+  responses     String?  // JSON array of candidate responses
+  score         Float?   // 0-100 overall AI assessment score
+  feedback      String?  // AI-generated feedback summary
+  startedAt     String?
+  completedAt   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  candidate     Candidate @relation(fields: [candidateId], references: [id])
+  job           Job       @relation(fields: [jobId], references: [id])
 }
 
 // ─── Profile & Account Extensions ────────────────────────────────────────────

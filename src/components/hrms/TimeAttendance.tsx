@@ -65,6 +65,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useApi, apiPost, apiPatch } from '@/lib/useApi'
+import { useSession } from 'next-auth/react'
+import { exportAttendanceReport, exportLeaveReport } from '@/lib/excelExport'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface AttendanceRecord {
@@ -375,21 +377,18 @@ export default function TimeAttendance() {
   const [submittingLeave, setSubmittingLeave] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [currentEmployeeDbId, setCurrentEmployeeDbId] = useState<string>('')
+  const [attendanceMarked, setAttendanceMarked] = useState(false)
+  const [markingAttendance, setMarkingAttendance] = useState(false)
+  const [checkOutLoading, setCheckOutLoading] = useState<string | null>(null)
+  const { data: session } = useSession()
 
-  // ── Fetch first employee for current user placeholder ──────────────────────
-  const {
-    data: firstEmpData,
-  } = useApi<{ employees: { id: string; employeeId: string; firstName: string; lastName: string }[]; pagination: { total: number } }>({
-    baseUrl: '/api/employees',
-    params: { page: 1, limit: 1 },
-  })
-
-  // Set current employee DB ID when data loads
+  // ── Get current user's employee ID from session ────────────────────────────
   useEffect(() => {
-    if (firstEmpData?.employees?.[0]?.id) {
-      setCurrentEmployeeDbId(firstEmpData.employees[0].id)
+    const empId = (session?.user as any)?.employeeId
+    if (empId) {
+      setCurrentEmployeeDbId(empId)
     }
-  }, [firstEmpData])
+  }, [session])
 
   // ── API Hooks ────────────────────────────────────────────────────────────────
   const {
@@ -552,6 +551,7 @@ export default function TimeAttendance() {
   // ── Mutation Handlers ────────────────────────────────────────────────────────
   const handleMarkAttendance = useCallback(async () => {
     if (!currentEmployeeDbId) return
+    setMarkingAttendance(true)
     try {
       await apiPost('/api/attendance', {
         employeeId: currentEmployeeDbId,
@@ -559,11 +559,60 @@ export default function TimeAttendance() {
         checkIn: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
         status: 'present',
       })
+      setAttendanceMarked(true)
       refetchAttendance()
-    } catch (err) {
+    } catch (err: any) {
+      // If already checked in, just update the state
+      if (err?.message?.includes('already exists')) {
+        setAttendanceMarked(true)
+      }
       console.error('Failed to mark attendance:', err)
+    } finally {
+      setMarkingAttendance(false)
     }
   }, [refetchAttendance, currentEmployeeDbId])
+
+  const handleCheckOut = useCallback(async () => {
+    // Find today's attendance record for current employee
+    const todayRecord = attendanceRecords.find(
+      (a) => a.employeeId === currentEmployeeDbId && a.date === today.toISOString().split('T')[0]
+    )
+    if (!todayRecord) return
+    setCheckOutLoading(todayRecord.id)
+    try {
+      await apiPatch('/api/attendance', {
+        id: todayRecord.id,
+        checkOut: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      })
+      refetchAttendance()
+    } catch (err) {
+      console.error('Failed to check out:', err)
+    } finally {
+      setCheckOutLoading(null)
+    }
+  }, [refetchAttendance, attendanceRecords, currentEmployeeDbId])
+
+  // Check if current user has already checked in today
+  const todayAttendance = useMemo(() => {
+    return attendanceRecords.find(
+      (a) => a.employeeId === currentEmployeeDbId && a.date === today.toISOString().split('T')[0]
+    )
+  }, [attendanceRecords, currentEmployeeDbId])
+
+  const hasCheckedIn = !!todayAttendance
+  const hasCheckedOut = !!(todayAttendance?.checkOut && todayAttendance.checkOut !== '—')
+
+  // ── Export handlers ─────────────────────────────────────────────────────────
+  const handleExportAttendance = useCallback(() => {
+    exportAttendanceReport(filteredAttendance.map((a) => ({
+      ...a,
+      employeeId: a.employeeId,
+    })))
+  }, [filteredAttendance])
+
+  const handleExportLeaves = useCallback(() => {
+    exportLeaveReport(leaveRecords)
+  }, [leaveRecords])
 
   const handleApplyLeave = useCallback(async () => {
     if (!leaveForm.leaveType || !leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason) return
@@ -767,11 +816,23 @@ export default function TimeAttendance() {
                 </Select>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={handleMarkAttendance}>
-                  <UserCheck className="h-4 w-4" />
-                  Mark Attendance
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1.5">
+                {!hasCheckedIn ? (
+                  <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={handleMarkAttendance} disabled={markingAttendance || !currentEmployeeDbId}>
+                    {markingAttendance ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+                    Check In
+                  </Button>
+                ) : !hasCheckedOut ? (
+                  <Button size="sm" className="gap-1.5 bg-amber-600 hover:bg-amber-700" onClick={handleCheckOut} disabled={!!checkOutLoading}>
+                    {checkOutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
+                    Check Out
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="gap-1.5 text-emerald-600" disabled>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Completed
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExportAttendance} disabled={filteredAttendance.length === 0}>
                   <Download className="h-4 w-4" />
                   Export Report
                 </Button>
@@ -960,13 +1021,18 @@ export default function TimeAttendance() {
             {/* Apply Leave Button */}
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold">Leave Requests</h3>
-              <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-                    <Plus className="h-4 w-4" />
-                    Apply Leave
-                  </Button>
-                </DialogTrigger>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExportLeaves} disabled={leaveRecords.length === 0}>
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+                <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                      <Plus className="h-4 w-4" />
+                      Apply Leave
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Apply for Leave</DialogTitle>
@@ -1016,6 +1082,7 @@ export default function TimeAttendance() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
 
             {/* Error State */}

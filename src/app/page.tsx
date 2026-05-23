@@ -18,6 +18,7 @@ import SelfService from '@/components/hrms/SelfService'
 import CompanyManagement from '@/components/hrms/CompanyManagement'
 import TaskManagement from '@/components/hrms/TaskManagement'
 import MeetingManagement from '@/components/hrms/MeetingManagement'
+import ProjectManagement from '@/components/hrms/ProjectManagement'
 import ProfileManagement from '@/components/hrms/ProfileManagement'
 import Settings from '@/components/hrms/Settings'
 import { LogOut, User, ChevronDown } from 'lucide-react'
@@ -39,6 +40,7 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   company: CompanyManagement,
   tasks: TaskManagement,
   meetings: MeetingManagement,
+  projects: ProjectManagement,
   profile: ProfileManagement,
   settings: Settings,
 }
@@ -59,6 +61,7 @@ const moduleTitles: Record<ModuleKey, string> = {
   company: 'Company Management',
   tasks: 'Task Management',
   meetings: 'Meeting Management',
+  projects: 'Project Management',
   profile: 'My Profile',
   settings: 'Settings',
 }

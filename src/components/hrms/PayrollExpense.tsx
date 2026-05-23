@@ -79,6 +79,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useApi, apiPost, apiPatch } from '@/lib/useApi'
+import { exportPayrollReport, exportExpenseReport } from '@/lib/excelExport'
 
 // ─── API Response Types ──────────────────────────────────────────────────────
 interface PayrollRecord {
@@ -657,6 +658,40 @@ export default function PayrollExpense() {
       ? taxableIncome * 0.2
       : taxableIncome * 0.05
 
+  // ─── Export handlers ────────────────────────────────────────────────────────
+  const handleExportPayroll = useCallback(() => {
+    exportPayrollReport(payrollRows.map((r) => ({
+      employeeName: r.name,
+      employeeId: r.employeeId,
+      department: '',
+      month: r.month,
+      year: r.year,
+      basicSalary: r.basicSalary,
+      hra: r.hra,
+      da: r.da,
+      grossPay: r.grossPay,
+      pf: r.pf,
+      esi: r.esi,
+      tax: r.tax,
+      totalDeductions: r.totalDeductions,
+      netPay: r.netPay,
+      status: r.status,
+    })))
+  }, [payrollRows])
+
+  const handleExportExpenses = useCallback(() => {
+    exportExpenseReport(expenseRows.map((r) => ({
+      employeeName: r.name,
+      employeeId: r.employeeId,
+      category: r.category,
+      amount: r.amount,
+      description: r.description,
+      date: r.date,
+      status: r.status,
+      approvedBy: r.approvedBy,
+    })))
+  }, [expenseRows])
+
   // ─── Payroll processing handler ──────────────────────────────────────────
   const handleProcessPayroll = useCallback(async (employeeId?: string) => {
     setMutationError(null)
@@ -939,7 +974,7 @@ export default function PayrollExpense() {
                   {processingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Process All
                 </Button>
-                <Button variant="outline" className="gap-1.5">
+                <Button variant="outline" className="gap-1.5" onClick={handleExportPayroll} disabled={payrollRows.length === 0}>
                   <FileDown className="h-4 w-4" />
                   Export to Excel
                 </Button>

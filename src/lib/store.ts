@@ -16,6 +16,7 @@ export type ModuleKey =
   | 'company'
   | 'tasks'
   | 'meetings'
+  | 'projects'
   | 'profile'
   | 'settings'
 
