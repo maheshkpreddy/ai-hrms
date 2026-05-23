@@ -1,98 +1,67 @@
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Analyze AI-HRMS codebase for documentation
+Task: Fix login error and test all CRUD operations across HRMS
 
 Work Log:
-- Cloned the GitHub repo (maheshkpreddy/ai-hrms)
-- Read all 42 API route files, all 18 HRMS component files, and all lib utilities
-- Cataloged 28 Prisma models, 7 role levels, 19 modules
-- Identified architecture: Next.js 16 SPA pattern with 18 module components
+- Investigated the login error: Prisma schema had `provider = "sqlite"` but DATABASE_URL pointed to PostgreSQL
+- Found system-level DATABASE_URL env var was overriding .env file with old SQLite path
+- Fixed prisma/schema.prisma: changed provider from "sqlite" to "postgresql" with relationMode = "prisma"
+- Updated .env with Neon PostgreSQL connection string
+- Ran prisma generate and prisma db push successfully
+- Verified database has 11 users, 20 employees, 8 departments, 7 roles
+- Pulled production env vars from Vercel to get correct DATABASE_URL
+- Tested all 7 demo credentials - all passwords verified working
+- Audited all 19 API routes for bugs and missing CRUD operations
+- Added missing PATCH/DELETE operations to 7 routes:
+  - /api/leaves (DELETE added)
+  - /api/candidates (PATCH + DELETE added)
+  - /api/payroll (PATCH + DELETE added)
+  - /api/jobs (PATCH + DELETE added)
+  - /api/attendance (PATCH + DELETE added)
+  - /api/courses (PATCH + DELETE added)
+  - /api/performance (PATCH + DELETE added)
+  - /api/expenses (DELETE added)
+- Fixed dashboard stats to properly filter by today's date and current month
+- Fixed attendance date filter bug (single date overwritten by range filter)
+- Fixed JSON.parse crash risk in candidates/jobs routes with safeJsonParse helper
+- Added input validation to employee POST (required fields, email uniqueness)
+- Added case-insensitive search for employees on PostgreSQL
+- Added salary validation in payroll processing
+- Fixed expense status transition (prevent updating reimbursed expenses)
+- Ran comprehensive end-to-end CRUD tests for all 17 models - ALL PASSED
+- Committed and pushed all fixes to GitHub
+- Vercel auto-deployment triggered
+- Verified production site is live and login page loads
+- Verified auth providers endpoint works on production
 
 Stage Summary:
-- Full codebase analysis complete
-- Key findings: 27,347 LOC in HRMS components, 42 API routes, 28 database models
+- Login error fixed: Schema/DB URL mismatch resolved
+- All CRUD operations (Create, Read, Update, Delete) working for all 17 models
+- Production site: https://ai-hrms-rho.vercel.app
+- 11 user accounts with 7 roles all working
+- All API routes now support full CRUD where appropriate
 
----
-Task ID: 2
-Agent: Main Agent
-Task: Create Module-wise SOP Document (DOCX)
-
-Work Log:
-- Generated comprehensive DOCX using docx library (Node.js)
-- Covered all 19 modules with: overview, workflows, screen descriptions, integrations, data models
-- Used DM-1 Deep Cyan palette with professional cover page
-- Saved to /home/z/my-project/download/AI-HRMS_Module-wise_SOP_Document.docx (37KB)
-
-Stage Summary:
-- Module-wise SOP Document created with full workflows and screen descriptions
-- Professional cover page with AI-HRMS branding
-
----
-Task ID: 3
-Agent: Main Agent
-Task: Create Technical Documentation (DOCX)
-
-Work Log:
-- Generated comprehensive DOCX using docx library (Node.js)
-- 10 parts: Architecture, Frontend, Backend, Database, Middleware, API, AI, Coding Standards, Module Deep Dive, Deployment
-- Used GO-1 Graphite Orange palette with professional cover page
-- Included code blocks, tables, and detailed explanations
-- Saved to /home/z/my-project/download/AI-HRMS_Technical_Documentation.docx (35KB)
-
-Stage Summary:
-- Technical Documentation created covering all layers of the application
-- Includes coding standards, AI integration standards, and deployment configuration
-
----
-Task ID: 4
-Agent: Main Agent
-Task: Push documentation to GitHub
-
-Work Log:
-- Created docs/MODULE_SOP.md (Markdown version of SOP)
-- Created docs/TECHNICAL_DOCUMENTATION_V2.md (Markdown version of Tech Doc)
-- Copied DOCX files to download/ directory in repo
-- Updated README.md with documentation links, tech stack, and module catalog
-- Pushed all files to GitHub (3 commits)
-- Attempted to push to GitHub wiki but .wiki.git repo not initialized yet
-
-Stage Summary:
-- All documentation pushed to main repo
-- DOCX files available for download in /download/ directory
-- Markdown versions available in /docs/ directory
-- README updated with links to all documentation
-- GitHub wiki needs manual initialization (visit https://github.com/maheshkpreddy/ai-hrms/wiki first, then wiki git push will work)
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Fix login error - Unknown field `company` for include statement on model `User`
+Task: Fix dashboard not loading and login errors in AI-HRMS application
 
 Work Log:
-- Diagnosed root cause: Prisma schema was missing `companyId` and `company` relation on User model, plus many other fields that the code expected
-- Fixed `.env` to point to Neon PostgreSQL instead of SQLite
-- Updated `schema.prisma` to add:
-  - `companyId` + `company` relation on User model
-  - `companyId` + `company` relation on Employee model
-  - `companyId` + `company` relation on Department model
-  - `gstNumber`, `panNumber`, `subscription` fields on Company model
-  - `isSystem`, `dashboard`, `menuItems`, `color` fields on Role model
-  - `RolePermission` model for granular RBAC
-- Pushed schema to Neon PostgreSQL with `prisma db push`
-- Reseeded database with all data including RolePermissions
-- Created `/api/roles/permissions` API route (GET/POST/PATCH/DELETE)
-- Added company code filter to `/api/companies` GET endpoint
-- Fixed RBAC page save permissions call format
-- Enhanced Flutter mobile app with working attendance check-in/out, leave application, AI chat
-- Updated Flutter auth service with CSRF token handling for NextAuth
-- Pushed to GitHub (maheshkpreddy/ai-hrms)
-- Deployed to Vercel (https://ai-hrms-rho.vercel.app)
+- Identified root cause: Prisma schema had `provider = "sqlite"` at deployment, and `DATABASE_URL` env var was overridden by system env pointing to SQLite file
+- The local schema already had `provider = "postgresql"` but needed deployment fix
+- Found and fixed critical dashboard API error: `notIn: ['', null]` is invalid in PostgreSQL/Prisma
+- Fixed dashboard query to use `department: { not: '' }, NOT: { department: null }` instead
+- Audited all 22 API routes for PostgreSQL compatibility issues
+- Fixed 21 `contains` search filters across 10 API routes missing `mode: 'insensitive'` (PostgreSQL requires this for case-insensitive search, SQLite doesn't)
+- Fixed holidays route: changed `contains: year` to `startsWith: year` for date filtering
+- Regenerated Prisma client and pushed schema to Neon PostgreSQL
+- Re-seeded database with 20 employees, 11 users, and all test data
+- Updated Vercel production DATABASE_URL to correct Neon PostgreSQL connection string
+- Built and deployed to Vercel production successfully
 
 Stage Summary:
-- Login error is now FIXED - User model has `company` relation
-- Company-wise login with company code verification works
-- Role-based dashboard auto-routing works (admin/hr/payroll/manager/employee/recruiter/learning)
-- Role Master page at /dashboard/rbac has full permission matrix
-- RolePermission model and API for granular RBAC
-- Flutter mobile app enhanced with functional features
-- All deployed to production
+- Fixed files: dashboard, departments, candidates, policies, holidays, skills, courses, shifts, roles, jobs, documents route.ts
+- Database: Neon PostgreSQL with all 22 tables synced, 20 employees, 11 user accounts seeded
+- Deployment: https://ai-hrms-rho.vercel.app - successfully deployed
+- Login credentials: admin@company.com/Admin@2024, priya.sharma@company.com/HRAdmin@2024, etc.
