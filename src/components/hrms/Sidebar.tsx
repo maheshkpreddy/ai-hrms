@@ -24,6 +24,7 @@ import {
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useSession, signOut } from 'next-auth/react'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -167,6 +168,10 @@ function SidebarContent({
   searchQuery,
   onSearchChange,
 }: SidebarContentProps) {
+  const { data: session } = useSession()
+  const userName = session?.user?.name || 'User'
+  const userRole = (session?.user as any)?.role || 'Employee'
+  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   const filteredItems = navItems.filter((item) =>
     item.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -280,6 +285,7 @@ function SidebarContent({
             variant="ghost"
             size="sm"
             className="flex-1 justify-start gap-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            onClick={() => signOut({ callbackUrl: '/login' })}
           >
             <LogOut className="size-4" />
             <span className="text-xs">Logout</span>
@@ -340,19 +346,19 @@ function SidebarContent({
           )}
         >
           <Avatar className="size-8 ring-2 ring-emerald-500/30">
-            <AvatarImage src="" alt="Alex Morgan" />
+            <AvatarImage src="" alt={userName} />
             <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
-              AM
+              {userInitials}
             </AvatarFallback>
           </Avatar>
 
           {!collapsed && (
             <div className="flex flex-1 flex-col overflow-hidden">
               <span className="truncate text-sm font-medium text-white">
-                Alex Morgan
+                {userName}
               </span>
               <span className="truncate text-[11px] text-slate-400">
-                HR Administrator
+                {userRole}
               </span>
             </div>
           )}

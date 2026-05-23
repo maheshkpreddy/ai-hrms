@@ -56,6 +56,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApi } from '@/lib/useApi'
 import { cn } from '@/lib/utils'
+import { useSession } from 'next-auth/react'
+import { useHRMSStore, type ModuleKey } from '@/lib/store'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -149,33 +151,16 @@ interface LeaveBalance {
   color: string
 }
 
-// ─── Employee Profile Data ─────────────────────────────────────────────────────
-
-const employeeProfile = {
-  name: 'Rajesh Kumar',
-  employeeId: 'EMP001',
-  email: 'rajesh.kumar@company.com',
-  phone: '+91-9876543210',
-  designation: 'Senior Software Engineer',
-  department: 'Engineering',
-  jobTitle: 'Tech Lead',
-  joinDate: '2021-03-15',
-  status: 'Active',
-  contractType: 'Full-time',
-  location: 'Bangalore',
-  manager: 'Anita Desai',
-  workMode: 'Hybrid',
-}
-
 // ─── Quick Actions Config ───────────────────────────────────────────────────────
 
-const quickActions = [
+const quickActions: { label: string; icon: typeof Calendar; color: string; bg: string; border: string; module: ModuleKey }[] = [
   {
     label: 'Apply Leave',
     icon: Calendar,
     color: 'text-emerald-600 dark:text-emerald-400',
     bg: 'bg-emerald-50 dark:bg-emerald-950/50',
     border: 'hover:border-emerald-300 dark:hover:border-emerald-700',
+    module: 'attendance',
   },
   {
     label: 'View Payslip',
@@ -183,6 +168,7 @@ const quickActions = [
     color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 dark:bg-amber-950/50',
     border: 'hover:border-amber-300 dark:hover:border-amber-700',
+    module: 'payroll',
   },
   {
     label: 'Submit Expense',
@@ -190,6 +176,7 @@ const quickActions = [
     color: 'text-rose-600 dark:text-rose-400',
     bg: 'bg-rose-50 dark:bg-rose-950/50',
     border: 'hover:border-rose-300 dark:hover:border-rose-700',
+    module: 'payroll',
   },
   {
     label: 'Update Profile',
@@ -197,6 +184,7 @@ const quickActions = [
     color: 'text-teal-600 dark:text-teal-400',
     bg: 'bg-teal-50 dark:bg-teal-950/50',
     border: 'hover:border-teal-300 dark:hover:border-teal-700',
+    module: 'selfservice',
   },
   {
     label: 'Company Policies',
@@ -204,6 +192,7 @@ const quickActions = [
     color: 'text-purple-600 dark:text-purple-400',
     bg: 'bg-purple-50 dark:bg-purple-950/50',
     border: 'hover:border-purple-300 dark:hover:border-purple-700',
+    module: 'selfservice',
   },
   {
     label: 'Training Portal',
@@ -211,6 +200,7 @@ const quickActions = [
     color: 'text-cyan-600 dark:text-cyan-400',
     bg: 'bg-cyan-50 dark:bg-cyan-950/50',
     border: 'hover:border-cyan-300 dark:hover:border-cyan-700',
+    module: 'learning',
   },
 ]
 
@@ -380,7 +370,39 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function SelfService() {
-  // Tab state
+  const { data: session } = useSession()
+  const { setActiveModule } = useHRMSStore()
+
+  // Get employee data from session
+  const sessionEmployeeId = (session?.user as any)?.employeeId || ''
+  const sessionName = session?.user?.name || 'User'
+  const sessionEmail = session?.user?.email || ''
+  const sessionRole = (session?.user as any)?.role || 'Employee'
+  const userInitials = sessionName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+
+  // Fetch current employee data from API
+  const {
+    data: employeeData,
+  } = useApi<any>({
+    baseUrl: sessionEmployeeId ? `/api/employees/${sessionEmployeeId}` : '',
+    enabled: !!sessionEmployeeId,
+  })
+
+  const employeeProfile = {
+    name: employeeData?.firstName && employeeData?.lastName ? `${employeeData.firstName} ${employeeData.lastName}` : sessionName,
+    employeeId: employeeData?.employeeId || '',
+    email: employeeData?.email || sessionEmail,
+    phone: employeeData?.phone || '',
+    designation: employeeData?.designation || '',
+    department: employeeData?.department || '',
+    jobTitle: employeeData?.jobTitle || '',
+    joinDate: employeeData?.joinDate || '',
+    status: employeeData?.status || 'active',
+    contractType: employeeData?.contractType || '',
+    location: employeeData?.address || '',
+    manager: '',
+    workMode: 'Hybrid',
+  }
   const [activeTab, setActiveTab] = useState('profile')
 
   // Profile edit state
@@ -408,8 +430,8 @@ export default function SelfService() {
 
   // ─── API Data Fetching ─────────────────────────────────────────────────────
 
-  // Current employee ID for API calls (in a real app, this comes from auth context)
-  const currentEmployeeId = employeeProfile.employeeId
+  // Current employee ID for API calls - derived from session
+  const currentEmployeeId = sessionEmployeeId
 
   // Policies - fetch all, then filter client-side for search/category
   const {
@@ -675,7 +697,7 @@ export default function SelfService() {
               <Avatar className="h-14 w-14 ring-2 ring-white/30 sm:h-16 sm:w-16">
                 <AvatarImage src="" alt={employeeProfile.name} />
                 <AvatarFallback className="bg-white/20 text-lg font-bold text-white">
-                  RK
+                  {userInitials}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -725,6 +747,7 @@ export default function SelfService() {
                   action.border,
                   'hover:shadow-md'
                 )}
+                onClick={() => setActiveModule(action.module)}
               >
                 <div className={cn('rounded-lg p-2.5', action.bg)}>
                   <Icon className={cn('h-5 w-5', action.color)} />
@@ -791,7 +814,7 @@ export default function SelfService() {
                       <Avatar className="h-16 w-16 ring-2 ring-emerald-500/20">
                         <AvatarImage src="" alt={employeeProfile.name} />
                         <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white">
-                          RK
+                          {userInitials}
                         </AvatarFallback>
                       </Avatar>
                       <div>

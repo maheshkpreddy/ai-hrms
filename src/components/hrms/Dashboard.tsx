@@ -42,6 +42,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useApi } from '@/lib/useApi'
+import { useHRMSStore, type ModuleKey } from '@/lib/store'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface DashboardData {
@@ -95,13 +96,13 @@ const PIE_COLORS = [
 ]
 
 // ─── Quick Actions Config ─────────────────────────────────────────────────────
-const quickActions = [
-  { label: 'Add Employee', icon: UserPlus, color: 'text-emerald-600 dark:text-emerald-400' },
-  { label: 'Process Payroll', icon: CreditCard, color: 'text-amber-600 dark:text-amber-400' },
-  { label: 'Post Job', icon: FileText, color: 'text-cyan-600 dark:text-cyan-400' },
-  { label: 'Run Reports', icon: BarChart3, color: 'text-rose-600 dark:text-rose-400' },
-  { label: 'Schedule Interview', icon: CalendarCheck, color: 'text-purple-600 dark:text-purple-400' },
-  { label: 'Approve Leaves', icon: CheckCircle2, color: 'text-teal-600 dark:text-teal-400' },
+const quickActions: { label: string; icon: typeof UserPlus; color: string; module: ModuleKey }[] = [
+  { label: 'Add Employee', icon: UserPlus, color: 'text-emerald-600 dark:text-emerald-400', module: 'employees' },
+  { label: 'Process Payroll', icon: CreditCard, color: 'text-amber-600 dark:text-amber-400', module: 'payroll' },
+  { label: 'Post Job', icon: FileText, color: 'text-cyan-600 dark:text-cyan-400', module: 'talent' },
+  { label: 'Run Reports', icon: BarChart3, color: 'text-rose-600 dark:text-rose-400', module: 'analytics' },
+  { label: 'Schedule Interview', icon: CalendarCheck, color: 'text-purple-600 dark:text-purple-400', module: 'talent' },
+  { label: 'Approve Leaves', icon: CheckCircle2, color: 'text-teal-600 dark:text-teal-400', module: 'attendance' },
 ]
 
 // ─── Activity icon mapping ────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ export default function Dashboard() {
   const { data, loading, error } = useApi<DashboardData>({
     baseUrl: '/api/dashboard',
   })
+  const { setActiveModule } = useHRMSStore()
 
   const overview = data?.overview ?? null
   const charts = data?.charts ?? null
@@ -594,6 +596,7 @@ export default function Dashboard() {
                       key={action.label}
                       variant="outline"
                       className="h-auto flex-col gap-2 py-5 transition-all hover:border-emerald-300 hover:shadow-md dark:hover:border-emerald-700"
+                      onClick={() => setActiveModule(action.module)}
                     >
                       <Icon className={`h-5 w-5 ${action.color}`} />
                       <span className="text-xs font-medium">{action.label}</span>

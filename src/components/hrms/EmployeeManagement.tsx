@@ -468,8 +468,13 @@ export default function EmployeeManagement() {
   async function handleAddEmployee() {
     setSaving(true)
     try {
+      // Auto-generate employeeId for new employees
+      const nextEmpNum = (employeesData?.pagination?.total ?? 0) + 1
+      const employeeId = `EMP${String(nextEmpNum).padStart(3, '0')}`
+
       const body = {
         ...addForm,
+        employeeId: editingEmployeeId ? undefined : employeeId,
         dateOfBirth: addForm.dateOfBirth || undefined,
         salary: addForm.salary ? Number(addForm.salary) : 0,
         reportingTo: addForm.reportingTo || null,
