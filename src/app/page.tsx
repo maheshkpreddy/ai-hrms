@@ -5,6 +5,8 @@ import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import Sidebar from '@/components/hrms/Sidebar'
 import Dashboard from '@/components/hrms/Dashboard'
 import EmployeeManagement from '@/components/hrms/EmployeeManagement'
+import AssetManagement from '@/components/hrms/AssetManagement'
+import DocumentManagement from '@/components/hrms/DocumentManagement'
 import RBACSecurity from '@/components/hrms/RBACSecurity'
 import TalentAcquisition from '@/components/hrms/TalentAcquisition'
 import TimeAttendance from '@/components/hrms/TimeAttendance'
@@ -20,6 +22,8 @@ import { useState, useRef, useEffect } from 'react'
 const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   dashboard: Dashboard,
   employees: EmployeeManagement,
+  assets: AssetManagement,
+  documents: DocumentManagement,
   rbac: RBACSecurity,
   talent: TalentAcquisition,
   attendance: TimeAttendance,
@@ -34,6 +38,8 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
 const moduleTitles: Record<ModuleKey, string> = {
   dashboard: 'Dashboard',
   employees: 'Employee Management',
+  assets: 'Asset Management',
+  documents: 'Document Management',
   rbac: 'RBAC & Security',
   talent: 'AI Talent Acquisition',
   attendance: 'Time & Attendance',

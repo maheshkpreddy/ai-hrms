@@ -3,6 +3,8 @@ import { create } from 'zustand'
 export type ModuleKey = 
   | 'dashboard' 
   | 'employees' 
+  | 'assets' 
+  | 'documents' 
   | 'rbac' 
   | 'talent' 
   | 'attendance' 

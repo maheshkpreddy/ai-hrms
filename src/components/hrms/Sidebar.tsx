@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import {
   LayoutDashboard,
   Users,
+  Laptop,
+  FileText,
   Shield,
   Brain,
   Clock,
@@ -54,6 +56,8 @@ interface NavItem {
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, aiPowered: false },
   { key: 'employees', label: 'Employees', icon: Users, aiPowered: false },
+  { key: 'assets', label: 'Asset Management', icon: Laptop, aiPowered: false },
+  { key: 'documents', label: 'Document Management', icon: FileText, aiPowered: false },
   { key: 'rbac', label: 'RBAC & Security', icon: Shield, aiPowered: false },
   { key: 'talent', label: 'Talent Acquisition', icon: Brain, aiPowered: true },
   { key: 'attendance', label: 'Time & Attendance', icon: Clock, aiPowered: false },

@@ -36,6 +36,8 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { useTheme } from 'next-themes'
+import { useSession } from 'next-auth/react'
+import { useToast } from '@/hooks/use-toast'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface GeneralSettings {
@@ -223,21 +225,57 @@ export default function Settings() {
     }, 400)
   }, [security])
 
-  // Change password handler
-  const handleChangePassword = useCallback(() => {
+  // Change password handler (connected to real API)
+  const { data: session } = useSession()
+  const { toast } = useToast()
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  const handleChangePassword = useCallback(async () => {
     if (!currentPassword || !newPassword || !confirmPassword) return
     if (newPassword !== confirmPassword) return
     if (newPassword.length < security.passwordMinLength) return
+
     setPasswordChanging(true)
-    setTimeout(() => {
+    setPasswordError(null)
+
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: session?.user?.email,
+          currentPassword,
+          newPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to change password')
+      }
+
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
       setPasswordChanging(false)
       setSaved(true)
+      toast({
+        title: 'Password Changed',
+        description: 'Your password has been updated successfully.',
+      })
       setTimeout(() => setSaved(false), 2000)
-    }, 800)
-  }, [currentPassword, newPassword, confirmPassword, security.passwordMinLength])
+    } catch (err) {
+      setPasswordChanging(false)
+      const message = err instanceof Error ? err.message : 'Failed to change password'
+      setPasswordError(message)
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      })
+    }
+  }, [currentPassword, newPassword, confirmPassword, security.passwordMinLength, session?.user?.email, toast])
 
   // Persist privacy settings
   const savePrivacy = useCallback(() => {
@@ -645,6 +683,11 @@ export default function Settings() {
                 {newPassword && newPassword.length < security.passwordMinLength && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     Password must be at least {security.passwordMinLength} characters
+                  </p>
+                )}
+                {passwordError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {passwordError}
                   </p>
                 )}
                 <div className="flex justify-end">
