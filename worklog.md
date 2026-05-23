@@ -49,3 +49,26 @@ Stage Summary:
 - Leave form now calculates and sends `days` field to API
 - Settings page is fully functional with localStorage persistence
 - Settings navigation works from sidebar nav items and bottom section buttons
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Attendance module crash + Enable Settings page
+
+Work Log:
+- Diagnosed root cause of Attendance module client-side error: API returns nested Prisma data with `employee` relation, but frontend expected flat `name`, `hours`, `department` fields
+- Fixed TimeAttendance.tsx: Changed `useMemo` side effect to proper `useEffect` for setting currentEmployeeDbId
+- Fixed TimeAttendance.tsx: Added data transformation layer to map nested API attendance/leave responses to flat format
+- Fixed TimeAttendance.tsx: Added `days` calculation for leave form submission (API requires `days` but form didn't send it)
+- Fixed TimeAttendance.tsx: Changed `useApi` generic types to `any` for attendance and leaves hooks to accept raw Prisma responses
+- Created Settings.tsx component with 5 tabs: General, Appearance, Notifications, Security, Data & Privacy
+- Updated store.ts: Added 'settings' to ModuleKey union type
+- Updated Sidebar.tsx: Added Settings to navItems array + wired onClick handlers on both expanded and collapsed Settings buttons
+- Updated page.tsx: Registered Settings component in moduleComponents and moduleTitles maps
+- Build succeeded with zero errors
+- Pushed to GitHub and deployed to Vercel production
+
+Stage Summary:
+- Attendance module no longer crashes - data is properly transformed from nested API format
+- Leave form now calculates and sends `days` field
+- Settings page is fully functional with 5 tabs and localStorage persistence
+- Deployed to https://ai-hrms-rho.vercel.app
