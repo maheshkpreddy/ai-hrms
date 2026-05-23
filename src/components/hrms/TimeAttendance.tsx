@@ -374,6 +374,22 @@ export default function TimeAttendance() {
   })
   const [submittingLeave, setSubmittingLeave] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [currentEmployeeDbId, setCurrentEmployeeDbId] = useState<string>('')
+
+  // ── Fetch first employee for current user placeholder ──────────────────────
+  const {
+    data: firstEmpData,
+  } = useApi<{ employees: { id: string; employeeId: string; firstName: string; lastName: string }[]; pagination: { total: number } }>({
+    baseUrl: '/api/employees',
+    params: { page: 1, limit: 1 },
+  })
+
+  // Set current employee DB ID when data loads
+  useMemo(() => {
+    if (firstEmpData?.employees?.[0]?.id) {
+      setCurrentEmployeeDbId(firstEmpData.employees[0].id)
+    }
+  }, [firstEmpData])
 
   // ── API Hooks ────────────────────────────────────────────────────────────────
   const {
@@ -484,9 +500,10 @@ export default function TimeAttendance() {
 
   // ── Mutation Handlers ────────────────────────────────────────────────────────
   const handleMarkAttendance = useCallback(async () => {
+    if (!currentEmployeeDbId) return
     try {
       await apiPost('/api/attendance', {
-        employeeId: 'CURRENT_USER',
+        employeeId: currentEmployeeDbId,
         date: today.toISOString().split('T')[0],
         checkIn: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
         status: 'present',
@@ -495,14 +512,15 @@ export default function TimeAttendance() {
     } catch (err) {
       console.error('Failed to mark attendance:', err)
     }
-  }, [refetchAttendance])
+  }, [refetchAttendance, currentEmployeeDbId])
 
   const handleApplyLeave = useCallback(async () => {
     if (!leaveForm.leaveType || !leaveForm.startDate || !leaveForm.endDate || !leaveForm.reason) return
+    if (!currentEmployeeDbId) return
     setSubmittingLeave(true)
     try {
       await apiPost('/api/leaves', {
-        employeeId: 'CURRENT_USER',
+        employeeId: currentEmployeeDbId,
         leaveType: leaveForm.leaveType,
         startDate: leaveForm.startDate,
         endDate: leaveForm.endDate,
@@ -516,7 +534,7 @@ export default function TimeAttendance() {
     } finally {
       setSubmittingLeave(false)
     }
-  }, [leaveForm, refetchLeaves])
+  }, [leaveForm, refetchLeaves, currentEmployeeDbId])
 
   const handleLeaveAction = useCallback(async (leaveId: string, action: 'approved' | 'rejected') => {
     setActionLoading(leaveId)

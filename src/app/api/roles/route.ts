@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 
@@ -128,7 +128,7 @@ export async function PATCH(request: NextRequest) {
 
     // Check for duplicate name if name is being updated
     if (name && name !== existing.name) {
-      const duplicate = await db.role.findUnique({ where: { name } });
+      const duplicate = await db.role.findFirst({ where: { name } });
       if (duplicate) {
         return NextResponse.json(
           { error: 'Role with this name already exists' },

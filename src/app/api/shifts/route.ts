@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {};
 
     if (search) {
-      where.name = { contains: search, mode: 'insensitive' };
+      where.name = { contains: search };
     }
 
     const [shifts, total] = await Promise.all([
@@ -116,7 +116,7 @@ export async function PATCH(request: NextRequest) {
 
     // Check for duplicate name if name is being updated
     if (name && name !== existing.name) {
-      const duplicate = await db.shift.findUnique({ where: { name } });
+      const duplicate = await db.shift.findFirst({ where: { name } });
       if (duplicate) {
         return NextResponse.json(
           { error: 'Shift with this name already exists' },

@@ -86,11 +86,12 @@ import { useToast } from '@/hooks/use-toast'
 
 interface Employee {
   id: string
+  employeeId: string
   firstName: string
   lastName: string
   email: string
   phone: string
-  dob: string
+  dateOfBirth: string
   gender: string
   address: string
   department: string
@@ -295,11 +296,12 @@ export default function EmployeeManagement() {
 
   // Add Employee Form State
   const [addForm, setAddForm] = useState({
+    employeeId: '',
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    dob: '',
+    dateOfBirth: '',
     gender: '',
     address: '',
     department: '',
@@ -411,11 +413,12 @@ export default function EmployeeManagement() {
   async function handleEdit(emp: Employee) {
     // Open a simple edit flow: populate the add form with existing data, reuse the dialog
     setAddForm({
+      employeeId: emp.employeeId,
       firstName: emp.firstName,
       lastName: emp.lastName,
       email: emp.email,
       phone: emp.phone,
-      dob: emp.dob,
+      dateOfBirth: emp.dateOfBirth,
       gender: emp.gender,
       address: emp.address,
       department: emp.department,
@@ -467,6 +470,7 @@ export default function EmployeeManagement() {
     try {
       const body = {
         ...addForm,
+        dateOfBirth: addForm.dateOfBirth || undefined,
         salary: addForm.salary ? Number(addForm.salary) : 0,
         reportingTo: addForm.reportingTo || null,
       }
@@ -488,11 +492,12 @@ export default function EmployeeManagement() {
       setAddOpen(false)
       setEditingEmployeeId(null)
       setAddForm({
+        employeeId: '',
         firstName: '',
         lastName: '',
         email: '',
         phone: '',
-        dob: '',
+        dateOfBirth: '',
         gender: '',
         address: '',
         department: '',
@@ -533,11 +538,12 @@ export default function EmployeeManagement() {
     if (!open) {
       setEditingEmployeeId(null)
       setAddForm({
+        employeeId: '',
         firstName: '',
         lastName: '',
         email: '',
         phone: '',
-        dob: '',
+        dateOfBirth: '',
         gender: '',
         address: '',
         department: '',
@@ -840,7 +846,7 @@ export default function EmployeeManagement() {
                           </TableCell>
                           <TableCell>
                             <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
-                              {emp.id}
+                              {emp.employeeId}
                             </code>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
@@ -936,7 +942,7 @@ export default function EmployeeManagement() {
                   {selectedEmployee?.firstName} {selectedEmployee?.lastName}
                 </p>
                 <p className="text-muted-foreground text-sm font-normal">
-                  {selectedEmployee?.designation} · {selectedEmployee?.id}
+                  {selectedEmployee?.designation} · {selectedEmployee?.employeeId}
                 </p>
               </div>
             </SheetTitle>
@@ -972,7 +978,7 @@ export default function EmployeeManagement() {
                   <InfoRow
                     icon={Calendar}
                     label="Date of Birth"
-                    value={formatDate(selectedEmployee.dob)}
+                    value={formatDate(selectedEmployee.dateOfBirth)}
                   />
                   <InfoRow
                     icon={Shield}
@@ -1222,6 +1228,18 @@ export default function EmployeeManagement() {
               <ScrollArea className="max-h-[50vh]">
                 <div className="grid grid-cols-1 gap-4 pr-2 sm:grid-cols-2">
                   <div className="space-y-2">
+                    <Label htmlFor="employeeId">Employee ID {!editingEmployeeId && '*'}</Label>
+                    <Input
+                      id="employeeId"
+                      placeholder="e.g. EMP021 (auto-generated if blank)"
+                      value={addForm.employeeId}
+                      onChange={(e) =>
+                        setAddForm({ ...addForm, employeeId: e.target.value })
+                      }
+                      disabled={!!editingEmployeeId}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="firstName">First Name *</Label>
                     <Input
                       id="firstName"
@@ -1267,13 +1285,13 @@ export default function EmployeeManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dob">Date of Birth</Label>
+                    <Label htmlFor="dateOfBirth">Date of Birth</Label>
                     <Input
-                      id="dob"
+                      id="dateOfBirth"
                       type="date"
-                      value={addForm.dob}
+                      value={addForm.dateOfBirth}
                       onChange={(e) =>
-                        setAddForm({ ...addForm, dob: e.target.value })
+                        setAddForm({ ...addForm, dateOfBirth: e.target.value })
                       }
                     />
                   </div>

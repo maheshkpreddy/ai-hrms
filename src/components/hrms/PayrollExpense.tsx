@@ -145,6 +145,7 @@ interface ExpenseApiResponse {
 interface PayrollRow {
   id: string
   employeeId: string
+  dbEmployeeId: string
   name: string
   month: string
   year: number
@@ -180,6 +181,7 @@ function flattenPayroll(r: PayrollRecord): PayrollRow {
   return {
     id: r.id,
     employeeId: r.employee.employeeId,
+    dbEmployeeId: r.employeeId,
     name: `${r.employee.firstName} ${r.employee.lastName}`,
     month: r.month,
     year: r.year,
@@ -668,14 +670,17 @@ export default function PayrollExpense() {
         const pending = payrollRows.filter((r) => r.status === 'pending')
         for (const row of pending) {
           await apiPost('/api/payroll', {
-            employeeId: row.employeeId,
+            employeeId: row.dbEmployeeId,
             month: selectedMonth,
             year: Number(selectedYear),
           })
         }
       } else {
+        // employeeId passed in here is the display ID from the table row; find the dbEmployeeId
+        const targetRow = payrollRows.find((r) => r.employeeId === employeeId || r.dbEmployeeId === employeeId)
+        const dbId = targetRow?.dbEmployeeId ?? employeeId
         await apiPost('/api/payroll', {
-          employeeId,
+          employeeId: dbId,
           month: selectedMonth,
           year: Number(selectedYear),
         })
@@ -689,13 +694,25 @@ export default function PayrollExpense() {
     }
   }, [payrollRows, selectedMonth, selectedYear, refetchPayroll])
 
+  // ─── Fetch first employee for default expense submissions ────────────
+  const {
+    data: firstEmployeeData,
+  } = useApi<{ employees: { id: string; employeeId: string; firstName: string; lastName: string }[]; pagination: { total: number } }>({
+    baseUrl: '/api/employees',
+    params: { page: 1, limit: 1 },
+  })
+
+  const defaultEmployeeDbId = firstEmployeeData?.employees?.[0]?.id ?? ''
+
   // ─── Expense submission handler ──────────────────────────────────────────
   const handleExpenseSubmit = useCallback(async (data: { category: string; amount: number; date: string; description: string }) => {
     setMutationError(null)
     try {
-      // Use a default employee ID for the current user; in a real app this would come from auth context
+      if (!defaultEmployeeDbId) {
+        throw new Error('No employee found. Please add an employee first.')
+      }
       await apiPost('/api/expenses', {
-        employeeId: 'EMP001', // default — would be current user's ID in production
+        employeeId: defaultEmployeeDbId,
         category: data.category,
         amount: data.amount,
         date: data.date,
@@ -706,7 +723,7 @@ export default function PayrollExpense() {
       setMutationError(err instanceof Error ? err.message : 'Failed to submit expense')
       throw err
     }
-  }, [refetchExpenses])
+  }, [refetchExpenses, defaultEmployeeDbId])
 
   // ─── Expense approve/reject handler ──────────────────────────────────────
   const handleExpenseAction = useCallback(async (id: string, status: 'approved' | 'rejected') => {

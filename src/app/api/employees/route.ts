@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { employeeId: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { email: { contains: search } },
+        { employeeId: { contains: search } },
       ];
     }
 
@@ -68,9 +68,26 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // Auto-generate employeeId if not provided
+    let employeeId = body.employeeId;
+    if (!employeeId) {
+      const count = await db.employee.count();
+      employeeId = `EMP${String(count + 1).padStart(3, '0')}`;
+      // Ensure uniqueness by checking if it already exists
+      const existing = await db.employee.findUnique({ where: { employeeId } });
+      if (existing) {
+        // Increment until we find a unique one
+        let next = count + 2;
+        while (await db.employee.findUnique({ where: { employeeId: `EMP${String(next).padStart(3, '0')}` } })) {
+          next++;
+        }
+        employeeId = `EMP${String(next).padStart(3, '0')}`;
+      }
+    }
+
     const employee = await db.employee.create({
       data: {
-        employeeId: body.employeeId,
+        employeeId,
         firstName: body.firstName,
         lastName: body.lastName,
         email: body.email,

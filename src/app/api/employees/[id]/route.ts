@@ -141,9 +141,23 @@ export async function DELETE(
       );
     }
 
-    await db.employee.delete({ where: { id } });
+    // Cascade delete: remove all related records first
+    await db.$transaction([
+      db.attendance.deleteMany({ where: { employeeId: id } }),
+      db.leave.deleteMany({ where: { employeeId: id } }),
+      db.expense.deleteMany({ where: { employeeId: id } }),
+      db.payroll.deleteMany({ where: { employeeId: id } }),
+      db.performance.deleteMany({ where: { employeeId: id } }),
+      db.asset.deleteMany({ where: { employeeId: id } }),
+      db.employeeSkill.deleteMany({ where: { employeeId: id } }),
+      db.courseEnrollment.deleteMany({ where: { employeeId: id } }),
+      db.document.deleteMany({ where: { employeeId: id } }),
+      db.auditLog.deleteMany({ where: { employeeId: id } }),
+      db.user.deleteMany({ where: { employeeId: id } }),
+      db.employee.delete({ where: { id } }),
+    ]);
 
-    // Create audit log
+    // Create audit log for the deletion (after transaction since employee FK is gone)
     await db.auditLog.create({
       data: {
         action: 'delete',

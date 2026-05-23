@@ -74,7 +74,7 @@ export default function Home() {
   // Redirect to login if not authenticated
   if (status === 'unauthenticated' || !session) {
     if (typeof window !== 'undefined') {
-      window.location.href = '/login'
+      window.location.replace('/login')
     }
     return null
   }
