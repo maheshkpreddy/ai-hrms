@@ -48,7 +48,11 @@ export async function GET() {
     // Get employees by department
     const employeesByDepartment = await db.employee.groupBy({
       by: ['department'],
-      where: { status: 'active', department: { notIn: ['', null] } },
+      where: {
+        status: 'active',
+        department: { not: '' },
+        NOT: { department: null },
+      },
       _count: { id: true },
     });
 

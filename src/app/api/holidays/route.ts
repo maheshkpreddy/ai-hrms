@@ -17,13 +17,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (year) {
-      where.date = { contains: year };
+      where.date = { startsWith: year };
     }
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { type: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { type: { contains: search, mode: 'insensitive' } },
       ];
     }
 
