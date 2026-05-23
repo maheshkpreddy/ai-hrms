@@ -46,6 +46,10 @@ model Employee {
   documents     Document[]
   auditLogs     AuditLog[]
   user          User?
+  companyMembers CompanyMember[]
+  taskAssignments TaskAssignment[]
+  taskComments  TaskComment[]
+  meetingInvitations MeetingInvitation[]
 }
 
 model Department {
@@ -348,4 +352,172 @@ model Holiday {
   type      String? // national, company, optional
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── Company Management ──────────────────────────────────────────────────────
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique  // join code for employees
+  description String?
+  industry    String?
+  website     String?
+  logo        String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  pincode     String?
+  phone       String?
+  email       String?
+  foundedYear String?
+  employeeCount Int?
+  isActive    Boolean  @default(true)
+  createdBy   String?  // user ID of HR who created
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     CompanyMember[]
+  officeLocations OfficeLocation[]
+  tasks       Task[]
+  meetings    Meeting[]
+}
+
+model CompanyMember {
+  id          String   @id @default(cuid())
+  companyId   String
+  employeeId  String
+  role        String   @default("employee") // owner, hr, manager, employee
+  status      String   @default("pending")  // pending, approved, rejected, removed
+  joinedAt    String?
+  company     Company  @relation(fields: [companyId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, employeeId])
+}
+
+// ─── Office Locations & Geofencing ───────────────────────────────────────────
+
+model OfficeLocation {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  address     String?
+  latitude    Float
+  longitude   Float
+  radius      Float    @default(500) // geofence radius in meters
+  isActive    Boolean  @default(true)
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Task Management ─────────────────────────────────────────────────────────
+
+model Task {
+  id          String   @id @default(cuid())
+  companyId   String?
+  title       String
+  description String?
+  priority    String   @default("medium") // low, medium, high, urgent
+  status      String   @default("not_started") // not_started, in_progress, finished
+  dueDate     String?
+  imageUrl    String?  // reference image
+  createdBy   String?  // employee ID of creator
+  company     Company? @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments TaskAssignment[]
+  comments    TaskComment[]
+}
+
+model TaskAssignment {
+  id          String   @id @default(cuid())
+  taskId      String
+  employeeId  String
+  status      String   @default("not_started") // not_started, in_progress, finished
+  completedAt String?
+  task        Task     @relation(fields: [taskId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([taskId, employeeId])
+}
+
+model TaskComment {
+  id          String   @id @default(cuid())
+  taskId      String
+  employeeId  String
+  content     String
+  isHr        Boolean  @default(false)  // HR badge indicator
+  task        Task     @relation(fields: [taskId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Meeting Management ──────────────────────────────────────────────────────
+
+model Meeting {
+  id          String   @id @default(cuid())
+  companyId   String?
+  title       String
+  description String?
+  date        String
+  startTime   String
+  endTime     String?
+  location    String?  // physical or virtual meeting link
+  meetingType String?  // in-person, virtual, hybrid
+  status      String   @default("scheduled") // scheduled, in_progress, completed, cancelled
+  createdBy   String?  // employee ID
+  company     Company? @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invitations MeetingInvitation[]
+}
+
+model MeetingInvitation {
+  id          String   @id @default(cuid())
+  meetingId   String
+  employeeId  String
+  rsvpStatus  String   @default("pending") // pending, accepted, declined
+  respondedAt String?
+  meeting     Meeting  @relation(fields: [meetingId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([meetingId, employeeId])
+}
+
+// ─── Profile & Account Extensions ────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String  // oauth, credentials
+  provider          String  // google, credentials
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
 }

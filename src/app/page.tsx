@@ -15,6 +15,10 @@ import Performance from '@/components/hrms/Performance'
 import LearningDevelopment from '@/components/hrms/LearningDevelopment'
 import Analytics from '@/components/hrms/Analytics'
 import SelfService from '@/components/hrms/SelfService'
+import CompanyManagement from '@/components/hrms/CompanyManagement'
+import TaskManagement from '@/components/hrms/TaskManagement'
+import MeetingManagement from '@/components/hrms/MeetingManagement'
+import ProfileManagement from '@/components/hrms/ProfileManagement'
 import Settings from '@/components/hrms/Settings'
 import { LogOut, User, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
@@ -32,6 +36,10 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   learning: LearningDevelopment,
   analytics: Analytics,
   selfservice: SelfService,
+  company: CompanyManagement,
+  tasks: TaskManagement,
+  meetings: MeetingManagement,
+  profile: ProfileManagement,
   settings: Settings,
 }
 
@@ -48,6 +56,10 @@ const moduleTitles: Record<ModuleKey, string> = {
   learning: 'Learning & Development',
   analytics: 'Analytics & Reporting',
   selfservice: 'Employee Self-Service',
+  company: 'Company Management',
+  tasks: 'Task Management',
+  meetings: 'Meeting Management',
+  profile: 'My Profile',
   settings: 'Settings',
 }
 

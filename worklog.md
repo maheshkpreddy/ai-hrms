@@ -72,3 +72,34 @@ Stage Summary:
 - Leave form now calculates and sends `days` field
 - Settings page is fully functional with 5 tabs and localStorage persistence
 - Deployed to https://ai-hrms-rho.vercel.app
+
+---
+Task ID: 3-a
+Agent: API Routes Agent
+Task: Create 13 API routes for Company, OfficeLocation, Task, Meeting, and Profile modules
+
+Work Log:
+- Created /api/companies/route.ts: GET (list with pagination, search, industry filter, isActive filter) + POST (create with auto-generated 6-char alphanumeric join code, auto-adds creator as owner)
+- Created /api/companies/[id]/route.ts: GET (company with members + officeLocations + counts) + PATCH (update allowed fields) + DELETE (cascading delete of tasks, meetings, members, locations)
+- Created /api/companies/join/route.ts: POST (join by code, creates pending CompanyMember, handles re-join for rejected/removed members)
+- Created /api/companies/members/route.ts: GET (list members with pagination, status/role filter) + PATCH (approve/reject/remove, set joinedAt on approval) + POST (add member directly)
+- Created /api/office-locations/route.ts: GET (list by companyId, isActive filter) + POST (create with lat/lng/radius) + PATCH (update all location fields) + DELETE (by id query param)
+- Created /api/tasks/route.ts: GET (list with assignments + comments + employee relations, filter by companyId/status/priority/createdBy/employeeId) + POST (create with assignedEmployeeIds array)
+- Created /api/tasks/[id]/route.ts: GET (task with assignments, comments, company) + PATCH (update) + DELETE (cascading delete of comments + assignments)
+- Created /api/tasks/assignments/route.ts: PATCH (update status, auto-set completedAt on finished, auto-update task status to finished when all assignments finished)
+- Created /api/tasks/comments/route.ts: GET (list by taskId) + POST (add comment with isHr flag)
+- Created /api/meetings/route.ts: GET (list with invitations + employee relations, filter by companyId/status/meetingType/employeeId) + POST (create with invitedEmployeeIds array)
+- Created /api/meetings/[id]/route.ts: GET (meeting with invitations + company) + PATCH (update) + DELETE (cascading delete of invitations)
+- Created /api/meetings/invitations/route.ts: GET (list by meetingId with rsvpStatus filter) + PATCH (RSVP with respondedAt timestamp)
+- Created /api/profile/route.ts: GET (employee profile with user + company memberships) + PATCH (update editable fields) + POST (upload avatar via base64 or URL, also updates linked User avatar)
+- All routes follow existing pattern: NextRequest/NextResponse, db import from @/lib/db, try/catch error handling, proper HTTP status codes (200/201/400/404/500)
+- Lint passes with zero errors on all new API route files
+
+Stage Summary:
+- 13 API route files created covering Company, OfficeLocation, Task, Meeting, and Profile modules
+- All routes use consistent error handling and response patterns matching existing codebase
+- Pagination implemented on all list endpoints with page/limit defaults (1/20)
+- Employee relations included in all GET responses for frontend consumption
+- Task auto-completion logic: task status auto-updates to "finished" when all assignments are finished
+- Company join flow supports re-joining for previously rejected/removed members
+- Profile image upload supports both base64 and URL approaches

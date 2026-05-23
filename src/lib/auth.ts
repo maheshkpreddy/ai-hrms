@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import GoogleProvider from 'next-auth/providers/google'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
@@ -48,7 +49,7 @@ export const authOptions: NextAuthOptions = {
             employeeId: user.employeeId,
             action: 'login',
             module: 'auth',
-            details: `User ${user.name} logged in`,
+            details: `User ${user.name} logged in via credentials`,
           },
         })
 
@@ -65,11 +66,107 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        try {
+          // Check if user exists in our DB
+          const existingUser = await db.user.findUnique({
+            where: { email: user.email! },
+            include: { role: true, employee: true },
+          })
+
+          if (existingUser) {
+            if (!existingUser.isActive) {
+              return false
+            }
+            // Update last login
+            await db.user.update({
+              where: { id: existingUser.id },
+              data: { lastLoginAt: new Date() },
+            })
+            // Create or update account link
+            await db.account.upsert({
+              where: { provider_providerAccountId: { provider: 'google', providerAccountId: account.providerAccountId } },
+              create: {
+                userId: existingUser.id,
+                type: 'oauth',
+                provider: 'google',
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+              },
+              update: {
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+              },
+            })
+            // Log the login
+            await db.auditLog.create({
+              data: {
+                userId: existingUser.id,
+                employeeId: existingUser.employeeId,
+                action: 'login',
+                module: 'auth',
+                details: `User ${existingUser.name} logged in via Google`,
+              },
+            })
+            // Set custom fields on user object for JWT callback
+            ;(user as any).dbUserId = existingUser.id
+            ;(user as any).role = existingUser.role?.name || 'Employee'
+            ;(user as any).roleId = existingUser.roleId
+            ;(user as any).roleLevel = existingUser.role?.level || 4
+            ;(user as any).permissions = existingUser.role?.permissions || '{}'
+            ;(user as any).employeeId = existingUser.employeeId
+            ;(user as any).avatar = existingUser.avatar || existingUser.employee?.avatar || null
+          } else {
+            // Auto-create user for Google sign-in
+            const employeeRole = await db.role.findFirst({ where: { name: 'Employee' } })
+            const newUser = await db.user.create({
+              data: {
+                email: user.email!,
+                name: user.name || 'Google User',
+                passwordHash: await bcrypt.hash(Math.random().toString(36), 10),
+                avatar: user.image || null,
+                roleId: employeeRole?.id,
+                isActive: true,
+              },
+              include: { role: true },
+            })
+            await db.account.create({
+              data: {
+                userId: newUser.id,
+                type: 'oauth',
+                provider: 'google',
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+              },
+            })
+            ;(user as any).dbUserId = newUser.id
+            ;(user as any).role = newUser.role?.name || 'Employee'
+            ;(user as any).roleId = newUser.roleId
+            ;(user as any).roleLevel = newUser.role?.level || 4
+            ;(user as any).permissions = newUser.role?.permissions || '{}'
+            ;(user as any).employeeId = null
+            ;(user as any).avatar = newUser.avatar
+          }
+        } catch (error) {
+          console.error('Google auth error:', error)
+          return false
+        }
+      }
+      return true
+    },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id
+        // For Google auth, use dbUserId; for credentials, use id
+        token.id = (user as any).dbUserId || user.id
         token.role = (user as any).role
         token.roleId = (user as any).roleId
         token.roleLevel = (user as any).roleLevel

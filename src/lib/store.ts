@@ -13,6 +13,10 @@ export type ModuleKey =
   | 'learning' 
   | 'analytics' 
   | 'selfservice'
+  | 'company'
+  | 'tasks'
+  | 'meetings'
+  | 'profile'
   | 'settings'
 
 interface HRMSState {

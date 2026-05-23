@@ -22,6 +22,10 @@ import {
   LogOut,
   Settings,
   Sparkles,
+  Building2,
+  ListTodo,
+  Video,
+  UserCircle,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -56,6 +60,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, aiPowered: false },
   { key: 'employees', label: 'Employees', icon: Users, aiPowered: false },
+  { key: 'company', label: 'Company', icon: Building2, aiPowered: false },
+  { key: 'tasks', label: 'Task Management', icon: ListTodo, aiPowered: false },
+  { key: 'meetings', label: 'Meetings', icon: Video, aiPowered: false },
   { key: 'assets', label: 'Asset Management', icon: Laptop, aiPowered: false },
   { key: 'documents', label: 'Document Management', icon: FileText, aiPowered: false },
   { key: 'rbac', label: 'RBAC & Security', icon: Shield, aiPowered: false },
@@ -66,6 +73,7 @@ const navItems: NavItem[] = [
   { key: 'learning', label: 'Learning & Development', icon: GraduationCap, aiPowered: true },
   { key: 'analytics', label: 'Analytics & Reporting', icon: BarChart3, aiPowered: true },
   { key: 'selfservice', label: 'Self-Service', icon: MessageSquare, aiPowered: false },
+  { key: 'profile', label: 'My Profile', icon: UserCircle, aiPowered: false },
   { key: 'settings', label: 'Settings', icon: Settings, aiPowered: false },
 ]
 
