@@ -1,208 +1,43 @@
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Initialize fullstack project environment
+Task: Fix login error and test all CRUD operations across HRMS
 
 Work Log:
-- Ran init-fullstack script to set up Next.js 16 project
-- Verified project structure and existing dependencies
+- Investigated the login error: Prisma schema had `provider = "sqlite"` but DATABASE_URL pointed to PostgreSQL
+- Found system-level DATABASE_URL env var was overriding .env file with old SQLite path
+- Fixed prisma/schema.prisma: changed provider from "sqlite" to "postgresql" with relationMode = "prisma"
+- Updated .env with Neon PostgreSQL connection string
+- Ran prisma generate and prisma db push successfully
+- Verified database has 11 users, 20 employees, 8 departments, 7 roles
+- Pulled production env vars from Vercel to get correct DATABASE_URL
+- Tested all 7 demo credentials - all passwords verified working
+- Audited all 19 API routes for bugs and missing CRUD operations
+- Added missing PATCH/DELETE operations to 7 routes:
+  - /api/leaves (DELETE added)
+  - /api/candidates (PATCH + DELETE added)
+  - /api/payroll (PATCH + DELETE added)
+  - /api/jobs (PATCH + DELETE added)
+  - /api/attendance (PATCH + DELETE added)
+  - /api/courses (PATCH + DELETE added)
+  - /api/performance (PATCH + DELETE added)
+  - /api/expenses (DELETE added)
+- Fixed dashboard stats to properly filter by today's date and current month
+- Fixed attendance date filter bug (single date overwritten by range filter)
+- Fixed JSON.parse crash risk in candidates/jobs routes with safeJsonParse helper
+- Added input validation to employee POST (required fields, email uniqueness)
+- Added case-insensitive search for employees on PostgreSQL
+- Added salary validation in payroll processing
+- Fixed expense status transition (prevent updating reimbursed expenses)
+- Ran comprehensive end-to-end CRUD tests for all 17 models - ALL PASSED
+- Committed and pushed all fixes to GitHub
+- Vercel auto-deployment triggered
+- Verified production site is live and login page loads
+- Verified auth providers endpoint works on production
 
 Stage Summary:
-- Project initialized successfully at /home/z/my-project
-- Next.js 16 with TypeScript, Tailwind CSS 4, shadcn/ui, Prisma, recharts all available
-
----
-Task ID: 2
-Agent: Main Agent
-Task: Design and set up Prisma database schema
-
-Work Log:
-- Designed comprehensive schema with 20+ models
-- Created schema at prisma/schema.prisma
-- Pushed schema to SQLite database
-
-Stage Summary:
-- Database models: Employee, Department, Role, Attendance, Leave, Payroll, Expense, Performance, Asset, Document, Skill, EmployeeSkill, Course, CourseEnrollment, Job, Candidate, AuditLog, ApprovalWorkflow, CompanyPolicy, Shift, Holiday
-- Database synced and Prisma Client generated
-
----
-Task ID: 3-13
-Agent: Main Agent + Subagents
-Task: Build all HRMS modules and components
-
-Work Log:
-- Created Zustand store for state management
-- Created comprehensive mock data file
-- Built Sidebar component with responsive design
-- Built Dashboard component with charts and analytics
-- Built EmployeeManagement module with table, detail sheet, add dialog
-- Built RBACSecurity module with roles, audit trails, data security
-- Built TalentAcquisition module with job postings, candidate pipeline, AI onboarding
-- Built TimeAttendance module with attendance, leave, shifts, geofencing
-- Built PayrollExpense module with payroll processing, expenses, tax declarations
-- Built Performance module with reviews, OKRs, AI attrition analysis
-- Built LearningDevelopment module with course catalog, my learning, skill inventory
-- Built Analytics module with real-time dashboards, predictive analytics, custom reports
-- Built SelfService module with profile, policies, AI chatbot
-- Created API routes for all backend operations
-- Created main page.tsx integrating all modules with sidebar navigation
-
-Stage Summary:
-- All 9 modules + Dashboard implemented as client components
-- API routes for employees, attendance, leaves, payroll, expenses, performance, jobs, candidates, courses, audit, dashboard, ai-chat
-- Emerald/teal color theme throughout
-- Fully responsive design
-- AI chatbot integration via z-ai-web-dev-sdk
-- Lint passes cleanly
-- Application loads successfully on port 3000
-
----
-Task ID: 14
-Agent: Main Agent
-Task: Build backend database, prepare for deployment, create documentation
-
-Work Log:
-- Created .env file with DATABASE_URL pointing to SQLite
-- Ran prisma db push to sync schema to database
-- Ran prisma db seed to populate database with comprehensive data (20 employees, 8 departments, 7 roles, etc.)
-- Updated next.config.ts - removed standalone output for Vercel compatibility
-- Updated vercel.json - simplified for Vercel deployment with prisma generate in build command
-- Updated .gitignore - cleaned up database section
-- Tested production build - successful (all routes compile and static pages generate)
-- Created comprehensive README.md (709 lines) for GitHub with 14 sections
-- Created User SOP PDF (29 pages, 185KB) covering all 9 modules with step-by-step procedures
-- Created Technical Documentation PDF (34 pages, 205KB) covering architecture, API, security, deployment
-- Created Functionality Document PDF (19 pages, 129KB) with module-wise workflows and role access matrices
-
-Stage Summary:
-- Backend database: SQLite with 20+ tables, seeded with comprehensive demo data
-- Production build: Successful
-- Vercel config: Ready for deployment
-- README.md: 709 lines, comprehensive GitHub repository documentation
-- User SOP PDF: /home/z/my-project/download/AI-HRMS_User_SOP.pdf (29 pages)
-- Technical Docs PDF: /home/z/my-project/download/AI-HRMS_Technical_Documentation.pdf (34 pages)
-- Functionality Docs PDF: /home/z/my-project/download/AI-HRMS_Functionality_Document.pdf (19 pages)
-
----
-Task ID: 15
-Agent: Main Agent
-Task: Deploy to GitHub and Vercel
-
-Work Log:
-- Configured git user (maheshkpreddy@gmail.com / Mahesh Reddy)
-- Authenticated with GitHub using Personal Access Token (ghp_...)
-- Created GitHub repository: maheshkpreddy/ai-hrms via REST API
-- Added GitHub remote and pushed all code to main branch
-- Installed Vercel CLI (v54.4.0)
-- Authenticated with Vercel using token (account: maheshkpreddy-6511)
-- Created Vercel project: ai-hrms (project ID: prj_XTMFT5oZHNNBTJYuaqqW5Tun7eFr)
-- Linked GitHub repo to Vercel project
-- Set environment variables: NEXTAUTH_SECRET, NEXTAUTH_URL
-- Deployed to Vercel production - build successful in 52s
-- Fixed next.config.ts (removed deprecated eslint config) and pushed update
-- Verified live site returns HTTP 200
-
-Stage Summary:
-- GitHub Repository: https://github.com/maheshkpreddy/ai-hrms
-- Vercel Live URL: https://ai-hrms-rho.vercel.app
-- Vercel Dashboard: https://vercel.com/maheshkpreddy-6511s-projects/ai-hrms
-- All 9 modules render correctly on the live site with mock data
-- API routes return 500 on Vercel (expected - no database in serverless env)
-- Frontend is fully functional with built-in mock data
-
----
-Task ID: 1-5
-Agent: Main Agent
-Task: Fix critical CRUD issues in AI HRMS application
-
-Work Log:
-- Fixed Prisma schema: Changed datasource from `postgresql` + `POSTGRES_PRISMA_URL` to `sqlite` + `DATABASE_URL` for local dev compatibility
-- Fixed EmployeeManagement.tsx:
-  - Updated Employee interface: replaced `dob` with `dateOfBirth`, added `employeeId` field
-  - Added `employeeId` field to addForm state and added Employee ID input to Add Employee dialog (with auto-generate hint and disabled on edit)
-  - Changed `dob` → `dateOfBirth` in form state, handlers (handleEdit, handleAddEmployee, handleAddDialogChange)
-  - Fixed table to display `emp.employeeId` (human-readable like EMP001) instead of `emp.id` (CUID)
-  - Fixed detail sheet to display `selectedEmployee.employeeId` instead of `selectedEmployee.id`
-  - Fixed Date of Birth display to use `selectedEmployee.dateOfBirth` instead of `selectedEmployee.dob`
-- Fixed employees API POST route: Auto-generates `employeeId` (like EMP021) based on count when not provided, with uniqueness check
-- Fixed employees API DELETE route ([id]/route.ts): Added cascade delete for all related records (attendance, leaves, expenses, payroll, performance, assets, employeeSkills, courseEnrollments, documents, auditLogs, user) before deleting the employee, using a $transaction
-- Fixed PayrollExpense.tsx:
-  - Added `dbEmployeeId` field to PayrollRow interface to store the database CUID alongside the display `employeeId`
-  - Updated `flattenPayroll` to set `dbEmployeeId: r.employeeId` (the CUID from the Payroll record)
-  - Fixed `handleProcessPayroll` to use `row.dbEmployeeId` when calling the payroll API (which expects the CUID)
-  - Fixed `handleExpenseSubmit` to fetch the first employee from `/api/employees` and use their database CUID instead of hardcoded `'EMP001'`
-- Fixed TimeAttendance.tsx:
-  - Added state and API fetch for `currentEmployeeDbId` from `/api/employees?limit=1`
-  - Fixed `handleMarkAttendance` to use `currentEmployeeDbId` instead of `'CURRENT_USER'`
-  - Fixed `handleApplyLeave` to use `currentEmployeeDbId` instead of `'CURRENT_USER'`
-- Fixed pre-existing lint error in page.tsx: Changed `window.location.href = '/login'` to `window.location.replace('/login')` to satisfy react-hooks/immutability rule
-- Ran `prisma generate` and `prisma db push` successfully
-- Ran `bun run lint` — passes cleanly with no errors
-- Ran `bun run db:seed` — database re-seeded successfully
-
-Stage Summary:
-- All 7 critical CRUD issues fixed
-- Employee creation now works (auto-generates employeeId, correct field mapping)
-- Employee deletion now works (cascade delete of related records)
-- Payroll processing uses correct database CUID for API calls
-- Expense submission uses valid employee database ID
-- Attendance and leave use valid employee database IDs
-- Database schema switched to SQLite with DATABASE_URL for local compatibility
-- Lint passes cleanly
-
----
-Task ID: 16
-Agent: Main Agent
-Task: Add authentication system with role-based login to AI-HRMS
-
-Work Log:
-- Added User model to Prisma schema with email, passwordHash, name, roleId, employeeId, isActive, lastLoginAt
-- Added relations: User->Role and User->Employee
-- Installed bcryptjs for password hashing
-- Created NextAuth.js configuration with CredentialsProvider (src/lib/auth.ts)
-- Created NextAuth API route handler (src/app/api/auth/[...nextauth]/route.ts)
-- Created professional login page with dark theme and demo credentials panel (src/app/login/page.tsx)
-- Added middleware.ts for route protection
-- Created Providers.tsx component for SessionProvider wrapper
-- Updated layout.tsx to include Providers wrapper
-- Updated main page.tsx with session check, user menu, sign-out functionality
-- Updated seed.ts with 11 user accounts across 7 roles with bcrypt hashed passwords
-- Pushed schema to Neon PostgreSQL database
-- Seeded database with all users and data
-- Built Next.js successfully
-- Pushed to GitHub (maheshkpreddy/ai-hrms)
-- Redeployed on Vercel (https://ai-hrms-rho.vercel.app)
-- Updated NEXTAUTH_URL environment variable in Vercel
-
-Stage Summary:
-- 7 role-based login accounts created with hashed passwords
-- Full authentication flow: login page -> session check -> protected routes
-- Login page shows demo credentials on the right panel for easy access
-- Production URL: https://ai-hrms-rho.vercel.app
-- GitHub: https://github.com/maheshkpreddy/ai-hrms
-
----
-Task ID: 17
-Agent: Main Agent
-Task: Fix all CRUD operations across all HRMS modules - complete testing of add/delete
-
-Work Log:
-- Identified and fixed critical Employee Add form error: missing `employeeId` field and `dob`→`dateOfBirth` field mapping
-- Fixed Employee table to display human-readable `employeeId` (EMP001) instead of CUID
-- Fixed Employee API: auto-generates employeeId when not provided
-- Fixed Employee DELETE: cascade deletes all related records before removing employee
-- Fixed Payroll/Expense: used database CUID instead of display employeeId for API calls
-- Fixed Attendance/Leave: replaced 'CURRENT_USER' placeholder with actual employee database ID
-- Fixed SQLite compatibility: removed `mode: 'insensitive'` from all API routes
-- Fixed SQLite compatibility: changed `findUnique({ where: { name } })` to `findFirst({ where: { name } })` for non-ID unique fields
-- Fixed Dashboard: updated `groupBy` query for SQLite compatibility
-- Comprehensive API testing: 11 tests passed (employee CRUD, department, role, shift, holiday, skill, leave, job, dashboard, cascade delete)
-- Build successful, all TypeScript errors resolved
-- Pushed to GitHub, triggered Vercel redeploy
-
-Stage Summary:
-- All CRUD operations now work correctly across all modules
-- Employee add/delete works with proper field mapping and cascade
-- API routes compatible with SQLite (local) and will work with PostgreSQL (Vercel)
-- Production URL: https://ai-hrms-rho.vercel.app
-- GitHub: https://github.com/maheshkpreddy/ai-hrms
+- Login error fixed: Schema/DB URL mismatch resolved
+- All CRUD operations (Create, Read, Update, Delete) working for all 17 models
+- Production site: https://ai-hrms-rho.vercel.app
+- 11 user accounts with 7 roles all working
+- All API routes now support full CRUD where appropriate
