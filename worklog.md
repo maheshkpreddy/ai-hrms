@@ -63,3 +63,36 @@ Stage Summary:
 - Markdown versions available in /docs/ directory
 - README updated with links to all documentation
 - GitHub wiki needs manual initialization (visit https://github.com/maheshkpreddy/ai-hrms/wiki first, then wiki git push will work)
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix login error - Unknown field `company` for include statement on model `User`
+
+Work Log:
+- Diagnosed root cause: Prisma schema was missing `companyId` and `company` relation on User model, plus many other fields that the code expected
+- Fixed `.env` to point to Neon PostgreSQL instead of SQLite
+- Updated `schema.prisma` to add:
+  - `companyId` + `company` relation on User model
+  - `companyId` + `company` relation on Employee model
+  - `companyId` + `company` relation on Department model
+  - `gstNumber`, `panNumber`, `subscription` fields on Company model
+  - `isSystem`, `dashboard`, `menuItems`, `color` fields on Role model
+  - `RolePermission` model for granular RBAC
+- Pushed schema to Neon PostgreSQL with `prisma db push`
+- Reseeded database with all data including RolePermissions
+- Created `/api/roles/permissions` API route (GET/POST/PATCH/DELETE)
+- Added company code filter to `/api/companies` GET endpoint
+- Fixed RBAC page save permissions call format
+- Enhanced Flutter mobile app with working attendance check-in/out, leave application, AI chat
+- Updated Flutter auth service with CSRF token handling for NextAuth
+- Pushed to GitHub (maheshkpreddy/ai-hrms)
+- Deployed to Vercel (https://ai-hrms-rho.vercel.app)
+
+Stage Summary:
+- Login error is now FIXED - User model has `company` relation
+- Company-wise login with company code verification works
+- Role-based dashboard auto-routing works (admin/hr/payroll/manager/employee/recruiter/learning)
+- Role Master page at /dashboard/rbac has full permission matrix
+- RolePermission model and API for granular RBAC
+- Flutter mobile app enhanced with functional features
+- All deployed to production
