@@ -32,9 +32,11 @@ model Employee {
   pfNumber      String?
   esiNumber     String?
   emergencyContact String?
+  companyId     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  company       Company? @relation(fields: [companyId], references: [id])
   attendance    Attendance[]
   leaves        Leave[]
   expenses      Expense[]
@@ -59,8 +61,11 @@ model Department {
   head        String?
   description String?
   budget      Float?
+  companyId   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  company     Company? @relation(fields: [companyId], references: [id])
 }
 
 model Role {
@@ -69,9 +74,15 @@ model Role {
   description String?
   permissions String? // JSON string of permissions
   level       Int    @default(0)
+  isSystem    Boolean @default(false) // System roles cannot be deleted
+  dashboard   String  @default("employee") // Which dashboard to show: admin, hr, payroll, manager, employee, recruiter, learning
+  menuItems   String? // JSON array of visible menu items, null = all visible
+  color       String  @default("teal") // UI color for role badge
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   users       User[]
+  rolePermissions RolePermission[]
 }
 
 model Attendance {
@@ -298,6 +309,8 @@ model User {
   role          Role?    @relation(fields: [roleId], references: [id])
   employeeId    String?  @unique
   employee      Employee? @relation(fields: [employeeId], references: [id])
+  companyId     String?
+  company       Company? @relation(fields: [companyId], references: [id])
   isActive      Boolean  @default(true)
   lastLoginAt   DateTime?
   createdAt     DateTime @default(now())
@@ -377,6 +390,9 @@ model Company {
   email       String?
   foundedYear String?
   employeeCount Int?
+  gstNumber   String?
+  panNumber   String?
+  subscription String  @default("free") // free, basic, premium, enterprise
   isActive    Boolean  @default(true)
   createdBy   String?  // user ID of HR who created
   createdAt   DateTime @default(now())
@@ -386,6 +402,9 @@ model Company {
   officeLocations OfficeLocation[]
   tasks       Task[]
   meetings    Meeting[]
+  users       User[]
+  employees   Employee[]
+  departments Department[]
 }
 
 model CompanyMember {
@@ -591,4 +610,22 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+}
+
+// ─── Role-Based Access Control (RBAC) ─────────────────────────────────────────
+
+model RolePermission {
+  id          String @id @default(cuid())
+  roleId      String
+  module      String   // HR, Payroll, Attendance, Performance, Learning, Analytics, Recruitment, ProjectManagement
+  canRead     Boolean  @default(false)
+  canWrite    Boolean  @default(false)
+  canModify   Boolean  @default(false)
+  canDelete   Boolean  @default(false)
+  canAdmin    Boolean  @default(false)
+  role        Role     @relation(fields: [roleId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([roleId, module])
 }

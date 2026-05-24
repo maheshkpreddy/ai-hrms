@@ -18,8 +18,13 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const industry = searchParams.get('industry');
     const isActive = searchParams.get('isActive');
+    const code = searchParams.get('code');
 
     const where: Record<string, unknown> = {};
+
+    if (code) {
+      where.code = code.toUpperCase();
+    }
 
     if (search) {
       where.OR = [
@@ -46,7 +51,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: {
-            select: { members: true, officeLocations: true },
+            select: { members: true, officeLocations: true, employees: true, departments: true, users: true },
           },
         },
       }),
@@ -94,42 +99,170 @@ export async function POST(request: NextRequest) {
       data: {
         name: body.name,
         code,
-        description: body.description,
-        industry: body.industry,
-        website: body.website,
-        logo: body.logo,
-        address: body.address,
-        city: body.city,
-        state: body.state,
-        country: body.country,
-        pincode: body.pincode,
-        phone: body.phone,
-        email: body.email,
-        foundedYear: body.foundedYear,
-        employeeCount: body.employeeCount,
+        description: body.description || null,
+        industry: body.industry || null,
+        website: body.website || null,
+        logo: body.logo || null,
+        address: body.address || null,
+        city: body.city || null,
+        state: body.state || null,
+        country: body.country || null,
+        pincode: body.pincode || null,
+        phone: body.phone || null,
+        email: body.email || null,
+        foundedYear: body.foundedYear || null,
+        employeeCount: body.employeeCount || null,
+        gstNumber: body.gstNumber || null,
+        panNumber: body.panNumber || null,
+        subscription: body.subscription || 'free',
         isActive: body.isActive ?? true,
-        createdBy: body.createdBy,
+        createdBy: body.createdBy || null,
       },
     });
 
     // If createdBy is provided, auto-add creator as owner member
     if (body.createdBy) {
-      await db.companyMember.create({
-        data: {
-          companyId: company.id,
-          employeeId: body.createdBy,
-          role: 'owner',
-          status: 'approved',
-          joinedAt: new Date().toISOString(),
-        },
-      });
+      const employeeExists = await db.employee.findUnique({ where: { id: body.createdBy } });
+      if (employeeExists) {
+        await db.companyMember.create({
+          data: {
+            companyId: company.id,
+            employeeId: body.createdBy,
+            role: 'owner',
+            status: 'approved',
+            joinedAt: new Date().toISOString(),
+          },
+        });
+      }
     }
+
+    // Create audit log
+    await db.auditLog.create({
+      data: {
+        action: 'create',
+        module: 'hr',
+        details: `Created company: ${company.name} (${company.code})`,
+      },
+    });
 
     return NextResponse.json(company, { status: 201 });
   } catch (error) {
     console.error('Error creating company:', error);
     return NextResponse.json(
       { error: 'Failed to create company' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, name, description, industry, website, logo, address, city, state, country, pincode, phone, email, foundedYear, employeeCount, gstNumber, panNumber, subscription, isActive } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Company id is required' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await db.company.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Company not found' },
+        { status: 404 }
+      );
+    }
+
+    const company = await db.company.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(industry !== undefined && { industry }),
+        ...(website !== undefined && { website }),
+        ...(logo !== undefined && { logo }),
+        ...(address !== undefined && { address }),
+        ...(city !== undefined && { city }),
+        ...(state !== undefined && { state }),
+        ...(country !== undefined && { country }),
+        ...(pincode !== undefined && { pincode }),
+        ...(phone !== undefined && { phone }),
+        ...(email !== undefined && { email }),
+        ...(foundedYear !== undefined && { foundedYear }),
+        ...(employeeCount !== undefined && { employeeCount }),
+        ...(gstNumber !== undefined && { gstNumber }),
+        ...(panNumber !== undefined && { panNumber }),
+        ...(subscription !== undefined && { subscription }),
+        ...(isActive !== undefined && { isActive }),
+      },
+    });
+
+    // Create audit log
+    await db.auditLog.create({
+      data: {
+        action: 'update',
+        module: 'hr',
+        details: `Updated company: ${company.name} (${company.code})`,
+      },
+    });
+
+    return NextResponse.json(company);
+  } catch (error) {
+    console.error('Error updating company:', error);
+    return NextResponse.json(
+      { error: 'Failed to update company' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Company id is required' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await db.company.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Company not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check for associated employees
+    const memberCount = await db.companyMember.count({ where: { companyId: id } });
+    if (memberCount > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete company with active members. Remove members first.' },
+        { status: 409 }
+      );
+    }
+
+    await db.company.delete({ where: { id } });
+
+    // Create audit log
+    await db.auditLog.create({
+      data: {
+        action: 'delete',
+        module: 'hr',
+        details: `Deleted company: ${existing.name} (${existing.code})`,
+      },
+    });
+
+    return NextResponse.json({ message: 'Company deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting company:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete company' },
       { status: 500 }
     );
   }

@@ -3,6 +3,8 @@ import { create } from 'zustand'
 export type ModuleKey =
   | 'dashboard'
   | 'employees'
+  | 'assets'
+  | 'documents'
   | 'rbac'
   | 'talent'
   | 'attendance'
@@ -11,6 +13,12 @@ export type ModuleKey =
   | 'learning'
   | 'analytics'
   | 'selfservice'
+  | 'company'
+  | 'tasks'
+  | 'meetings'
+  | 'projects'
+  | 'profile'
+  | 'settings'
 
 interface HRMSState {
   activeModule: ModuleKey
@@ -27,6 +35,7 @@ interface HRMSState {
   setAllowedModules: (modules: ModuleKey[] | null) => void
 }
 
+// Maps the Role's `dashboard` field to the default module shown when that role logs in
 const dashboardModuleMap: Record<string, ModuleKey> = {
   admin: 'dashboard',
   hr: 'employees',
@@ -37,11 +46,27 @@ const dashboardModuleMap: Record<string, ModuleKey> = {
   learning: 'learning',
 }
 
+// Maps the Role's `dashboard` field to a Next.js route path
+export const dashboardRouteMap: Record<string, string> = {
+  admin: '/dashboard/admin',
+  hr: '/dashboard/hr',
+  payroll: '/dashboard/payroll',
+  manager: '/dashboard/manager',
+  employee: '/dashboard',
+  recruiter: '/dashboard/recruiter',
+  learning: '/dashboard/learning',
+}
+
 export const defaultModule: ModuleKey = 'dashboard'
 
 export function getDashboardModule(dashboard: string | null | undefined): ModuleKey {
   if (!dashboard) return defaultModule
   return dashboardModuleMap[dashboard] || defaultModule
+}
+
+export function getDashboardRoute(dashboard: string | null | undefined): string {
+  if (!dashboard) return '/dashboard'
+  return dashboardRouteMap[dashboard] || '/dashboard'
 }
 
 export const useHRMSStore = create<HRMSState>((set) => ({

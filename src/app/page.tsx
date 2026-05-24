@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { useHRMSStore, type ModuleKey, getDashboardModule } from '@/lib/store'
+import { useHRMSStore, type ModuleKey, getDashboardModule, getDashboardRoute } from '@/lib/store'
 import Sidebar from '@/components/hrms/Sidebar'
 import Dashboard from '@/components/hrms/Dashboard'
 import EmployeeManagement from '@/components/hrms/EmployeeManagement'
@@ -21,7 +21,7 @@ import MeetingManagement from '@/components/hrms/MeetingManagement'
 import ProjectManagement from '@/components/hrms/ProjectManagement'
 import ProfileManagement from '@/components/hrms/ProfileManagement'
 import Settings from '@/components/hrms/Settings'
-import { LogOut, User, ChevronDown } from 'lucide-react'
+import { LogOut, ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const moduleComponents: Record<ModuleKey, React.ComponentType> = {
@@ -66,15 +66,26 @@ const moduleTitles: Record<ModuleKey, string> = {
   settings: 'Settings',
 }
 
+// Dashboard type to display name mapping for the header badge
+const dashboardLabels: Record<string, string> = {
+  admin: 'Admin Dashboard',
+  hr: 'HR Dashboard',
+  payroll: 'Payroll Dashboard',
+  manager: 'Manager Dashboard',
+  employee: 'Employee Dashboard',
+  recruiter: 'Recruiter Dashboard',
+  learning: 'Learning Dashboard',
+}
+
 export default function Home() {
   const { data: session, status } = useSession()
-  const { activeModule, sidebarOpen, setActiveModule, setUserRole, setUserDashboard, setAllowedModules } = useHRMSStore()
+  const { activeModule, setActiveModule, setUserRole, setUserDashboard, setAllowedModules } = useHRMSStore()
   const ActiveComponent = moduleComponents[activeModule]
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
 
-  // Set role-based data from session
+  // Set role-based data from session and auto-route to the appropriate dashboard
   useEffect(() => {
     if (session?.user && !initializedRef.current) {
       const userRole = (session.user as any)?.role || 'Employee'
@@ -99,8 +110,17 @@ export default function Home() {
       }
 
       // Auto-navigate to role's dashboard module
+      // Mapping: admin→dashboard, hr→employees, payroll→payroll, manager→dashboard,
+      // employee→selfservice, recruiter→talent, learning→learning
       const targetModule = getDashboardModule(dashboard)
       setActiveModule(targetModule)
+
+      // Also update browser URL to reflect the dashboard route
+      const targetRoute = getDashboardRoute(dashboard)
+      if (typeof window !== 'undefined' && window.location.pathname !== targetRoute) {
+        window.history.replaceState(null, '', targetRoute)
+      }
+
       initializedRef.current = true
     }
   }, [session, setActiveModule, setUserRole, setUserDashboard, setAllowedModules])
@@ -141,6 +161,7 @@ export default function Home() {
   const userAvatar = (session.user as any)?.avatar
   const companyName = (session.user as any)?.companyName || ''
   const roleColor = (session.user as any)?.roleColor || 'teal'
+  const userDashboard = (session.user as any)?.dashboard || 'employee'
 
   const roleColorMap: Record<string, string> = {
     red: 'bg-red-100 text-red-700',
@@ -150,6 +171,9 @@ export default function Home() {
     teal: 'bg-teal-100 text-teal-700',
     orange: 'bg-orange-100 text-orange-700',
     indigo: 'bg-indigo-100 text-indigo-700',
+    amber: 'bg-amber-100 text-amber-700',
+    rose: 'bg-rose-100 text-rose-700',
+    cyan: 'bg-cyan-100 text-cyan-700',
   }
 
   const badgeClass = roleColorMap[roleColor] || roleColorMap.teal
@@ -176,6 +200,9 @@ export default function Home() {
                 {companyName}
               </span>
             )}
+            <span className="hidden md:inline-flex items-center text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+              {dashboardLabels[userDashboard] || 'Dashboard'}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-xs text-gray-500 sm:inline-block">

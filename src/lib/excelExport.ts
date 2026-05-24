@@ -1,4 +1,8 @@
-import * as XLSX from 'xlsx'
+// Use dynamic import for xlsx to avoid Turbopack module resolution issues
+async function getXLSX() {
+  const XLSX = await import('xlsx')
+  return XLSX
+}
 
 /**
  * Export data to Excel (.xlsx) file and trigger browser download
@@ -7,12 +11,14 @@ import * as XLSX from 'xlsx'
  * @param filename Name of the file (without extension)
  * @param sheetName Name of the sheet
  */
-export function exportToExcel<T extends Record<string, unknown>>(
+export async function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
   columns: { key: string; label: string; transform?: (value: unknown, row: T) => string | number }[],
   filename: string,
   sheetName: string = 'Sheet1'
 ) {
+  const XLSX = await getXLSX()
+
   // Transform data using column definitions
   const rows = data.map((row) => {
     const obj: Record<string, string | number> = {}
@@ -42,7 +48,7 @@ export function exportToExcel<T extends Record<string, unknown>>(
 /**
  * Export attendance data to Excel
  */
-export function exportAttendanceReport(
+export async function exportAttendanceReport(
   records: {
     name: string
     employeeId: string
@@ -56,7 +62,7 @@ export function exportAttendanceReport(
     location: string
   }[]
 ) {
-  exportToExcel(
+  await exportToExcel(
     records,
     [
       { key: 'name', label: 'Employee Name' },
@@ -78,7 +84,7 @@ export function exportAttendanceReport(
 /**
  * Export payroll data to Excel
  */
-export function exportPayrollReport(
+export async function exportPayrollReport(
   records: {
     employeeName: string
     employeeId: string
@@ -97,7 +103,7 @@ export function exportPayrollReport(
     status: string
   }[]
 ) {
-  exportToExcel(
+  await exportToExcel(
     records,
     [
       { key: 'employeeName', label: 'Employee Name' },
@@ -124,7 +130,7 @@ export function exportPayrollReport(
 /**
  * Export leave data to Excel
  */
-export function exportLeaveReport(
+export async function exportLeaveReport(
   records: {
     name: string
     employeeId: string
@@ -137,7 +143,7 @@ export function exportLeaveReport(
     approvedBy: string | null
   }[]
 ) {
-  exportToExcel(
+  await exportToExcel(
     records,
     [
       { key: 'name', label: 'Employee Name' },
@@ -158,7 +164,7 @@ export function exportLeaveReport(
 /**
  * Export expense data to Excel
  */
-export function exportExpenseReport(
+export async function exportExpenseReport(
   records: {
     employeeName: string
     employeeId: string
@@ -170,7 +176,7 @@ export function exportExpenseReport(
     approvedBy: string | null
   }[]
 ) {
-  exportToExcel(
+  await exportToExcel(
     records,
     [
       { key: 'employeeName', label: 'Employee Name' },
@@ -190,7 +196,7 @@ export function exportExpenseReport(
 /**
  * Export project data to Excel
  */
-export function exportProjectReport(
+export async function exportProjectReport(
   records: {
     name: string
     status: string
@@ -203,7 +209,7 @@ export function exportProjectReport(
     milestoneCount: number
   }[]
 ) {
-  exportToExcel(
+  await exportToExcel(
     records,
     [
       { key: 'name', label: 'Project Name' },
@@ -224,7 +230,7 @@ export function exportProjectReport(
 /**
  * Export employee data to Excel
  */
-export function exportEmployeeReport(
+export async function exportEmployeeReport(
   records: {
     employeeId: string
     firstName: string
@@ -239,7 +245,7 @@ export function exportEmployeeReport(
     salary: number
   }[]
 ) {
-  exportToExcel(
+  await exportToExcel(
     records,
     [
       { key: 'employeeId', label: 'Employee ID' },
