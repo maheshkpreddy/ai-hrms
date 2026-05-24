@@ -25,6 +25,7 @@ import {
   User,
   Users,
   Loader2,
+  Download,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -80,6 +81,7 @@ import {
 } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApi, apiPost, apiPut, apiDelete } from '@/lib/useApi'
+import { exportEmployeeReport } from '@/lib/excelExport'
 import { useToast } from '@/hooks/use-toast'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -608,6 +610,27 @@ export default function EmployeeManagement() {
             >
               <Network className="h-4 w-4" />
               <span className="hidden sm:inline">Org Chart</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => exportEmployeeReport(filteredEmployees.map((e) => ({
+                employeeId: e.employeeId,
+                firstName: e.firstName,
+                lastName: e.lastName,
+                email: e.email,
+                phone: e.phone,
+                department: e.department,
+                designation: e.designation,
+                jobTitle: e.jobTitle,
+                status: e.status,
+                joinDate: e.joinDate,
+                salary: e.salary,
+              })))}
+              disabled={filteredEmployees.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Export</span>
             </Button>
             <Button
               onClick={() => {

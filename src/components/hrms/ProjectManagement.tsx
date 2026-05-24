@@ -17,6 +17,7 @@ import {
   Loader2,
   ChevronRight,
   X,
+  Download,
 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
@@ -47,6 +48,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { exportProjectReport } from '@/lib/excelExport'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface Employee {
@@ -559,13 +561,28 @@ export default function ProjectManagement() {
               Manage projects, team assignments, and track milestones
             </p>
           </div>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="h-4 w-4" />
-                Create Project
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportProjectReport(projects.map((p) => ({
+              name: p.name,
+              status: p.status,
+              priority: p.priority,
+              startDate: p.startDate || '',
+              endDate: p.endDate || '',
+              progress: p.progress,
+              budget: p.budget || 0,
+              memberCount: p.members.length,
+              milestoneCount: p.milestones.length,
+            })))} disabled={projects.length === 0}>
+              <Download className="h-4 w-4" />
+              Export Report
+            </Button>
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                  <Plus className="h-4 w-4" />
+                  Create Project
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
@@ -670,6 +687,7 @@ export default function ProjectManagement() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stat Cards */}
