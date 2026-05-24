@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { useHRMSStore, type ModuleKey } from '@/lib/store'
+import { useHRMSStore, type ModuleKey, getDashboardModule } from '@/lib/store'
 import Sidebar from '@/components/hrms/Sidebar'
 import Dashboard from '@/components/hrms/Dashboard'
 import EmployeeManagement from '@/components/hrms/EmployeeManagement'
@@ -68,10 +68,42 @@ const moduleTitles: Record<ModuleKey, string> = {
 
 export default function Home() {
   const { data: session, status } = useSession()
-  const { activeModule, sidebarOpen } = useHRMSStore()
+  const { activeModule, sidebarOpen, setActiveModule, setUserRole, setUserDashboard, setAllowedModules } = useHRMSStore()
   const ActiveComponent = moduleComponents[activeModule]
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const initializedRef = useRef(false)
+
+  // Set role-based data from session
+  useEffect(() => {
+    if (session?.user && !initializedRef.current) {
+      const userRole = (session.user as any)?.role || 'Employee'
+      const dashboard = (session.user as any)?.dashboard || 'employee'
+      const menuItemsStr = (session.user as any)?.menuItems || null
+
+      setUserRole(userRole)
+      setUserDashboard(dashboard)
+
+      // Parse allowed modules from role's menuItems
+      if (menuItemsStr) {
+        try {
+          const parsed = JSON.parse(menuItemsStr)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAllowedModules(parsed as ModuleKey[])
+          }
+        } catch {
+          setAllowedModules(null)
+        }
+      } else {
+        setAllowedModules(null) // null = all modules visible
+      }
+
+      // Auto-navigate to role's dashboard module
+      const targetModule = getDashboardModule(dashboard)
+      setActiveModule(targetModule)
+      initializedRef.current = true
+    }
+  }, [session, setActiveModule, setUserRole, setUserDashboard, setAllowedModules])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -107,6 +139,20 @@ export default function Home() {
   const userName = session.user?.name || 'User'
   const userEmail = session.user?.email || ''
   const userAvatar = (session.user as any)?.avatar
+  const companyName = (session.user as any)?.companyName || ''
+  const roleColor = (session.user as any)?.roleColor || 'teal'
+
+  const roleColorMap: Record<string, string> = {
+    red: 'bg-red-100 text-red-700',
+    purple: 'bg-purple-100 text-purple-700',
+    green: 'bg-green-100 text-green-700',
+    blue: 'bg-blue-100 text-blue-700',
+    teal: 'bg-teal-100 text-teal-700',
+    orange: 'bg-orange-100 text-orange-700',
+    indigo: 'bg-indigo-100 text-indigo-700',
+  }
+
+  const badgeClass = roleColorMap[roleColor] || roleColorMap.teal
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -124,6 +170,12 @@ export default function Home() {
             <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">
               {moduleTitles[activeModule]}
             </h1>
+            {companyName && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                {companyName}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-xs text-gray-500 sm:inline-block">
@@ -161,7 +213,12 @@ export default function Home() {
                   <div className="px-3 py-2 border-b border-gray-100">
                     <p className="text-sm font-medium text-gray-900">{userName}</p>
                     <p className="text-xs text-gray-500">{userEmail}</p>
-                    <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">{userRole}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${badgeClass}`}>{userRole}</span>
+                      {companyName && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{companyName}</span>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => signOut({ callbackUrl: '/login' })}

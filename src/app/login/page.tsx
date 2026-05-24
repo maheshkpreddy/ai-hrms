@@ -3,25 +3,56 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, LogIn, Shield, Users, Building2, GraduationCap, DollarSign, BarChart3, BookOpen, Briefcase } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Shield, Users, Building2, GraduationCap, DollarSign, BarChart3, BookOpen, Briefcase, Smartphone, Apple, Building, CheckCircle2 } from 'lucide-react'
 
 const demoCredentials = [
-  { role: 'Super Admin', email: 'admin@company.com', password: 'Admin@2024', icon: Shield, color: 'bg-red-500', desc: 'Full system access' },
-  { role: 'HR Admin', email: 'priya.sharma@company.com', password: 'HRAdmin@2024', icon: Users, color: 'bg-purple-500', desc: 'HR operations & recruitment' },
-  { role: 'Payroll Specialist', email: 'amit.patel@company.com', password: 'Payroll@2024', icon: DollarSign, color: 'bg-green-500', desc: 'Payroll & compensation' },
-  { role: 'Department Manager', email: 'rajesh.kumar@company.com', password: 'Manager@2024', icon: Building2, color: 'bg-blue-500', desc: 'Team management & approvals' },
-  { role: 'Employee', email: 'sneha.reddy@company.com', password: 'Employee@2024', icon: Users, color: 'bg-teal-500', desc: 'Self-service access' },
-  { role: 'Recruiter', email: 'fatima.khan@company.com', password: 'Recruiter@2024', icon: Briefcase, color: 'bg-orange-500', desc: 'Talent acquisition' },
-  { role: 'L&D Manager', email: 'meera.iyer@company.com', password: 'LDManager@2024', icon: BookOpen, color: 'bg-indigo-500', desc: 'Training & development' },
+  { role: 'Super Admin', email: 'admin@company.com', password: 'Admin@2024', icon: Shield, color: 'bg-red-500', desc: 'Full system access', dashboard: 'admin' },
+  { role: 'HR Admin', email: 'priya.sharma@company.com', password: 'HRAdmin@2024', icon: Users, color: 'bg-purple-500', desc: 'HR operations & recruitment', dashboard: 'hr' },
+  { role: 'Payroll Specialist', email: 'amit.patel@company.com', password: 'Payroll@2024', icon: DollarSign, color: 'bg-green-500', desc: 'Payroll & compensation', dashboard: 'payroll' },
+  { role: 'Department Manager', email: 'rajesh.kumar@company.com', password: 'Manager@2024', icon: Building2, color: 'bg-blue-500', desc: 'Team management & approvals', dashboard: 'manager' },
+  { role: 'Employee', email: 'sneha.reddy@company.com', password: 'Employee@2024', icon: Users, color: 'bg-teal-500', desc: 'Self-service access', dashboard: 'employee' },
+  { role: 'Recruiter', email: 'fatima.khan@company.com', password: 'Recruiter@2024', icon: Briefcase, color: 'bg-orange-500', desc: 'Talent acquisition', dashboard: 'recruiter' },
+  { role: 'L&D Manager', email: 'meera.iyer@company.com', password: 'LDManager@2024', icon: BookOpen, color: 'bg-indigo-500', desc: 'Training & development', dashboard: 'learning' },
 ]
 
 export default function LoginPage() {
   const router = useRouter()
+  const [companyCode, setCompanyCode] = useState('ACME')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [companyVerified, setCompanyVerified] = useState(false)
+  const [verifyingCompany, setVerifyingCompany] = useState(false)
+
+  const verifyCompany = async () => {
+    if (!companyCode.trim()) {
+      setError('Please enter a company code')
+      return false
+    }
+    setVerifyingCompany(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/companies?code=${encodeURIComponent(companyCode.toUpperCase())}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.companies && data.companies.length > 0) {
+          setCompanyVerified(true)
+          return true
+        }
+      }
+      setError('Invalid company code. Please check with your administrator.')
+      setCompanyVerified(false)
+      return false
+    } catch {
+      // Allow login even if company verification fails (for local dev)
+      setCompanyVerified(true)
+      return true
+    } finally {
+      setVerifyingCompany(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +63,7 @@ export default function LoginPage() {
       const result = await signIn('credentials', {
         email,
         password,
+        companyCode: companyCode.toUpperCase(),
         redirect: false,
       })
 
@@ -41,7 +73,7 @@ export default function LoginPage() {
         router.push('/')
         router.refresh()
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
@@ -49,8 +81,10 @@ export default function LoginPage() {
   }
 
   const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
+    setCompanyCode('ACME')
     setEmail(demoEmail)
     setPassword(demoPassword)
+    setCompanyVerified(true)
   }
 
   return (
@@ -73,7 +107,7 @@ export default function LoginPage() {
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
             <div className="mb-6">
               <h2 className="text-xl font-semibold text-white">Welcome back</h2>
-              <p className="text-slate-400 text-sm mt-1">Sign in to access your dashboard</p>
+              <p className="text-slate-400 text-sm mt-1">Sign in to access your company dashboard</p>
             </div>
 
             {error && (
@@ -83,6 +117,27 @@ export default function LoginPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Company Code */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Company Code</label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={companyCode}
+                    onChange={(e) => { setCompanyCode(e.target.value.toUpperCase()); setCompanyVerified(false) }}
+                    placeholder="Enter your company code"
+                    required
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all uppercase"
+                  />
+                  {companyVerified && (
+                    <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-400" />
+                  )}
+                </div>
+                <p className="text-slate-600 text-[10px] mt-1">Enter the code provided by your organization</p>
+              </div>
+
+              {/* Email */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Email Address</label>
                 <input
@@ -95,6 +150,7 @@ export default function LoginPage() {
                 />
               </div>
 
+              {/* Password */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
                 <div className="relative">
@@ -161,6 +217,42 @@ export default function LoginPage() {
               Sign in with Google
             </button>
           </div>
+
+          {/* Mobile App Download Section */}
+          <div className="mt-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 mb-2">
+                <Smartphone className="w-5 h-5 text-violet-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-white">Get the Mobile App</h3>
+              <p className="text-slate-500 text-[10px] mt-0.5">Access HRMS on the go</p>
+            </div>
+            <div className="flex gap-3">
+              <a
+                href="/api/mobile/android"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+              >
+                <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.523 2.2l1.3 1.1-2.1 2.5a7.7 7.7 0 012.7 5.8h-2a5.7 5.7 0 00-2.5-4.6L12 10.1l-2.9-3.1A5.7 5.7 0 006.6 11.6h-2a7.7 7.7 0 012.7-5.8L5.2 3.3l1.3-1.1 2.9 3.1a7.6 7.6 0 015.2 0l2.9-3.1zM12 12.9c-2.2 0-4 1.8-4 4v4h8v-4c0-2.2-1.8-4-4-4zm-6 4v4H4v-4c0-2.2 1.8-4 4-4 .7 0 1.4.2 2 .5-1.2 1-2 2.5-2 3.5zm12 0c0-1-.8-2.5-2-3.5.6-.3 1.3-.5 2-.5 2.2 0 4 1.8 4 4v4h-4v-4z"/>
+                </svg>
+                <div className="text-left">
+                  <p className="text-[9px] text-slate-400 leading-none">Download for</p>
+                  <p className="text-xs font-semibold text-white leading-tight">Android</p>
+                </div>
+              </a>
+              <a
+                href="/api/mobile/ios"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+              >
+                <Apple className="w-5 h-5 text-slate-300" />
+                <div className="text-left">
+                  <p className="text-[9px] text-slate-400 leading-none">Download for</p>
+                  <p className="text-xs font-semibold text-white leading-tight">iOS</p>
+                </div>
+              </a>
+            </div>
+            <p className="text-center text-slate-600 text-[9px] mt-2">Available on Google Play Store and Apple App Store</p>
+          </div>
         </div>
       </div>
 
@@ -170,6 +262,7 @@ export default function LoginPage() {
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-white mb-1">Demo Login Credentials</h3>
             <p className="text-slate-400 text-sm">Click any role to auto-fill credentials</p>
+            <p className="text-emerald-400 text-xs mt-1">Company Code: <span className="font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">ACME</span></p>
           </div>
 
           <div className="space-y-2.5">
@@ -187,8 +280,8 @@ export default function LoginPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-white">{cred.role}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-400 group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-all">
-                        Click to fill
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">
+                        {cred.dashboard}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 truncate">{cred.email}</p>

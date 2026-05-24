@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search');
+    const companyId = searchParams.get('companyId');
 
     const where: Record<string, unknown> = {};
 
@@ -14,6 +15,13 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (companyId) {
+      where.OR = [
+        { companyId },
+        { companyId: null }, // Include global roles
       ];
     }
 
@@ -83,6 +91,11 @@ export async function POST(request: NextRequest) {
         description: body.description,
         permissions: body.permissions ? JSON.stringify(body.permissions) : null,
         level: body.level || 0,
+        isSystem: body.isSystem || false,
+        dashboard: body.dashboard || null,
+        menuItems: body.menuItems ? (typeof body.menuItems === 'string' ? body.menuItems : JSON.stringify(body.menuItems)) : null,
+        color: body.color || null,
+        companyId: body.companyId || null,
       },
     });
 
@@ -91,7 +104,7 @@ export async function POST(request: NextRequest) {
       data: {
         action: 'create',
         module: 'hr',
-        details: `Created role: ${role.name} (level: ${role.level})`,
+        details: `Created role: ${role.name} (level: ${role.level}, dashboard: ${role.dashboard || 'none'})`,
       },
     });
 
@@ -109,7 +122,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, description, permissions, level } = body;
+    const { id, name, description, permissions, level, isSystem, dashboard, menuItems, color, companyId } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -123,6 +136,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         { error: 'Role not found' },
         { status: 404 }
+      );
+    }
+
+    // Prevent modifying system roles' system status
+    if (existing.isSystem && isSystem === false) {
+      return NextResponse.json(
+        { error: 'Cannot change system role status' },
+        { status: 400 }
       );
     }
 
@@ -140,10 +161,15 @@ export async function PATCH(request: NextRequest) {
     const role = await db.role.update({
       where: { id },
       data: {
-        ...(name && { name }),
+        ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(permissions !== undefined && { permissions: JSON.stringify(permissions) }),
         ...(level !== undefined && { level }),
+        ...(isSystem !== undefined && { isSystem }),
+        ...(dashboard !== undefined && { dashboard }),
+        ...(menuItems !== undefined && { menuItems: typeof menuItems === 'string' ? menuItems : JSON.stringify(menuItems) }),
+        ...(color !== undefined && { color }),
+        ...(companyId !== undefined && { companyId }),
       },
     });
 
@@ -187,6 +213,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { error: 'Role not found' },
         { status: 404 }
+      );
+    }
+
+    // Prevent deleting system roles
+    if (existing.isSystem) {
+      return NextResponse.json(
+        { error: 'Cannot delete system role. System roles are protected.' },
+        { status: 403 }
       );
     }
 
