@@ -126,7 +126,7 @@
 /* Sidebar scrollbar - always visible, dark themed */
 .sidebar-scroll [data-radix-scroll-area-viewport] {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
 }
 .sidebar-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar {
   width: 6px;
@@ -135,11 +135,22 @@
   background: transparent;
 }
 .sidebar-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.4);
+  background-color: rgba(148, 163, 184, 0.5);
   border-radius: 3px;
 }
 .sidebar-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(148, 163, 184, 0.6);
+  background-color: rgba(148, 163, 184, 0.7);
+}
+
+/* Radix ScrollArea scrollbar override for dark sidebar */
+.sidebar-scroll [data-radix-scroll-area-viewport] + [data-radix-scroll-area-scrollbar] {
+  --scrollbar-thumb: rgba(148, 163, 184, 0.5);
+}
+.sidebar-scroll [data-radix-scroll-area-scrollbar] > [data-radix-scroll-area-thumb] {
+  background-color: rgba(148, 163, 184, 0.5) !important;
+}
+.sidebar-scroll [data-radix-scroll-area-scrollbar]:hover > [data-radix-scroll-area-thumb] {
+  background-color: rgba(148, 163, 184, 0.7) !important;
 }
 
 /* General custom scrollbar */

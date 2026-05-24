@@ -633,7 +633,7 @@ function SidebarContent({
       )}
 
       {/* ── Navigation ── */}
-      <ScrollArea className="flex-1 px-2 py-2 sidebar-scroll">
+      <ScrollArea className="flex-1 min-h-0 overflow-hidden px-2 py-2 sidebar-scroll">
         <TooltipProvider>
           <nav className="flex flex-col gap-0.5">
             {filteredItems.map((item) => (

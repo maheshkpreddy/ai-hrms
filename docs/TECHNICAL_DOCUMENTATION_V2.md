@@ -17,7 +17,7 @@
 
 ## Part I: System Architecture Overview
 
-The AI-HRMS platform is built on a modern full-stack JavaScript architecture leveraging Next.js 16 with App Router, React 19, Prisma ORM 6 with PostgreSQL, and NextAuth.js v4 for authentication. The application follows a single-page application (SPA) pattern within the Next.js framework, where a single page component (`app/page.tsx`) dynamically renders 18 module components based on the active module selected from the sidebar navigation.
+The AI-HRMS platform is built on a modern full-stack JavaScript architecture leveraging Next.js 16 with App Router, React 19, Prisma ORM 6 with PostgreSQL, and NextAuth.js v4 for authentication. The application follows a single-page application (SPA) pattern within the Next.js framework, where a single page component (`app/page.tsx`) dynamically renders 20 module components based on the active module selected from the sidebar navigation. The home page displays a module icons grid (ModuleHome) that serves as the entry point, and selecting any module switches to the corresponding component view.
 
 The deployment target is Vercel's serverless platform, which imposes specific architectural constraints: all API routes execute as serverless functions, database connections must be managed through a singleton Prisma client pattern to prevent connection pool exhaustion, and the application must be stateless at the server level with JWT-based session management.
 
@@ -52,18 +52,18 @@ ai-hrms/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx         # Root layout
-│   │   ├── page.tsx           # Main SPA page (18 module switcher)
+│   │   ├── page.tsx           # Main SPA page (20 module switcher + ModuleHome)
 │   │   ├── login/page.tsx     # Login page
-│   │   └── api/               # 42 API route handlers
+│   │   └── api/               # 50+ API route handlers
 │   ├── components/
-│   │   ├── hrms/              # 18 module components (27,347 LOC)
+│   │   ├── hrms/              # 22 module components (35,000+ LOC)
 │   │   └── ui/                # 40+ shadcn/ui primitives
 │   ├── hooks/                 # use-mobile, use-toast
 │   └── lib/                   # Shared utilities
 │       ├── auth.ts            # NextAuth config (201 lines)
 │       ├── db.ts              # Prisma singleton (13 lines)
 │       ├── excelExport.ts     # 6 export functions (261 lines)
-│       ├── store.ts           # Zustand store (39 lines)
+│       ├── store.ts           # Zustand store (100+ lines, 21 ModuleKeys)
 │       ├── useApi.ts          # API hooks (111 lines)
 │       ├── data.ts            # Mock data (659 lines)
 │       └── utils.ts           # cn() utility (6 lines)
@@ -77,7 +77,7 @@ ai-hrms/
 
 ### Component Architecture Pattern
 
-The AI-HRMS frontend follows a single-page application pattern where the main `page.tsx` component acts as a module router. Instead of using Next.js file-based routing, the application renders all 18 module components within a single page and switches between them using Zustand's `activeModule` state.
+The AI-HRMS frontend follows a single-page application pattern where the main `page.tsx` component acts as a module router. Instead of using Next.js file-based routing, the application renders all 20 module components within a single page and switches between them using Zustand's `activeModule` state. The initial view shows a ModuleHome grid with interactive cards for all modules; clicking a card sets `homeView=false` and switches to the module component.
 
 Each module component follows a consistent internal structure:
 - `'use client'` directive for client-side interactivity
@@ -96,7 +96,7 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   company: CompanyManagement,
   tasks: TaskManagement,
   meetings: MeetingManagement,
-  projects: ProjectManagement,
+  projects: ProjectKanban,          // New: Kanban board system
   assets: AssetManagement,
   documents: DocumentManagement,
   rbac: RBACSecurity,
@@ -105,12 +105,27 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   payroll: PayrollExpense,
   performance: Performance,
   learning: LearningDevelopment,
+  clients: ClientPortal,           // New: Client management portal
+  subvendors: SubVendorManagement, // New: Sub-vendor management
+  jobportal: JobPortalComponent,   // New: AI-powered recruitment portal
   analytics: Analytics,
   selfservice: SelfService,
   profile: ProfileManagement,
   settings: Settings,
 }
 ```
+
+### Sidebar Navigation
+
+The sidebar (945 lines) provides:
+- **Collapsible**: 16rem (expanded) ↔ 4.5rem (collapsed) with smooth transition
+- **Sub-menus**: Each of the 20 modules has expandable sub-items with icons
+- **Search**: Filter modules by name with search bar
+- **Home button**: Returns to ModuleHome grid view
+- **AI badges**: Visual indicators on AI-powered modules (Talent Acquisition, Performance, Learning, Job Portal, Analytics)
+- **Mobile responsive**: Sheet/Drawer on small screens with hamburger trigger
+- **Custom scrollbar**: Visible dark-themed scrollbar for navigation overflow
+- **User profile**: Avatar with initials, name, and role at the bottom
 
 ### State Management (Zustand)
 
@@ -122,24 +137,49 @@ export type ModuleKey = 'dashboard' | 'employees' | 'assets' |
   'documents' | 'rbac' | 'talent' | 'attendance' | 'payroll' |
   'performance' | 'learning' | 'analytics' | 'selfservice' |
   'company' | 'tasks' | 'meetings' | 'projects' |
+  'clients' | 'subvendors' | 'jobportal' |
   'profile' | 'settings'
 
 interface HRMSStore {
   activeModule: ModuleKey
   sidebarOpen: boolean
   searchQuery: string
+  homeView: boolean
+  activeSubItem: string | null
+  userRole: string | null
+  userDashboard: string | null
+  allowedModules: ModuleKey[] | null
   setActiveModule: (module: ModuleKey) => void
   setSidebarOpen: (open: boolean) => void
   setSearchQuery: (query: string) => void
+  setHomeView: (home: boolean) => void
+  setActiveSubItem: (item: string | null) => void
+  setUserRole: (role: string | null) => void
+  setUserDashboard: (dashboard: string | null) => void
+  setAllowedModules: (modules: ModuleKey[] | null) => void
+  goHome: () => void
+  selectModule: (module: ModuleKey) => void
 }
 
 export const useHRMSStore = create<HRMSStore>((set) => ({
   activeModule: 'dashboard',
   sidebarOpen: true,
   searchQuery: '',
+  homeView: true,
+  activeSubItem: null,
+  userRole: null,
+  userDashboard: null,
+  allowedModules: null,
   setActiveModule: (module) => set({ activeModule: module }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setHomeView: (home) => set({ homeView: home }),
+  setActiveSubItem: (item) => set({ activeSubItem: item }),
+  setUserRole: (role) => set({ userRole: role }),
+  setUserDashboard: (dashboard) => set({ userDashboard: dashboard }),
+  setAllowedModules: (modules) => set({ allowedModules: modules }),
+  goHome: () => set({ homeView: true, activeSubItem: null }),
+  selectModule: (module) => set({ activeModule: module, homeView: false, activeSubItem: null }),
 }))
 ```
 
@@ -367,6 +407,24 @@ Allows unauthenticated access only to: `/api/auth/*`, `/_next/static/*`, `/_next
 | /api/tasks/[id] | GET, PATCH, DELETE | Cascade comments+assignments | Yes |
 | /api/tasks/assignments | PATCH | Auto-finish on all complete | Yes |
 | /api/tasks/comments | GET, POST | HR flag support | Yes |
+| /api/kanban/boards | GET, POST | Kanban board CRUD | Yes |
+| /api/kanban/boards/[id] | GET, PATCH, DELETE | Board with columns | Yes |
+| /api/kanban/columns | GET, POST, PATCH, DELETE | Column management | Yes |
+| /api/kanban/cards | GET, POST, PATCH, DELETE | Card CRUD with position | Yes |
+| /api/clients | GET, POST | Client management | Yes |
+| /api/clients/[id] | GET, PATCH, DELETE | Client details | Yes |
+| /api/tickets | GET, POST | Support ticket CRUD | Yes |
+| /api/tickets/[id] | GET, PATCH, DELETE | Ticket with comments | Yes |
+| /api/tickets/[id]/comments | GET, POST | Ticket discussion | Yes |
+| /api/subvendors | GET, POST | Vendor management | Yes |
+| /api/subvendors/[id] | GET, PATCH, DELETE | Vendor details | Yes |
+| /api/subvendors/[id]/resumes | GET, POST | Resume pipeline | Yes |
+| /api/jobportal/candidates | GET, POST | Candidate CRUD | Yes |
+| /api/jobportal/applications | GET, POST | Application tracking | Yes |
+| /api/jobportal/interviews | GET, POST | Interview scheduling | Yes |
+| /api/jobportal/offer-letters | GET, POST | Offer management | Yes |
+| /api/jobportal/onboarding | GET, POST | Onboarding checklists | Yes |
+| /api/jobportal/background-checks | GET, POST | Background verification | Yes |
 
 ---
 
