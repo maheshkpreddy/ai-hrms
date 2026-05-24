@@ -534,7 +534,7 @@ export default function ClientPortal() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
             disabled={currentPage === 1}
             className="h-8 px-2"
           >
@@ -543,7 +543,7 @@ export default function ClientPortal() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
             disabled={currentPage === totalPages}
             className="h-8 px-2"
           >

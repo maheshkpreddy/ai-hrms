@@ -41,9 +41,6 @@ export default function MobileAppPage() {
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Android Card */}
           <Card className="relative overflow-hidden">
-            <div className="absolute top-3 right-3">
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">Coming Soon</Badge>
-            </div>
             <CardContent className="p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 dark:bg-green-950">
@@ -51,22 +48,22 @@ export default function MobileAppPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold">Android App</h3>
-                  <p className="text-xs text-muted-foreground">Requires Android 8.0+</p>
+                  <p className="text-xs text-muted-foreground">Works on Android 8.0+</p>
                 </div>
               </div>
               <p className="mb-4 text-sm text-muted-foreground">Access attendance, leaves, payslips, and more from your Android device. Mark check-in/check-out with geofencing support.</p>
-              <Button className="w-full gap-2" disabled>
-                <Download className="h-4 w-4" />
-                Download from Play Store
-              </Button>
+              <div className="space-y-2">
+                <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/'}>
+                  <Download className="h-4 w-4" />
+                  Install as Web App (Works Now!)
+                </Button>
+                <p className="text-[11px] text-muted-foreground text-center">Open in Chrome → Menu (⋮) → &quot;Add to Home Screen&quot;</p>
+              </div>
             </CardContent>
           </Card>
 
           {/* iOS Card */}
           <Card className="relative overflow-hidden">
-            <div className="absolute top-3 right-3">
-              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">Coming Soon</Badge>
-            </div>
             <CardContent className="p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -74,14 +71,17 @@ export default function MobileAppPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold">iOS App</h3>
-                  <p className="text-xs text-muted-foreground">Requires iOS 15.0+</p>
+                  <p className="text-xs text-muted-foreground">Works on iOS 15.0+</p>
                 </div>
               </div>
               <p className="mb-4 text-sm text-muted-foreground">Full HRMS experience on your iPhone or iPad. Receive push notifications for approvals, leave requests, and announcements.</p>
-              <Button className="w-full gap-2" disabled>
-                <Download className="h-4 w-4" />
-                Download from App Store
-              </Button>
+              <div className="space-y-2">
+                <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/'}>
+                  <Download className="h-4 w-4" />
+                  Install as Web App (Works Now!)
+                </Button>
+                <p className="text-[11px] text-muted-foreground text-center">Open in Safari → Share → &quot;Add to Home Screen&quot;</p>
+              </div>
             </CardContent>
           </Card>
         </div>

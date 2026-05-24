@@ -375,6 +375,9 @@ export default function SelfService() {
   const { data: session } = useSession()
   const { setActiveModule, activeSubItem, setActiveSubItem } = useHRMSStore()
 
+  // Active tab state (must be declared before useEffect that references setActiveTab)
+  const [activeTab, setActiveTab] = useState('profile')
+
   // Respond to sub-item navigation from sidebar
   useEffect(() => {
     if (activeSubItem) {
@@ -432,7 +435,6 @@ export default function SelfService() {
     manager: '',
     workMode: 'Hybrid',
   }
-  const [activeTab, setActiveTab] = useState('profile')
 
   // Profile edit state
   const [isEditing, setIsEditing] = useState(false)

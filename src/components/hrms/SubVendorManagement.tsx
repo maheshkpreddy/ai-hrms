@@ -140,7 +140,7 @@ function parseSkills(skills: string | null): string[] {
   }
 }
 
-function getSpecializationLabel(value: string | null): string {
+function getSpecializationLabel(value: string | null | undefined): string {
   if (!value) return '—'
   const found = specializationOptions.find(o => o.value === value)
   return found ? found.label : value

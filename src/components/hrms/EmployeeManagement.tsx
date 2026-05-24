@@ -297,6 +297,7 @@ export default function EmployeeManagement() {
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
 
   // Add Employee Form State
   const [addForm, setAddForm] = useState({
@@ -460,8 +461,6 @@ export default function EmployeeManagement() {
     setEditingEmployeeId(emp.id)
     setAddOpen(true)
   }
-
-  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null)
 
   function handleDelete(id: string) {
     setDeleteConfirm(id)

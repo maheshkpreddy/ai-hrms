@@ -290,6 +290,7 @@ interface MeetingForm {
   endTime: string
   location: string
   meetingType: string
+  status: string
   invitedEmployeeIds: string[]
 }
 
@@ -301,6 +302,7 @@ const emptyForm: MeetingForm = {
   endTime: '',
   location: '',
   meetingType: 'virtual',
+  status: 'scheduled',
   invitedEmployeeIds: [],
 }
 
@@ -649,6 +651,7 @@ export default function MeetingManagement() {
       endTime: meeting.endTime || '',
       location: meeting.location || '',
       meetingType: meeting.meetingType || 'virtual',
+      status: meeting.status || 'scheduled',
       invitedEmployeeIds: meeting.invitations.map((i) => i.employeeId),
     })
     setEmployeeSearch('')
