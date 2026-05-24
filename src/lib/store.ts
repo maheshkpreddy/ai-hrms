@@ -17,6 +17,9 @@ export type ModuleKey =
   | 'tasks'
   | 'meetings'
   | 'projects'
+  | 'clients'
+  | 'subvendors'
+  | 'jobportal'
   | 'profile'
   | 'settings'
 

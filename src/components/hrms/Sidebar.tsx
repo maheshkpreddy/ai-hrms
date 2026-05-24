@@ -27,6 +27,11 @@ import {
   Video,
   FolderKanban,
   UserCircle,
+  Ticket,
+  Briefcase,
+  Globe,
+  Kanban,
+  UserCheck,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -63,8 +68,11 @@ const navItems: NavItem[] = [
   { key: 'employees', label: 'Employees', icon: Users, aiPowered: false },
   { key: 'company', label: 'Company', icon: Building2, aiPowered: false },
   { key: 'tasks', label: 'Task Management', icon: ListTodo, aiPowered: false },
+  { key: 'projects', label: 'Project Kanban', icon: FolderKanban, aiPowered: false },
   { key: 'meetings', label: 'Meetings', icon: Video, aiPowered: false },
-  { key: 'projects', label: 'Projects', icon: FolderKanban, aiPowered: false },
+  { key: 'clients', label: 'Client Portal', icon: Building2, aiPowered: false },
+  { key: 'subvendors', label: 'Sub Vendors', icon: UserCheck, aiPowered: false },
+  { key: 'jobportal', label: 'Job Portal', icon: Globe, aiPowered: true },
   { key: 'assets', label: 'Asset Management', icon: Laptop, aiPowered: false },
   { key: 'documents', label: 'Document Management', icon: FileText, aiPowered: false },
   { key: 'rbac', label: 'RBAC & Security', icon: Shield, aiPowered: false },
@@ -213,10 +221,10 @@ function SidebarContent({
         {!collapsed && (
           <div className="flex flex-col overflow-hidden transition-all duration-300">
             <span className="text-lg font-bold tracking-tight text-white">
-              AI-HRMS
+              eh2r AI
             </span>
             <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-emerald-400/80">
-              Smart Workspace
+              An AI Product of MARQ AI
             </span>
           </div>
         )}

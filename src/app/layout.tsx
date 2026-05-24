@@ -15,24 +15,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI-HRMS | AI-Powered Human Resource Management System",
-  description: "Comprehensive AI-powered HRMS application with intelligent talent acquisition, performance analytics, payroll management, and employee self-service.",
-  keywords: ["HRMS", "AI", "Human Resources", "Talent Management", "Payroll", "Performance", "Analytics", "Next.js"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "eh2r AI | An AI Product of MARQ AI",
+  description: "eh2r AI - Comprehensive AI-powered HRMS by MARQ AI with intelligent talent acquisition, job portal, client management, recruitment workflow, and employee self-service.",
+  keywords: ["eh2r AI", "MARQ AI", "HRMS", "AI", "Human Resources", "Talent Management", "Job Portal", "Client Portal", "Recruitment", "Next.js"],
+  authors: [{ name: "MARQ AI" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "AI-HRMS",
-    description: "AI-Powered Human Resource Management System",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "eh2r AI",
+    description: "An AI Product of MARQ AI",
+    url: "https://ai-hrms-rho.vercel.app",
+    siteName: "eh2r AI by MARQ AI",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI-HRMS",
-    description: "AI-Powered Human Resource Management System",
+    title: "eh2r AI",
+    description: "An AI Product of MARQ AI",
   },
 };
 

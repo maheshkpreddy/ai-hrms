@@ -18,7 +18,10 @@ import SelfService from '@/components/hrms/SelfService'
 import CompanyManagement from '@/components/hrms/CompanyManagement'
 import TaskManagement from '@/components/hrms/TaskManagement'
 import MeetingManagement from '@/components/hrms/MeetingManagement'
-import ProjectManagement from '@/components/hrms/ProjectManagement'
+import ProjectKanban from '@/components/hrms/ProjectKanban'
+import ClientPortal from '@/components/hrms/ClientPortal'
+import SubVendorManagement from '@/components/hrms/SubVendorManagement'
+import JobPortalComponent from '@/components/hrms/JobPortal'
 import ProfileManagement from '@/components/hrms/ProfileManagement'
 import Settings from '@/components/hrms/Settings'
 import { LogOut, ChevronDown } from 'lucide-react'
@@ -40,7 +43,10 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   company: CompanyManagement,
   tasks: TaskManagement,
   meetings: MeetingManagement,
-  projects: ProjectManagement,
+  projects: ProjectKanban,
+  clients: ClientPortal,
+  subvendors: SubVendorManagement,
+  jobportal: JobPortalComponent,
   profile: ProfileManagement,
   settings: Settings,
 }
@@ -61,7 +67,10 @@ const moduleTitles: Record<ModuleKey, string> = {
   company: 'Company Management',
   tasks: 'Task Management',
   meetings: 'Meeting Management',
-  projects: 'Project Management',
+  projects: 'Project Kanban',
+  clients: 'Client Portal',
+  subvendors: 'Sub-Vendor Management',
+  jobportal: 'Job Portal',
   profile: 'My Profile',
   settings: 'Settings',
 }
@@ -141,7 +150,7 @@ export default function Home() {
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 text-sm">Loading AI-HRMS...</p>
+          <p className="text-gray-500 text-sm">Loading eh2r AI...</p>
         </div>
       </div>
     )

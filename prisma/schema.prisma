@@ -273,6 +273,8 @@ model Job {
 
   candidates   Candidate[]
   aiInterviews AIInterview[]
+  applications JobApplication[]
+  subVendorResumes SubVendorResume[]
 }
 
 model Candidate {
@@ -405,6 +407,9 @@ model Company {
   users       User[]
   employees   Employee[]
   departments Department[]
+  clients     Client[]
+  subVendors  SubVendor[]
+  kanbanBoards KanbanBoard[]
 }
 
 model CompanyMember {
@@ -538,6 +543,7 @@ model Project {
 
   members     ProjectMember[]
   milestones  ProjectMilestone[]
+  kanbanBoards KanbanBoard[]
 }
 
 model ProjectMember {
@@ -628,4 +634,320 @@ model RolePermission {
   updatedAt   DateTime @updatedAt
 
   @@unique([roleId, module])
+}
+
+// ─── Client Portal ──────────────────────────────────────────────────────────
+
+model Client {
+  id              String   @id @default(cuid())
+  companyName     String
+  contactPerson   String
+  email           String   @unique
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?
+  logo            String?
+  industry        String?
+  website         String?
+  gstNumber       String?
+  panNumber       String?
+  subscription    String   @default("basic") // basic, premium, enterprise
+  resumeAccessLimit Int    @default(50)       // Max resumes client can access/download per month
+  resumesAccessed Int      @default(0)
+  isActive        Boolean  @default(true)
+  companyId       String?  // Link to internal company
+  company         Company? @relation(fields: [companyId], references: [id])
+  passwordHash    String
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tickets         Ticket[]
+  resumeAccess    ClientResumeAccess[]
+  clientUsers     ClientUser[]
+}
+
+model ClientUser {
+  id          String   @id @default(cuid())
+  clientId    String
+  name        String
+  email       String   @unique
+  passwordHash String
+  role        String   @default("viewer") // admin, viewer, downloader
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  client      Client   @relation(fields: [clientId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  clientId    String
+  subject     String
+  description String
+  category    String   // service, product, billing, technical, other
+  priority    String   @default("medium") // low, medium, high, urgent
+  status      String   @default("open") // open, in_progress, resolved, closed
+  assignedTo  String?  // Employee ID
+  resolution  String?
+  client      Client   @relation(fields: [clientId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  comments    TicketComment[]
+}
+
+model TicketComment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  authorType  String   // client, employee
+  authorId    String
+  authorName  String
+  content     String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+// ─── Sub-Vendor / Staffing Agency ───────────────────────────────────────────
+
+model SubVendor {
+  id              String   @id @default(cuid())
+  companyName     String
+  contactPerson   String
+  email           String   @unique
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?
+  gstNumber       String?
+  panNumber       String?
+  specialization  String?  // IT, Healthcare, Finance, etc.
+  isActive        Boolean  @default(true)
+  companyId       String?  // Link to internal company
+  company         Company? @relation(fields: [companyId], references: [id])
+  passwordHash    String
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  uploadedResumes SubVendorResume[]
+}
+
+model SubVendorResume {
+  id            String   @id @default(cuid())
+  subVendorId   String
+  candidateName String
+  email         String
+  phone         String?
+  resumeUrl     String?
+  skills        String?  // JSON array
+  experience    String?
+  currentCompany String?
+  expectedSalary String?
+  jobId         String?  // Link to job if uploaded for specific requirement
+  job           Job?     @relation(fields: [jobId], references: [id])
+  status        String   @default("uploaded") // uploaded, shortlisted, interviewed, offered, rejected
+  subVendor     SubVendor @relation(fields: [subVendorId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ─── Client Resume Access Tracking ──────────────────────────────────────────
+
+model ClientResumeAccess {
+  id          String   @id @default(cuid())
+  clientId    String
+  candidateId String?  // Link to candidate if from our system
+  resumeUrl   String?
+  candidateName String
+  skills      String?
+  experience  String?
+  accessType  String   @default("view") // view, download
+  client      Client   @relation(fields: [clientId], references: [id])
+  accessedAt  DateTime @default(now())
+}
+
+// ─── Job Portal ─────────────────────────────────────────────────────────────
+
+model JobPortalCandidate {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  phone           String?
+  passwordHash    String
+  resumeUrl       String?
+  skills          String?  // JSON array
+  experience      String?
+  education       String?
+  currentCompany  String?
+  expectedSalary  String?
+  location        String?
+  noticePeriod    String?
+  avatar          String?
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  applications    JobApplication[]
+}
+
+model JobApplication {
+  id            String   @id @default(cuid())
+  candidateId   String
+  jobId         String
+  status        String   @default("applied") // applied, screening, shortlisted, interview_round_1, interview_round_2, interview_round_3, offered, hired, rejected
+  coverLetter   String?
+  expectedSalary String?
+  noticePeriod  String?
+  aiFitScore    Float?
+  shortlistedBy String?  // client or recruiter employee id
+  shortlistedAt String?
+  interviewMode String?  // ai, human
+  interviewRounds Int    @default(0)
+  currentRound  Int      @default(0)
+  candidate     JobPortalCandidate @relation(fields: [candidateId], references: [id])
+  job           Job      @relation(fields: [jobId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  interviews    JobInterview[]
+  offerLetter   OfferLetter?
+  onboarding    Onboarding?
+  backgroundCheck BackgroundCheck?
+}
+
+model JobInterview {
+  id              String   @id @default(cuid())
+  applicationId   String
+  roundNumber     Int
+  interviewType   String   // ai, human
+  status          String   @default("scheduled") // scheduled, in_progress, completed, cancelled
+  scheduledAt     String?
+  completedAt     String?
+  interviewerId   String?  // Employee ID (for human interviews)
+  questions       String?  // JSON array of questions
+  responses       String?  // JSON array of responses
+  score           Float?
+  feedback        String?
+  recommendation  String?  // proceed, reject, hold
+  application     JobApplication @relation(fields: [applicationId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model OfferLetter {
+  id              String   @id @default(cuid())
+  applicationId   String   @unique
+  status          String   @default("draft") // draft, sent, accepted, rejected, withdrawn
+  position        String
+  department      String?
+  salary          Float?
+  startDate       String?
+  issuedBy        String?  // Employee ID (recruitment head)
+  issuedAt        String?
+  acceptedAt      String?
+  letterContent   String?  // Full letter HTML/Markdown content
+  application     JobApplication @relation(fields: [applicationId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Onboarding {
+  id              String   @id @default(cuid())
+  applicationId   String   @unique
+  status          String   @default("pending") // pending, in_progress, completed
+  documentUpload  Boolean  @default(false)
+  policyAcknowledgment Boolean @default(false)
+  equipmentSetup  Boolean  @default(false)
+  accountCreation Boolean  @default(false)
+  orientationComplete Boolean @default(false)
+  buddyAssigned   String?  // Employee ID
+  startDate       String?
+  completedAt     String?
+  employeeId      String?  // Link to created Employee record
+  application     JobApplication @relation(fields: [applicationId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BackgroundCheck {
+  id              String   @id @default(cuid())
+  applicationId   String   @unique
+  status          String   @default("pending") // pending, in_progress, completed, failed
+  vendorName      String?  // External background check company
+  criminalCheck   String   @default("pending") // pending, clear, flagged
+  educationCheck  String   @default("pending")
+  employmentCheck String   @default("pending")
+  addressCheck    String   @default("pending")
+  drugTest        String   @default("pending") // pending, clear, failed
+  reportUrl       String?
+  notes           String?
+  initiatedAt     String?
+  completedAt     String?
+  application     JobApplication @relation(fields: [applicationId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ─── Kanban Board ───────────────────────────────────────────────────────────
+
+model KanbanBoard {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  projectId   String?  // Optional link to project
+  project     Project? @relation(fields: [projectId], references: [id])
+  companyId   String?
+  company     Company? @relation(fields: [companyId], references: [id])
+  createdBy   String?  // Employee ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  columns     KanbanColumn[]
+}
+
+model KanbanColumn {
+  id          String   @id @default(cuid())
+  boardId     String
+  title       String
+  color       String   @default("#6366f1") // Column header color
+  position    Int      @default(0) // Order of the column
+  board       KanbanBoard @relation(fields: [boardId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cards       KanbanCard[]
+}
+
+model KanbanCard {
+  id          String   @id @default(cuid())
+  columnId    String
+  title       String
+  description String?
+  priority    String   @default("medium") // low, medium, high, urgent
+  position    Int      @default(0) // Order within column
+  dueDate     String?
+  assigneeId  String?  // Employee ID
+  tags        String?  // JSON array of tag strings
+  coverColor  String?
+  column      KanbanColumn @relation(fields: [columnId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  comments    KanbanCardComment[]
+}
+
+model KanbanCardComment {
+  id          String   @id @default(cuid())
+  cardId      String
+  authorId    String?  // Employee ID
+  authorName  String
+  content     String
+  card        KanbanCard @relation(fields: [cardId], references: [id])
+  createdAt   DateTime @default(now())
 }

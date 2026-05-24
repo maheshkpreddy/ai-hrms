@@ -3,17 +3,9 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, LogIn, Shield, Users, Building2, GraduationCap, DollarSign, BarChart3, BookOpen, Briefcase, Smartphone, Apple, Building, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Smartphone, Apple, Building, CheckCircle2 } from 'lucide-react'
 
-const demoCredentials = [
-  { role: 'Super Admin', email: 'admin@company.com', password: 'Admin@2024', icon: Shield, color: 'bg-red-500', desc: 'Full system access', dashboard: 'admin' },
-  { role: 'HR Admin', email: 'priya.sharma@company.com', password: 'HRAdmin@2024', icon: Users, color: 'bg-purple-500', desc: 'HR operations & recruitment', dashboard: 'hr' },
-  { role: 'Payroll Specialist', email: 'amit.patel@company.com', password: 'Payroll@2024', icon: DollarSign, color: 'bg-green-500', desc: 'Payroll & compensation', dashboard: 'payroll' },
-  { role: 'Department Manager', email: 'rajesh.kumar@company.com', password: 'Manager@2024', icon: Building2, color: 'bg-blue-500', desc: 'Team management & approvals', dashboard: 'manager' },
-  { role: 'Employee', email: 'sneha.reddy@company.com', password: 'Employee@2024', icon: Users, color: 'bg-teal-500', desc: 'Self-service access', dashboard: 'employee' },
-  { role: 'Recruiter', email: 'fatima.khan@company.com', password: 'Recruiter@2024', icon: Briefcase, color: 'bg-orange-500', desc: 'Talent acquisition', dashboard: 'recruiter' },
-  { role: 'L&D Manager', email: 'meera.iyer@company.com', password: 'LDManager@2024', icon: BookOpen, color: 'bg-indigo-500', desc: 'Training & development', dashboard: 'learning' },
-]
+
 
 export default function LoginPage() {
   const router = useRouter()
@@ -80,12 +72,7 @@ export default function LoginPage() {
     }
   }
 
-  const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
-    setCompanyCode('ACME')
-    setEmail(demoEmail)
-    setPassword(demoPassword)
-    setCompanyVerified(true)
-  }
+
 
   return (
     <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
@@ -99,8 +86,8 @@ export default function LoginPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-1">AI-HRMS</h1>
-            <p className="text-slate-400 text-sm">AI-Powered Human Resource Management System</p>
+            <h1 className="text-3xl font-bold text-white mb-1">eh2r AI</h1>
+            <p className="text-slate-400 text-sm">An AI Product of MARQ AI</p>
           </div>
 
           {/* Login Card */}
@@ -256,49 +243,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Side - Demo Credentials */}
-      <div className="hidden lg:flex flex-1 items-center justify-center p-8 bg-white/[0.02] border-l border-white/5">
-        <div className="w-full max-w-lg">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-white mb-1">Demo Login Credentials</h3>
-            <p className="text-slate-400 text-sm">Click any role to auto-fill credentials</p>
-            <p className="text-emerald-400 text-xs mt-1">Company Code: <span className="font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">ACME</span></p>
-          </div>
 
-          <div className="space-y-2.5">
-            {demoCredentials.map((cred) => {
-              const Icon = cred.icon
-              return (
-                <button
-                  key={cred.role}
-                  onClick={() => handleDemoLogin(cred.email, cred.password)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 transition-all text-left group"
-                >
-                  <div className={`w-10 h-10 rounded-lg ${cred.color} flex items-center justify-center flex-shrink-0`}>
-                    <Icon size={18} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-white">{cred.role}</span>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium">
-                        {cred.dashboard}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 truncate">{cred.email}</p>
-                    <p className="text-[10px] text-slate-600 mt-0.5">{cred.desc}</p>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="mt-6 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-            <p className="text-xs text-amber-400">
-              <strong>Note:</strong> These are demo credentials for testing. Change passwords in production.
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
