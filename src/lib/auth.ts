@@ -1,6 +1,5 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import GoogleProvider from 'next-auth/providers/google'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
@@ -11,6 +10,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email', placeholder: 'your.email@company.com' },
         password: { label: 'Password', type: 'password' },
+        companyCode: { label: 'Company Code', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await db.user.findUnique({
           where: { email: credentials.email },
-          include: { role: true, employee: true },
+          include: { role: true, employee: true, company: true },
         })
 
         if (!user) {
@@ -30,26 +30,40 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Your account has been deactivated. Please contact HR.')
         }
 
+        // Verify company code if provided
+        if (credentials.companyCode) {
+          const company = await db.company.findUnique({
+            where: { code: credentials.companyCode.toUpperCase() },
+          })
+          if (!company) {
+            throw new Error('Invalid company code. Please check and try again.')
+          }
+          if (!company.isActive) {
+            throw new Error('This company account is inactive. Please contact support.')
+          }
+          if (user.companyId && user.companyId !== company.id) {
+            throw new Error('You are not authorized to access this company portal.')
+          }
+        }
+
         const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash)
 
         if (!isPasswordValid) {
           throw new Error('Invalid password. Please try again.')
         }
 
-        // Update last login timestamp
         await db.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
         })
 
-        // Log the login event
         await db.auditLog.create({
           data: {
             userId: user.id,
             employeeId: user.employeeId,
             action: 'login',
             module: 'auth',
-            details: `User ${user.name} logged in via credentials`,
+            details: `User ${user.name} logged in${credentials.companyCode ? ` to company ${credentials.companyCode}` : ''}`,
           },
         })
 
@@ -63,116 +77,32 @@ export const authOptions: NextAuthOptions = {
           permissions: user.role?.permissions || '{}',
           employeeId: user.employeeId,
           avatar: user.avatar || user.employee?.avatar || null,
+          companyId: user.companyId,
+          companyCode: user.company?.code || credentials.companyCode?.toUpperCase() || null,
+          companyName: user.company?.name || null,
+          dashboard: user.role?.dashboard || 'employee',
+          menuItems: user.role?.menuItems || null,
+          roleColor: user.role?.color || 'teal',
         }
       },
     }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === 'google') {
-        try {
-          // Check if user exists in our DB
-          const existingUser = await db.user.findUnique({
-            where: { email: user.email! },
-            include: { role: true, employee: true },
-          })
-
-          if (existingUser) {
-            if (!existingUser.isActive) {
-              return false
-            }
-            // Update last login
-            await db.user.update({
-              where: { id: existingUser.id },
-              data: { lastLoginAt: new Date() },
-            })
-            // Create or update account link
-            await db.account.upsert({
-              where: { provider_providerAccountId: { provider: 'google', providerAccountId: account.providerAccountId } },
-              create: {
-                userId: existingUser.id,
-                type: 'oauth',
-                provider: 'google',
-                providerAccountId: account.providerAccountId,
-                access_token: account.access_token,
-                refresh_token: account.refresh_token,
-              },
-              update: {
-                access_token: account.access_token,
-                refresh_token: account.refresh_token,
-              },
-            })
-            // Log the login
-            await db.auditLog.create({
-              data: {
-                userId: existingUser.id,
-                employeeId: existingUser.employeeId,
-                action: 'login',
-                module: 'auth',
-                details: `User ${existingUser.name} logged in via Google`,
-              },
-            })
-            // Set custom fields on user object for JWT callback
-            ;(user as any).dbUserId = existingUser.id
-            ;(user as any).role = existingUser.role?.name || 'Employee'
-            ;(user as any).roleId = existingUser.roleId
-            ;(user as any).roleLevel = existingUser.role?.level || 4
-            ;(user as any).permissions = existingUser.role?.permissions || '{}'
-            ;(user as any).employeeId = existingUser.employeeId
-            ;(user as any).avatar = existingUser.avatar || existingUser.employee?.avatar || null
-          } else {
-            // Auto-create user for Google sign-in
-            const employeeRole = await db.role.findFirst({ where: { name: 'Employee' } })
-            const newUser = await db.user.create({
-              data: {
-                email: user.email!,
-                name: user.name || 'Google User',
-                passwordHash: await bcrypt.hash(Math.random().toString(36), 10),
-                avatar: user.image || null,
-                roleId: employeeRole?.id,
-                isActive: true,
-              },
-              include: { role: true },
-            })
-            await db.account.create({
-              data: {
-                userId: newUser.id,
-                type: 'oauth',
-                provider: 'google',
-                providerAccountId: account.providerAccountId,
-                access_token: account.access_token,
-                refresh_token: account.refresh_token,
-              },
-            })
-            ;(user as any).dbUserId = newUser.id
-            ;(user as any).role = newUser.role?.name || 'Employee'
-            ;(user as any).roleId = newUser.roleId
-            ;(user as any).roleLevel = newUser.role?.level || 4
-            ;(user as any).permissions = newUser.role?.permissions || '{}'
-            ;(user as any).employeeId = null
-            ;(user as any).avatar = newUser.avatar
-          }
-        } catch (error) {
-          console.error('Google auth error:', error)
-          return false
-        }
-      }
-      return true
-    },
     async jwt({ token, user }) {
       if (user) {
-        // For Google auth, use dbUserId; for credentials, use id
-        token.id = (user as any).dbUserId || user.id
+        token.id = user.id
         token.role = (user as any).role
         token.roleId = (user as any).roleId
         token.roleLevel = (user as any).roleLevel
         token.permissions = (user as any).permissions
         token.employeeId = (user as any).employeeId
         token.avatar = (user as any).avatar
+        token.companyId = (user as any).companyId
+        token.companyCode = (user as any).companyCode
+        token.companyName = (user as any).companyName
+        token.dashboard = (user as any).dashboard
+        token.menuItems = (user as any).menuItems
+        token.roleColor = (user as any).roleColor
       }
       return token
     },
@@ -185,6 +115,12 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).permissions = token.permissions
         ;(session.user as any).employeeId = token.employeeId
         ;(session.user as any).avatar = token.avatar
+        ;(session.user as any).companyId = token.companyId
+        ;(session.user as any).companyCode = token.companyCode
+        ;(session.user as any).companyName = token.companyName
+        ;(session.user as any).dashboard = token.dashboard
+        ;(session.user as any).menuItems = token.menuItems
+        ;(session.user as any).roleColor = token.roleColor
       }
       return session
     },
@@ -194,7 +130,7 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
