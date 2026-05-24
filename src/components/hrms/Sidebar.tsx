@@ -19,7 +19,7 @@ import {
   ChevronRight,
   ChevronDown,
   Menu,
-  Settings,
+
   Sparkles,
   Home,
   FolderKanban,
@@ -334,18 +334,7 @@ const navItems: NavItem[] = [
       { key: 'documents-tab', label: 'Documents', icon: FileText },
     ],
   },
-  {
-    key: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    aiPowered: false,
-    color: 'from-gray-500 to-slate-600',
-    subItems: [
-      { key: 'general', label: 'General', icon: Settings },
-      { key: 'notifications', label: 'Notifications', icon: Bell },
-      { key: 'security', label: 'Security', icon: Shield },
-    ],
-  },
+
 ]
 
 // ─── Notification Count ──────────────────────────────────────────────────────

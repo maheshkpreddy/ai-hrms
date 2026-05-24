@@ -21,7 +21,6 @@ export type ModuleKey =
   | 'subvendors'
   | 'jobportal'
   | 'profile'
-  | 'settings'
 
 interface HRMSState {
   activeModule: ModuleKey

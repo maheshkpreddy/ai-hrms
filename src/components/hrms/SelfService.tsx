@@ -32,6 +32,8 @@ import {
   Bot,
   User,
   AlertCircle,
+  UserCheck,
+  CheckCircle2,
 } from 'lucide-react'
 import {
   Card,
@@ -54,7 +56,7 @@ import {
   CollapsibleContent,
 } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useApi } from '@/lib/useApi'
+import { useApi, apiPost, apiPatch } from '@/lib/useApi'
 import { cn } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
@@ -151,9 +153,9 @@ interface LeaveBalance {
   color: string
 }
 
-// ─── Quick Actions Config ───────────────────────────────────────────────────────
+// ─── Quick Actions Config (static items only, attendance item is dynamic) ────
 
-const quickActions: { label: string; icon: typeof Calendar; color: string; bg: string; border: string; module: ModuleKey }[] = [
+const staticQuickActions: { label: string; icon: typeof Calendar; color: string; bg: string; border: string; module: ModuleKey }[] = [
   {
     label: 'Apply Leave',
     icon: Calendar,
@@ -428,10 +430,127 @@ export default function SelfService() {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLInputElement>(null)
 
+  // ─── Attendance State ──────────────────────────────────────────────────────
+  const [markingAttendance, setMarkingAttendance] = useState(false)
+  const [checkOutLoading, setCheckOutLoading] = useState(false)
+  const [attendanceError, setAttendanceError] = useState<string | null>(null)
+
+  // Today's date in YYYY-MM-DD format
+  const todayLocal = useMemo(() => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }, [])
+
   // ─── API Data Fetching ─────────────────────────────────────────────────────
 
   // Current employee ID for API calls - derived from session
   const currentEmployeeId = sessionEmployeeId
+
+  // Today's attendance for current user
+  const {
+    data: myTodayAttendance,
+    refetch: refetchMyTodayAttendance,
+  } = useApi<any>({
+    baseUrl: '/api/attendance',
+    params: {
+      employeeId: currentEmployeeId || undefined,
+      date: todayLocal,
+      page: 1,
+      limit: 1,
+    },
+    enabled: !!currentEmployeeId,
+  })
+
+  // Attendance history for the current week
+  const {
+    data: myAttendanceHistory,
+    refetch: refetchAttendanceHistory,
+  } = useApi<any>({
+    baseUrl: '/api/attendance',
+    params: {
+      employeeId: currentEmployeeId || undefined,
+      startDate: (() => {
+        const d = new Date()
+        const day = d.getDay()
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+        const monday = new Date(d.setDate(diff))
+        return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
+      })(),
+      endDate: todayLocal,
+      page: 1,
+      limit: 7,
+    },
+    enabled: !!currentEmployeeId,
+  })
+
+  // Derived attendance state
+  const myTodayRecord = myTodayAttendance?.records?.[0]
+  const hasCheckedIn = !!myTodayRecord
+  const hasCheckedOut = !!(myTodayRecord?.checkOut && myTodayRecord.checkOut !== '00:00')
+  const attendanceHistory = useMemo(() => myAttendanceHistory?.records ?? [], [myAttendanceHistory])
+
+  // Check-in handler
+  const handleCheckIn = useCallback(async () => {
+    if (!currentEmployeeId) {
+      setAttendanceError('No employee record linked to your account. Please contact HR.')
+      return
+    }
+    setMarkingAttendance(true)
+    setAttendanceError(null)
+    try {
+      await apiPost('/api/attendance', {
+        employeeId: currentEmployeeId,
+        date: todayLocal,
+        checkIn: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        status: 'present',
+      })
+      refetchMyTodayAttendance()
+      refetchAttendanceHistory()
+    } catch (err: any) {
+      if (err?.message?.includes('already exists')) {
+        refetchMyTodayAttendance()
+      } else {
+        setAttendanceError(err?.message || 'Failed to check in. Please try again.')
+      }
+    } finally {
+      setMarkingAttendance(false)
+    }
+  }, [currentEmployeeId, todayLocal, refetchMyTodayAttendance, refetchAttendanceHistory])
+
+  // Check-out handler
+  const handleCheckOut = useCallback(async () => {
+    if (!myTodayRecord) return
+    setCheckOutLoading(true)
+    setAttendanceError(null)
+    try {
+      await apiPatch('/api/attendance', {
+        id: myTodayRecord.id,
+        checkOut: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      })
+      refetchMyTodayAttendance()
+      refetchAttendanceHistory()
+    } catch (err) {
+      setAttendanceError('Failed to check out. Please try again.')
+    } finally {
+      setCheckOutLoading(false)
+    }
+  }, [myTodayRecord, refetchMyTodayAttendance, refetchAttendanceHistory])
+
+  // ─── Quick Action Items (dynamic, includes attendance) ────────────────────
+  const quickActionItems = [
+    {
+      label: hasCheckedIn ? (hasCheckedOut ? 'Completed' : 'Check Out') : 'Check In',
+      icon: hasCheckedIn ? (hasCheckedOut ? CheckCircle2 : Clock) : UserCheck,
+      color: hasCheckedIn ? (hasCheckedOut ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400') : 'text-emerald-600 dark:text-emerald-400',
+      bg: hasCheckedIn ? (hasCheckedOut ? 'bg-emerald-50 dark:bg-emerald-950/50' : 'bg-amber-50 dark:bg-amber-950/50') : 'bg-emerald-50 dark:bg-emerald-950/50',
+      border: hasCheckedIn ? (hasCheckedOut ? 'hover:border-emerald-300 dark:hover:border-emerald-700' : 'hover:border-amber-300 dark:hover:border-amber-700') : 'hover:border-emerald-300 dark:hover:border-emerald-700',
+      isAttendance: true,
+    },
+    ...staticQuickActions.map(a => ({ ...a, isAttendance: false })),
+  ]
 
   // Policies - fetch all, then filter client-side for search/category
   const {
@@ -734,9 +853,81 @@ export default function SelfService() {
           </div>
         </div>
 
+        {/* ─── Attendance Check-In/Out Card ──────────────────────────────── */}
+        <div className="mb-6 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 p-4 text-white shadow-lg sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+                <Clock className="h-7 w-7" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Today&apos;s Attendance</h2>
+                <p className="text-sm text-blue-100">
+                  {!hasCheckedIn ? 'You have not checked in yet' : !hasCheckedOut ? `Checked in at ${myTodayRecord?.checkIn}` : `Checked in at ${myTodayRecord?.checkIn} · Checked out at ${myTodayRecord?.checkOut}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {!currentEmployeeId ? (
+                <div className="rounded-lg bg-white/15 px-4 py-2 backdrop-blur-sm">
+                  <p className="text-xs text-blue-100">No employee record linked</p>
+                  <p className="text-sm font-semibold">Contact HR</p>
+                </div>
+              ) : !hasCheckedIn ? (
+                <Button
+                  size="lg"
+                  className="gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg"
+                  onClick={handleCheckIn}
+                  disabled={markingAttendance}
+                >
+                  {markingAttendance ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserCheck className="h-5 w-5" />}
+                  Check In
+                </Button>
+              ) : !hasCheckedOut ? (
+                <Button
+                  size="lg"
+                  className="gap-2 bg-amber-500 hover:bg-amber-600 text-white shadow-lg"
+                  onClick={handleCheckOut}
+                  disabled={checkOutLoading}
+                >
+                  {checkOutLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Clock className="h-5 w-5" />}
+                  Check Out
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 backdrop-blur-sm">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-300" />
+                  <span className="font-semibold">Completed</span>
+                </div>
+              )}
+              {hasCheckedIn && !hasCheckedOut && (
+                <div className="rounded-lg bg-white/15 px-4 py-2 backdrop-blur-sm">
+                  <p className="text-xs text-blue-100">Working Hours</p>
+                  <p className="text-lg font-bold">
+                    {(() => {
+                      const checkIn = myTodayRecord?.checkIn
+                      if (!checkIn) return '0h 0m'
+                      const [h, m] = checkIn.split(':').map(Number)
+                      const now = new Date()
+                      const diffMin = (now.getHours() * 60 + now.getMinutes()) - (h * 60 + m)
+                      return `${Math.floor(Math.max(0, diffMin) / 60)}h ${Math.max(0, diffMin) % 60}m`
+                    })()}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+          {attendanceError && (
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-100">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {attendanceError}
+              <button onClick={() => setAttendanceError(null)} className="ml-auto text-red-200 hover:text-white">&times;</button>
+            </div>
+          )}
+        </div>
+
         {/* ─── Quick Actions Grid ─────────────────────────────────────── */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {quickActions.map((action) => {
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+          {quickActionItems.map((action) => {
             const Icon = action.icon
             return (
               <Button
@@ -745,12 +936,25 @@ export default function SelfService() {
                 className={cn(
                   'h-auto flex-col gap-2.5 py-5 transition-all',
                   action.border,
-                  'hover:shadow-md'
+                  'hover:shadow-md',
+                  action.isAttendance && markingAttendance && 'opacity-60'
                 )}
-                onClick={() => setActiveModule(action.module)}
+                onClick={() => {
+                  if (action.isAttendance) {
+                    if (!hasCheckedIn) handleCheckIn()
+                    else if (!hasCheckedOut) handleCheckOut()
+                  } else if ((action as any).module) {
+                    setActiveModule((action as any).module)
+                  }
+                }}
+                disabled={action.isAttendance && (markingAttendance || checkOutLoading || (!currentEmployeeId))}
               >
                 <div className={cn('rounded-lg p-2.5', action.bg)}>
-                  <Icon className={cn('h-5 w-5', action.color)} />
+                  {(action.isAttendance && (markingAttendance || checkOutLoading)) ? (
+                    <Loader2 className={cn('h-5 w-5 animate-spin', action.color)} />
+                  ) : (
+                    <Icon className={cn('h-5 w-5', action.color)} />
+                  )}
                 </div>
                 <span className="text-xs font-medium">{action.label}</span>
               </Button>
@@ -765,6 +969,11 @@ export default function SelfService() {
               <UserCircle className="h-4 w-4" />
               <span className="hidden sm:inline">My Profile</span>
               <span className="sm:hidden">Profile</span>
+            </TabsTrigger>
+            <TabsTrigger value="attendance" className="gap-1.5">
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline">Attendance</span>
+              <span className="sm:hidden">Attendance</span>
             </TabsTrigger>
             <TabsTrigger value="policies" className="gap-1.5">
               <BookOpen className="h-4 w-4" />
@@ -1146,6 +1355,71 @@ export default function SelfService() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ─── Attendance Tab ──────────────────────────────────────────── */}
+          <TabsContent value="attendance">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">This Week&apos;s Attendance</CardTitle>
+                <CardDescription>Your attendance records for the current week</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {attendanceHistory.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="mb-2 h-10 w-10 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">No attendance records for this week</p>
+                    <p className="text-xs text-muted-foreground mt-1">Check in to start tracking your attendance</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="py-2 text-left font-medium text-muted-foreground">Date</th>
+                          <th className="py-2 text-left font-medium text-muted-foreground">Check-In</th>
+                          <th className="py-2 text-left font-medium text-muted-foreground">Check-Out</th>
+                          <th className="py-2 text-left font-medium text-muted-foreground">Hours</th>
+                          <th className="py-2 text-left font-medium text-muted-foreground">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendanceHistory.map((record: any) => {
+                          const checkIn = record.checkIn || '—'
+                          const checkOut = record.checkOut || '—'
+                          let hours = '—'
+                          if (checkIn !== '—' && checkOut !== '—' && checkIn !== '00:00' && checkOut !== '00:00') {
+                            const [h1, m1] = checkIn.split(':').map(Number)
+                            const [h2, m2] = checkOut.split(':').map(Number)
+                            const diffMin = Math.max(0, (h2 * 60 + m2) - (h1 * 60 + m1))
+                            hours = `${Math.floor(diffMin / 60)}h ${diffMin % 60}m`
+                          }
+                          const statusColors: Record<string, string> = {
+                            present: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+                            late: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+                            absent: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+                            'half-day': 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400',
+                          }
+                          return (
+                            <tr key={record.id} className="border-b last:border-0">
+                              <td className="py-2.5">{new Date(record.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}</td>
+                              <td className="py-2.5">{checkIn}</td>
+                              <td className="py-2.5">{checkOut}</td>
+                              <td className="py-2.5">{hours}</td>
+                              <td className="py-2.5">
+                                <Badge className={statusColors[record.status] || 'bg-secondary'}>
+                                  {record.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ─── Company Policies Tab ──────────────────────────────────── */}

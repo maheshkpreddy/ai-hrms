@@ -65,6 +65,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useApi, apiPost, apiPatch } from '@/lib/useApi'
+import { cn } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
 import { exportAttendanceReport, exportLeaveReport } from '@/lib/excelExport'
 
@@ -380,6 +381,22 @@ export default function TimeAttendance() {
   const [markingAttendance, setMarkingAttendance] = useState(false)
   const [checkOutLoading, setCheckOutLoading] = useState<string | null>(null)
   const [checkInError, setCheckInError] = useState<string | null>(null)
+  const [adminAttendanceTab, setAdminAttendanceTab] = useState<'individual' | 'bulk'>('individual')
+  const [individualForm, setIndividualForm] = useState({
+    employeeId: '',
+    date: '',
+    checkIn: '09:00',
+    checkOut: '',
+    status: 'present',
+    shift: 'morning',
+    notes: '',
+  })
+  const [selectedBulkEmployees, setSelectedBulkEmployees] = useState<string[]>([])
+  const [bulkStatus, setBulkStatus] = useState('present')
+  const [bulkDate, setBulkDate] = useState('')
+  const [bulkCheckIn, setBulkCheckIn] = useState('09:00')
+  const [submittingAdminAttendance, setSubmittingAdminAttendance] = useState(false)
+  const [adminAttendanceMessage, setAdminAttendanceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { data: session } = useSession()
 
   // Get today's date in local timezone as YYYY-MM-DD
@@ -451,6 +468,28 @@ export default function TimeAttendance() {
     baseUrl: '/api/holidays',
     params: { type: 'national', year: 2024 },
   })
+
+  // ── Fetch all employees for admin forms ─────────────────────────────────────
+  const {
+    data: employeesResponse,
+  } = useApi<{ employees: any[]; pagination: any }>({
+    baseUrl: '/api/employees',
+    params: { limit: 200, status: 'active' },
+  })
+
+  const allEmployees = useMemo(() => employeesResponse?.employees ?? [], [employeesResponse])
+
+  // ── Admin role check ────────────────────────────────────────────────────────
+  const userRole = (session?.user as any)?.role || 'Employee'
+  const isAdminOrHR = ['admin', 'hr_admin', 'hr', 'superadmin'].includes(userRole?.toLowerCase())
+
+  // ── Initialize date defaults after todayLocal is computed ───────────────────
+  useEffect(() => {
+    if (todayLocal) {
+      setIndividualForm(prev => prev.date ? prev : { ...prev, date: todayLocal })
+      setBulkDate(prev => prev || todayLocal)
+    }
+  }, [todayLocal])
 
   // ── Derived Data ─────────────────────────────────────────────────────────────
   // Transform API attendance data to flat format
@@ -686,6 +725,78 @@ export default function TimeAttendance() {
     }
   }, [refetchLeaves])
 
+  // ── Admin Attendance Handlers ──────────────────────────────────────────────
+  const handleIndividualAttendance = useCallback(async () => {
+    if (!individualForm.employeeId || !individualForm.date) return
+    setSubmittingAdminAttendance(true)
+    setAdminAttendanceMessage(null)
+    try {
+      await apiPost('/api/attendance', {
+        employeeId: individualForm.employeeId,
+        date: individualForm.date,
+        checkIn: individualForm.checkIn,
+        checkOut: individualForm.checkOut || undefined,
+        status: individualForm.status,
+        shift: individualForm.shift,
+        notes: individualForm.notes || undefined,
+      })
+      setAdminAttendanceMessage({ type: 'success', text: 'Attendance marked successfully!' })
+      setIndividualForm(prev => ({ ...prev, employeeId: '', checkOut: '', notes: '' }))
+      refetchAttendance()
+    } catch (err: any) {
+      setAdminAttendanceMessage({ type: 'error', text: err?.message || 'Failed to mark attendance' })
+    } finally {
+      setSubmittingAdminAttendance(false)
+    }
+  }, [individualForm, refetchAttendance])
+
+  const handleBulkAttendance = useCallback(async () => {
+    if (selectedBulkEmployees.length === 0) return
+    setSubmittingAdminAttendance(true)
+    setAdminAttendanceMessage(null)
+    try {
+      const response = await fetch('/api/attendance/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          records: selectedBulkEmployees.map(empId => ({
+            employeeId: empId,
+            date: bulkDate,
+            checkIn: bulkCheckIn,
+            status: bulkStatus,
+            location: 'Office',
+          })),
+          markedBy: currentEmployeeDbId,
+        }),
+      })
+      const data = await response.json()
+      setAdminAttendanceMessage({
+        type: 'success',
+        text: `${data.successCount} employee(s) marked as ${bulkStatus}${data.errorCount > 0 ? `. ${data.errorCount} errors occurred.` : ''}`,
+      })
+      setSelectedBulkEmployees([])
+      refetchAttendance()
+    } catch (err: any) {
+      setAdminAttendanceMessage({ type: 'error', text: 'Failed to mark bulk attendance' })
+    } finally {
+      setSubmittingAdminAttendance(false)
+    }
+  }, [selectedBulkEmployees, bulkDate, bulkCheckIn, bulkStatus, currentEmployeeDbId, refetchAttendance])
+
+  const toggleBulkEmployee = useCallback((empId: string) => {
+    setSelectedBulkEmployees(prev =>
+      prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
+    )
+  }, [])
+
+  const selectAllEmployees = useCallback(() => {
+    setSelectedBulkEmployees(allEmployees.map((e: any) => e.id))
+  }, [allEmployees])
+
+  const deselectAllEmployees = useCallback(() => {
+    setSelectedBulkEmployees([])
+  }, [])
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -724,6 +835,13 @@ export default function TimeAttendance() {
               <MapPin className="h-4 w-4" />
               <span className="hidden sm:inline">Geofencing</span>
             </TabsTrigger>
+            {isAdminOrHR && (
+              <TabsTrigger value="admin-mark" className="gap-1.5">
+                <UserCheck className="h-4 w-4" />
+                <span className="hidden sm:inline">Mark Attendance</span>
+                <span className="sm:hidden">Mark</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ═══════════════════════ ATTENDANCE TAB ═══════════════════════ */}
@@ -1602,6 +1720,227 @@ export default function TimeAttendance() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* ═══════════════════════ ADMIN MARK ATTENDANCE TAB ═══════════════════════ */}
+          {isAdminOrHR && (
+          <TabsContent value="admin-mark" className="space-y-6">
+            {/* Success/Error Message */}
+            {adminAttendanceMessage && (
+              <div className={cn(
+                'flex items-center gap-2 rounded-lg border p-3',
+                adminAttendanceMessage.type === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-400'
+                  : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400'
+              )}>
+                {adminAttendanceMessage.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                <span className="text-sm">{adminAttendanceMessage.text}</span>
+                <button onClick={() => setAdminAttendanceMessage(null)} className="ml-auto text-sm opacity-70 hover:opacity-100">&times;</button>
+              </div>
+            )}
+
+            {/* Mode Toggle */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={adminAttendanceTab === 'individual' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAdminAttendanceTab('individual')}
+              >
+                <UserCheck className="mr-1.5 h-4 w-4" />
+                Individual
+              </Button>
+              <Button
+                variant={adminAttendanceTab === 'bulk' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAdminAttendanceTab('bulk')}
+              >
+                <Users className="mr-1.5 h-4 w-4" />
+                Bulk ({selectedBulkEmployees.length} selected)
+              </Button>
+            </div>
+
+            {adminAttendanceTab === 'individual' ? (
+              /* Individual Attendance Form */
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Mark Individual Attendance</CardTitle>
+                  <CardDescription>Mark attendance for a single employee</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label>Employee *</Label>
+                      <Select value={individualForm.employeeId} onValueChange={(v) => setIndividualForm(prev => ({ ...prev, employeeId: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select employee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allEmployees.map((emp: any) => (
+                            <SelectItem key={emp.id} value={emp.id}>
+                              {emp.firstName} {emp.lastName} {emp.employeeId ? `(${emp.employeeId})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Date *</Label>
+                      <Input type="date" value={individualForm.date} onChange={(e) => setIndividualForm(prev => ({ ...prev, date: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Check-In Time</Label>
+                      <Input type="time" value={individualForm.checkIn} onChange={(e) => setIndividualForm(prev => ({ ...prev, checkIn: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Check-Out Time</Label>
+                      <Input type="time" value={individualForm.checkOut} onChange={(e) => setIndividualForm(prev => ({ ...prev, checkOut: e.target.value }))} placeholder="Leave empty if not yet" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Status</Label>
+                      <Select value={individualForm.status} onValueChange={(v) => setIndividualForm(prev => ({ ...prev, status: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="present">Present</SelectItem>
+                          <SelectItem value="late">Late</SelectItem>
+                          <SelectItem value="absent">Absent</SelectItem>
+                          <SelectItem value="half-day">Half-day</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Shift</Label>
+                      <Select value={individualForm.shift} onValueChange={(v) => setIndividualForm(prev => ({ ...prev, shift: v }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="morning">Morning</SelectItem>
+                          <SelectItem value="evening">Evening</SelectItem>
+                          <SelectItem value="night">Night</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                      <Label>Notes</Label>
+                      <Textarea value={individualForm.notes} onChange={(e) => setIndividualForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="Optional notes..." rows={2} />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      onClick={handleIndividualAttendance}
+                      disabled={submittingAdminAttendance || !individualForm.employeeId}
+                      className="gap-1.5"
+                    >
+                      {submittingAdminAttendance ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+                      Mark Attendance
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Bulk Attendance Form */
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Bulk Attendance Marking</CardTitle>
+                    <CardDescription>Mark attendance for multiple employees at once</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div className="space-y-1.5">
+                        <Label>Date *</Label>
+                        <Input type="date" value={bulkDate} onChange={(e) => setBulkDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Check-In Time</Label>
+                        <Input type="time" value={bulkCheckIn} onChange={(e) => setBulkCheckIn(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Status</Label>
+                        <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="present">Present</SelectItem>
+                            <SelectItem value="absent">Absent</SelectItem>
+                            <SelectItem value="late">Late</SelectItem>
+                            <SelectItem value="half-day">Half-day</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <CardTitle className="text-base">Select Employees</CardTitle>
+                        <CardDescription>
+                          {selectedBulkEmployees.length} of {allEmployees.length} employees selected
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={selectAllEmployees}>Select All</Button>
+                        <Button variant="outline" size="sm" onClick={deselectAllEmployees}>Deselect All</Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                      <div className="space-y-1">
+                        {allEmployees.map((emp: any) => (
+                          <label
+                            key={emp.id}
+                            className={cn(
+                              'flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors',
+                              'hover:bg-muted/50',
+                              selectedBulkEmployees.includes(emp.id) && 'bg-emerald-50 dark:bg-emerald-950/30'
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedBulkEmployees.includes(emp.id)}
+                              onChange={() => toggleBulkEmployee(emp.id)}
+                              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium">{emp.firstName} {emp.lastName}</span>
+                              <span className="ml-2 text-xs text-muted-foreground">{emp.employeeId}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{emp.department || emp.designation || ''}</span>
+                          </label>
+                        ))}
+                        {allEmployees.length === 0 && (
+                          <div className="py-8 text-center text-muted-foreground text-sm">No employees found</div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedBulkEmployees.length > 0
+                      ? `${selectedBulkEmployees.length} employee(s) will be marked as ${bulkStatus} on ${bulkDate}`
+                      : 'Select employees above to mark attendance'}
+                  </p>
+                  <Button
+                    onClick={handleBulkAttendance}
+                    disabled={submittingAdminAttendance || selectedBulkEmployees.length === 0}
+                    className="gap-1.5"
+                  >
+                    {submittingAdminAttendance ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+                    Mark Attendance for {selectedBulkEmployees.length} Employee{selectedBulkEmployees.length !== 1 ? 's' : ''}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

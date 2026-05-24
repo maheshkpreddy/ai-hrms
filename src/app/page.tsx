@@ -23,7 +23,6 @@ import ClientPortal from '@/components/hrms/ClientPortal'
 import SubVendorManagement from '@/components/hrms/SubVendorManagement'
 import JobPortalComponent from '@/components/hrms/JobPortal'
 import ProfileManagement from '@/components/hrms/ProfileManagement'
-import SettingsComponent from '@/components/hrms/Settings'
 import ModuleHome from '@/components/hrms/ModuleHome'
 import { LogOut, ChevronDown, HomeIcon } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
@@ -49,7 +48,6 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   subvendors: SubVendorManagement,
   jobportal: JobPortalComponent,
   profile: ProfileManagement,
-  settings: SettingsComponent,
 }
 
 const moduleTitles: Record<ModuleKey, string> = {
@@ -73,7 +71,6 @@ const moduleTitles: Record<ModuleKey, string> = {
   subvendors: 'Sub-Vendor Management',
   jobportal: 'Job Portal',
   profile: 'My Profile',
-  settings: 'Settings',
 }
 
 // Dashboard type to display name mapping for the header badge
