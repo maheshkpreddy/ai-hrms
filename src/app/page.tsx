@@ -23,8 +23,9 @@ import ClientPortal from '@/components/hrms/ClientPortal'
 import SubVendorManagement from '@/components/hrms/SubVendorManagement'
 import JobPortalComponent from '@/components/hrms/JobPortal'
 import ProfileManagement from '@/components/hrms/ProfileManagement'
-import Settings from '@/components/hrms/Settings'
-import { LogOut, ChevronDown } from 'lucide-react'
+import SettingsComponent from '@/components/hrms/Settings'
+import ModuleHome from '@/components/hrms/ModuleHome'
+import { LogOut, ChevronDown, HomeIcon } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 const moduleComponents: Record<ModuleKey, React.ComponentType> = {
@@ -48,7 +49,7 @@ const moduleComponents: Record<ModuleKey, React.ComponentType> = {
   subvendors: SubVendorManagement,
   jobportal: JobPortalComponent,
   profile: ProfileManagement,
-  settings: Settings,
+  settings: SettingsComponent,
 }
 
 const moduleTitles: Record<ModuleKey, string> = {
@@ -88,13 +89,13 @@ const dashboardLabels: Record<string, string> = {
 
 export default function Home() {
   const { data: session, status } = useSession()
-  const { activeModule, setActiveModule, setUserRole, setUserDashboard, setAllowedModules } = useHRMSStore()
+  const { activeModule, homeView, goHome, setUserRole, setUserDashboard, setAllowedModules } = useHRMSStore()
   const ActiveComponent = moduleComponents[activeModule]
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
 
-  // Set role-based data from session and auto-route to the appropriate dashboard
+  // Set role-based data from session
   useEffect(() => {
     if (session?.user && !initializedRef.current) {
       const userRole = (session.user as any)?.role || 'Employee'
@@ -118,21 +119,9 @@ export default function Home() {
         setAllowedModules(null) // null = all modules visible
       }
 
-      // Auto-navigate to role's dashboard module
-      // Mapping: admin→dashboard, hr→employees, payroll→payroll, manager→dashboard,
-      // employee→selfservice, recruiter→talent, learning→learning
-      const targetModule = getDashboardModule(dashboard)
-      setActiveModule(targetModule)
-
-      // Also update browser URL to reflect the dashboard route
-      const targetRoute = getDashboardRoute(dashboard)
-      if (typeof window !== 'undefined' && window.location.pathname !== targetRoute) {
-        window.history.replaceState(null, '', targetRoute)
-      }
-
       initializedRef.current = true
     }
-  }, [session, setActiveModule, setUserRole, setUserDashboard, setAllowedModules])
+  }, [session, setUserRole, setUserDashboard, setAllowedModules])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -200,18 +189,41 @@ export default function Home() {
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white/80 px-4 py-3 backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">
-              {moduleTitles[activeModule]}
-            </h1>
-            {companyName && (
+            {homeView ? (
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">
+                  eh2r AI
+                </h1>
+                <span className="hidden sm:inline-block text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">
+                  An AI Product of MARQ AI
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goHome}
+                  className="flex items-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
+                  title="Back to Home"
+                >
+                  <HomeIcon className="size-4" />
+                </button>
+                <span className="text-gray-300">/</span>
+                <h1 className="text-lg font-semibold text-gray-900 sm:text-xl">
+                  {moduleTitles[activeModule]}
+                </h1>
+              </div>
+            )}
+            {companyName && !homeView && (
               <span className="hidden sm:inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
                 {companyName}
               </span>
             )}
-            <span className="hidden md:inline-flex items-center text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
-              {dashboardLabels[userDashboard] || 'Dashboard'}
-            </span>
+            {!homeView && (
+              <span className="hidden md:inline-flex items-center text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                {dashboardLabels[userDashboard] || 'Dashboard'}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-xs text-gray-500 sm:inline-block">
@@ -271,7 +283,7 @@ export default function Home() {
 
         {/* Module Content */}
         <div className="p-4 sm:p-6">
-          <ActiveComponent />
+          {homeView ? <ModuleHome /> : <ActiveComponent />}
         </div>
       </main>
     </div>

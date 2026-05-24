@@ -27,15 +27,21 @@ interface HRMSState {
   activeModule: ModuleKey
   sidebarOpen: boolean
   searchQuery: string
+  homeView: boolean
+  activeSubItem: string | null
   userRole: string | null
   userDashboard: string | null
   allowedModules: ModuleKey[] | null
   setActiveModule: (module: ModuleKey) => void
   setSidebarOpen: (open: boolean) => void
   setSearchQuery: (query: string) => void
+  setHomeView: (home: boolean) => void
+  setActiveSubItem: (item: string | null) => void
   setUserRole: (role: string | null) => void
   setUserDashboard: (dashboard: string | null) => void
   setAllowedModules: (modules: ModuleKey[] | null) => void
+  goHome: () => void
+  selectModule: (module: ModuleKey) => void
 }
 
 // Maps the Role's `dashboard` field to the default module shown when that role logs in
@@ -76,13 +82,19 @@ export const useHRMSStore = create<HRMSState>((set) => ({
   activeModule: 'dashboard',
   sidebarOpen: true,
   searchQuery: '',
+  homeView: true,
+  activeSubItem: null,
   userRole: null,
   userDashboard: null,
   allowedModules: null,
   setActiveModule: (module) => set({ activeModule: module }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setHomeView: (home) => set({ homeView: home }),
+  setActiveSubItem: (item) => set({ activeSubItem: item }),
   setUserRole: (role) => set({ userRole: role }),
   setUserDashboard: (dashboard) => set({ userDashboard: dashboard }),
   setAllowedModules: (modules) => set({ allowedModules: modules }),
+  goHome: () => set({ homeView: true, activeSubItem: null }),
+  selectModule: (module) => set({ activeModule: module, homeView: false, activeSubItem: null }),
 }))

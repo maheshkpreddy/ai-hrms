@@ -12,12 +12,18 @@ import {
   BarChart3,
   MessageSquare,
   Sparkles,
-  Kanban,
+  FolderKanban,
   Building2,
-  UserCheck,
   Briefcase,
   UsersRound,
   ArrowRight,
+  Laptop,
+  FileText,
+  ListTodo,
+  Video,
+  UserCircle,
+  Settings,
+  Globe,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { Card, CardContent } from '@/components/ui/card'
@@ -43,16 +49,42 @@ const modules: ModuleCard[] = [
     aiPowered: false,
     gradient: 'from-emerald-500 to-teal-600',
     iconBg: 'bg-emerald-100 text-emerald-700',
-    stats: 'Live',
   },
   {
     key: 'employees',
     label: 'Employee Management',
-    description: 'Directory, onboarding, assets, and documents',
+    description: 'Directory, onboarding, departments, and teams',
     icon: Users,
     aiPowered: false,
     gradient: 'from-blue-500 to-indigo-600',
     iconBg: 'bg-blue-100 text-blue-700',
+  },
+  {
+    key: 'company',
+    label: 'Company',
+    description: 'Company info, branches, and organizational policies',
+    icon: Building2,
+    aiPowered: false,
+    gradient: 'from-slate-500 to-gray-600',
+    iconBg: 'bg-slate-100 text-slate-700',
+  },
+  {
+    key: 'assets',
+    label: 'Asset Management',
+    description: 'IT assets, inventory, assignments, and tracking',
+    icon: Laptop,
+    aiPowered: false,
+    gradient: 'from-orange-500 to-amber-600',
+    iconBg: 'bg-orange-100 text-orange-700',
+  },
+  {
+    key: 'documents',
+    label: 'Document Management',
+    description: 'Upload, organize, and manage company documents',
+    icon: FileText,
+    aiPowered: false,
+    gradient: 'from-yellow-500 to-amber-600',
+    iconBg: 'bg-yellow-100 text-yellow-700',
   },
   {
     key: 'rbac',
@@ -109,10 +141,28 @@ const modules: ModuleCard[] = [
     iconBg: 'bg-teal-100 text-teal-700',
   },
   {
+    key: 'tasks',
+    label: 'Task Management',
+    description: 'Create, assign, and track tasks across teams',
+    icon: ListTodo,
+    aiPowered: false,
+    gradient: 'from-pink-500 to-rose-600',
+    iconBg: 'bg-pink-100 text-pink-700',
+  },
+  {
+    key: 'meetings',
+    label: 'Meetings',
+    description: 'Schedule and manage meetings and video calls',
+    icon: Video,
+    aiPowered: false,
+    gradient: 'from-violet-500 to-purple-600',
+    iconBg: 'bg-violet-100 text-violet-700',
+  },
+  {
     key: 'projects',
-    label: 'Project Management',
-    description: 'Kanban boards, tasks, and timelines',
-    icon: Kanban,
+    label: 'Project Kanban',
+    description: 'Kanban boards, project tracking, and timelines',
+    icon: FolderKanban,
     aiPowered: false,
     gradient: 'from-indigo-500 to-blue-600',
     iconBg: 'bg-indigo-100 text-indigo-700',
@@ -141,7 +191,7 @@ const modules: ModuleCard[] = [
   {
     key: 'jobportal',
     label: 'Job Portal',
-    description: 'Candidate resumes, search, interviews, and offers',
+    description: 'Candidate resumes, AI screening, interviews, and offers',
     icon: Briefcase,
     aiPowered: true,
     gradient: 'from-violet-500 to-purple-600',
@@ -165,6 +215,15 @@ const modules: ModuleCard[] = [
     aiPowered: false,
     gradient: 'from-lime-500 to-green-600',
     iconBg: 'bg-lime-100 text-lime-700',
+  },
+  {
+    key: 'profile',
+    label: 'My Profile',
+    description: 'Personal info, employment details, and documents',
+    icon: UserCircle,
+    aiPowered: false,
+    gradient: 'from-teal-500 to-cyan-600',
+    iconBg: 'bg-teal-100 text-teal-700',
   },
 ]
 
@@ -240,12 +299,6 @@ export default function ModuleHome() {
                   </div>
                 </CardContent>
                 {/* Bottom gradient accent */}
-                <div
-                  className="h-1 w-full bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{
-                    backgroundImage: `linear-gradient(to right, var(--tw-gradient-stops))`,
-                  }}
-                />
                 <div className={`h-1 w-full bg-gradient-to-r ${mod.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
               </Card>
             )

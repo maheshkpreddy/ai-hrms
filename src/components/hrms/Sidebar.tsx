@@ -1,11 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
   Users,
-  Laptop,
-  FileText,
   Shield,
   Brain,
   Clock,
@@ -18,25 +17,42 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Menu,
   LogOut,
   Settings,
   Sparkles,
-  Building2,
-  ListTodo,
-  Video,
+  Home,
   FolderKanban,
-  UserCircle,
-  Ticket,
+  Building2,
+  UserCheck,
   Briefcase,
   Globe,
-  Kanban,
-  UserCheck,
+  Laptop,
+  FileText,
+  ListTodo,
+  Video,
+  UserCircle,
+  CalendarCheck,
+  ClipboardList,
+  Target,
+  Award,
+  BookOpen,
+  BarChart2,
+  Heart,
+  Download,
+  Upload,
+  Ticket,
+  FileUser,
+  UsersRound,
+  DollarSign,
+  UserPlus,
+  Activity,
+  Receipt,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useSession, signOut } from 'next-auth/react'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -54,37 +70,283 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 
-// ─── Module Configuration ────────────────────────────────────────────────────
+// ─── Sub-menu Configuration ──────────────────────────────────────────────────
+
+interface SubMenuItem {
+  key: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+}
 
 interface NavItem {
   key: ModuleKey
   label: string
   icon: React.ComponentType<{ className?: string }>
   aiPowered: boolean
+  color: string
+  subItems: SubMenuItem[]
 }
 
 const navItems: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, aiPowered: false },
-  { key: 'employees', label: 'Employees', icon: Users, aiPowered: false },
-  { key: 'company', label: 'Company', icon: Building2, aiPowered: false },
-  { key: 'tasks', label: 'Task Management', icon: ListTodo, aiPowered: false },
-  { key: 'projects', label: 'Project Kanban', icon: FolderKanban, aiPowered: false },
-  { key: 'meetings', label: 'Meetings', icon: Video, aiPowered: false },
-  { key: 'clients', label: 'Client Portal', icon: Building2, aiPowered: false },
-  { key: 'subvendors', label: 'Sub Vendors', icon: UserCheck, aiPowered: false },
-  { key: 'jobportal', label: 'Job Portal', icon: Globe, aiPowered: true },
-  { key: 'assets', label: 'Asset Management', icon: Laptop, aiPowered: false },
-  { key: 'documents', label: 'Document Management', icon: FileText, aiPowered: false },
-  { key: 'rbac', label: 'RBAC & Security', icon: Shield, aiPowered: false },
-  { key: 'talent', label: 'Talent Acquisition', icon: Brain, aiPowered: true },
-  { key: 'attendance', label: 'Time & Attendance', icon: Clock, aiPowered: false },
-  { key: 'payroll', label: 'Payroll & Expenses', icon: Banknote, aiPowered: false },
-  { key: 'performance', label: 'Performance', icon: TrendingUp, aiPowered: true },
-  { key: 'learning', label: 'Learning & Development', icon: GraduationCap, aiPowered: true },
-  { key: 'analytics', label: 'Analytics & Reporting', icon: BarChart3, aiPowered: true },
-  { key: 'selfservice', label: 'Self-Service', icon: MessageSquare, aiPowered: false },
-  { key: 'profile', label: 'My Profile', icon: UserCircle, aiPowered: false },
-  { key: 'settings', label: 'Settings', icon: Settings, aiPowered: false },
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    aiPowered: false,
+    color: 'from-emerald-500 to-teal-600',
+    subItems: [
+      { key: 'overview', label: 'Overview', icon: BarChart2 },
+      { key: 'quick-actions', label: 'Quick Actions', icon: Target },
+      { key: 'recent-activity', label: 'Recent Activity', icon: Activity },
+    ],
+  },
+  {
+    key: 'employees',
+    label: 'Employees',
+    icon: Users,
+    aiPowered: false,
+    color: 'from-blue-500 to-indigo-600',
+    subItems: [
+      { key: 'employee-list', label: 'Employee Directory', icon: Users },
+      { key: 'add-employee', label: 'Add Employee', icon: UserPlus },
+      { key: 'departments', label: 'Departments', icon: Building2 },
+    ],
+  },
+  {
+    key: 'company',
+    label: 'Company',
+    icon: Building2,
+    aiPowered: false,
+    color: 'from-slate-500 to-gray-600',
+    subItems: [
+      { key: 'company-info', label: 'Company Info', icon: Building2 },
+      { key: 'branches', label: 'Branches', icon: Globe },
+      { key: 'policies', label: 'Policies', icon: FileText },
+    ],
+  },
+  {
+    key: 'assets',
+    label: 'Asset Management',
+    icon: Laptop,
+    aiPowered: false,
+    color: 'from-orange-500 to-amber-600',
+    subItems: [
+      { key: 'asset-list', label: 'Asset Inventory', icon: Laptop },
+      { key: 'assign-asset', label: 'Assign Assets', icon: ClipboardList },
+      { key: 'asset-requests', label: 'Requests', icon: FileText },
+    ],
+  },
+  {
+    key: 'documents',
+    label: 'Document Management',
+    icon: FileText,
+    aiPowered: false,
+    color: 'from-yellow-500 to-amber-600',
+    subItems: [
+      { key: 'doc-list', label: 'All Documents', icon: FileText },
+      { key: 'upload-doc', label: 'Upload Document', icon: Upload },
+      { key: 'templates', label: 'Templates', icon: FileText },
+    ],
+  },
+  {
+    key: 'tasks',
+    label: 'Task Management',
+    icon: ListTodo,
+    aiPowered: false,
+    color: 'from-pink-500 to-rose-600',
+    subItems: [
+      { key: 'my-tasks', label: 'My Tasks', icon: ListTodo },
+      { key: 'team-tasks', label: 'Team Tasks', icon: Users },
+      { key: 'task-reports', label: 'Reports', icon: BarChart2 },
+    ],
+  },
+  {
+    key: 'meetings',
+    label: 'Meetings',
+    icon: Video,
+    aiPowered: false,
+    color: 'from-violet-500 to-purple-600',
+    subItems: [
+      { key: 'upcoming', label: 'Upcoming Meetings', icon: Video },
+      { key: 'schedule', label: 'Schedule Meeting', icon: CalendarCheck },
+      { key: 'past-meetings', label: 'Past Meetings', icon: Clock },
+    ],
+  },
+  {
+    key: 'rbac',
+    label: 'RBAC & Security',
+    icon: Shield,
+    aiPowered: false,
+    color: 'from-red-500 to-rose-600',
+    subItems: [
+      { key: 'roles', label: 'Role Master', icon: Shield },
+      { key: 'permissions', label: 'Permissions', icon: Award },
+      { key: 'audit-logs', label: 'Audit Logs', icon: FileText },
+    ],
+  },
+  {
+    key: 'talent',
+    label: 'Talent Acquisition',
+    icon: Brain,
+    aiPowered: true,
+    color: 'from-purple-500 to-violet-600',
+    subItems: [
+      { key: 'job-postings', label: 'Job Postings', icon: Briefcase },
+      { key: 'candidate-pool', label: 'Candidate Pool', icon: Users },
+      { key: 'interviews', label: 'Interview Schedule', icon: CalendarCheck },
+      { key: 'offers', label: 'Offer Letters', icon: FileText },
+      { key: 'onboarding', label: 'AI Onboarding', icon: Sparkles },
+    ],
+  },
+  {
+    key: 'attendance',
+    label: 'Time & Attendance',
+    icon: Clock,
+    aiPowered: false,
+    color: 'from-cyan-500 to-blue-600',
+    subItems: [
+      { key: 'mark-attendance', label: 'Mark Attendance', icon: Clock },
+      { key: 'shifts', label: 'Shifts', icon: CalendarCheck },
+      { key: 'holidays', label: 'Holidays', icon: Heart },
+      { key: 'export', label: 'Export Reports', icon: Download },
+    ],
+  },
+  {
+    key: 'payroll',
+    label: 'Payroll & Expenses',
+    icon: Banknote,
+    aiPowered: false,
+    color: 'from-amber-500 to-orange-600',
+    subItems: [
+      { key: 'process-payroll', label: 'Process Payroll', icon: DollarSign },
+      { key: 'expenses', label: 'Expenses', icon: Receipt },
+      { key: 'reports', label: 'Reports', icon: BarChart2 },
+    ],
+  },
+  {
+    key: 'performance',
+    label: 'Performance',
+    icon: TrendingUp,
+    aiPowered: true,
+    color: 'from-rose-500 to-pink-600',
+    subItems: [
+      { key: 'reviews', label: 'Performance Reviews', icon: TrendingUp },
+      { key: 'goals', label: 'Goals & OKRs', icon: Target },
+      { key: 'feedback', label: '360 Feedback', icon: MessageSquare },
+    ],
+  },
+  {
+    key: 'learning',
+    label: 'Learning & Development',
+    icon: GraduationCap,
+    aiPowered: true,
+    color: 'from-teal-500 to-emerald-600',
+    subItems: [
+      { key: 'courses', label: 'Courses', icon: BookOpen },
+      { key: 'enrollments', label: 'Enrollments', icon: UserCheck },
+      { key: 'certifications', label: 'Certifications', icon: Award },
+    ],
+  },
+  {
+    key: 'projects',
+    label: 'Project Kanban',
+    icon: FolderKanban,
+    aiPowered: false,
+    color: 'from-indigo-500 to-blue-600',
+    subItems: [
+      { key: 'kanban-board', label: 'Kanban Board', icon: FolderKanban },
+      { key: 'project-list', label: 'Projects', icon: ClipboardList },
+      { key: 'timelines', label: 'Timelines', icon: CalendarCheck },
+    ],
+  },
+  {
+    key: 'clients',
+    label: 'Client Portal',
+    icon: Building2,
+    aiPowered: false,
+    color: 'from-sky-500 to-cyan-600',
+    subItems: [
+      { key: 'client-list', label: 'Clients', icon: Building2 },
+      { key: 'tickets', label: 'Tickets', icon: Ticket },
+      { key: 'service-requests', label: 'Service Requests', icon: FileText },
+    ],
+  },
+  {
+    key: 'subvendors',
+    label: 'Sub Vendors',
+    icon: UsersRound,
+    aiPowered: false,
+    color: 'from-orange-500 to-amber-600',
+    subItems: [
+      { key: 'vendor-list', label: 'Vendors', icon: UsersRound },
+      { key: 'resume-uploads', label: 'Resume Uploads', icon: Upload },
+      { key: 'vendor-assignments', label: 'Assignments', icon: ClipboardList },
+    ],
+  },
+  {
+    key: 'jobportal',
+    label: 'Job Portal',
+    icon: Briefcase,
+    aiPowered: true,
+    color: 'from-violet-500 to-purple-600',
+    subItems: [
+      { key: 'candidate-resumes', label: 'Resumes', icon: FileUser },
+      { key: 'search-candidates', label: 'Search', icon: Search },
+      { key: 'shortlisted', label: 'Shortlisted', icon: UserCheck },
+      { key: 'interview-process', label: 'Interviews', icon: CalendarCheck },
+      { key: 'offer-generation', label: 'Offer Letters', icon: FileText },
+      { key: 'background-check', label: 'Background Check', icon: Shield },
+    ],
+  },
+  {
+    key: 'analytics',
+    label: 'Analytics & Reporting',
+    icon: BarChart3,
+    aiPowered: true,
+    color: 'from-fuchsia-500 to-pink-600',
+    subItems: [
+      { key: 'hr-analytics', label: 'HR Analytics', icon: BarChart3 },
+      { key: 'custom-reports', label: 'Custom Reports', icon: FileText },
+      { key: 'export-data', label: 'Export Data', icon: Download },
+    ],
+  },
+  {
+    key: 'selfservice',
+    label: 'Self-Service',
+    icon: MessageSquare,
+    aiPowered: false,
+    color: 'from-lime-500 to-green-600',
+    subItems: [
+      { key: 'my-profile', label: 'My Profile', icon: UserCircle },
+      { key: 'my-leaves', label: 'My Leaves', icon: CalendarCheck },
+      { key: 'my-payslips', label: 'My Payslips', icon: Banknote },
+      { key: 'raise-request', label: 'Raise Request', icon: MessageSquare },
+    ],
+  },
+  {
+    key: 'profile',
+    label: 'My Profile',
+    icon: UserCircle,
+    aiPowered: false,
+    color: 'from-teal-500 to-cyan-600',
+    subItems: [
+      { key: 'personal-info', label: 'Personal Info', icon: UserCircle },
+      { key: 'employment', label: 'Employment', icon: Briefcase },
+      { key: 'documents-tab', label: 'Documents', icon: FileText },
+    ],
+  },
+  {
+    key: 'settings',
+    label: 'Settings',
+    icon: Settings,
+    aiPowered: false,
+    color: 'from-gray-500 to-slate-600',
+    subItems: [
+      { key: 'general', label: 'General', icon: Settings },
+      { key: 'notifications', label: 'Notifications', icon: Bell },
+      { key: 'security', label: 'Security', icon: Shield },
+    ],
+  },
 ]
 
 // ─── Notification Count ──────────────────────────────────────────────────────
@@ -97,57 +359,112 @@ interface NavItemButtonProps {
   item: NavItem
   isActive: boolean
   collapsed: boolean
+  expanded: boolean
   onSelect: () => void
+  onToggleExpand: () => void
+  activeSubItem: string | null
+  onSubItemSelect: (subKey: string) => void
 }
 
-function NavItemButton({ item, isActive, collapsed, onSelect }: NavItemButtonProps) {
+function NavItemButton({
+  item,
+  isActive,
+  collapsed,
+  expanded,
+  onSelect,
+  onToggleExpand,
+  activeSubItem,
+  onSubItemSelect,
+}: NavItemButtonProps) {
   const Icon = item.icon
 
   const button = (
-    <button
-      onClick={onSelect}
-      className={cn(
-        'group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-        'hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
-        isActive
-          ? 'bg-emerald-500/[0.18] text-emerald-400 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)]'
-          : 'text-slate-300 hover:text-white',
-        collapsed && 'justify-center px-0'
-      )}
-    >
-      {/* Active indicator bar */}
-      {isActive && (
-        <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-emerald-400 transition-all duration-200" />
-      )}
-
-      <Icon
+    <div>
+      <button
+        onClick={() => {
+          onSelect()
+          if (!collapsed) onToggleExpand()
+        }}
         className={cn(
-          'size-5 shrink-0 transition-colors duration-200',
-          isActive ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'
+          'group relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          'hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
+          isActive
+            ? 'bg-emerald-500/[0.18] text-emerald-400 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)]'
+            : 'text-slate-300 hover:text-white',
+          collapsed && 'justify-center px-0'
         )}
-      />
+      >
+        {/* Active indicator bar */}
+        {isActive && (
+          <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-emerald-400 transition-all duration-200" />
+        )}
 
-      {!collapsed && (
-        <>
-          <span className="truncate transition-opacity duration-200">{item.label}</span>
-
-          {item.aiPowered && (
-            <span
-              className={cn(
-                'ml-auto inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider',
-                'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 ring-1 ring-emerald-500/30',
-                'transition-opacity duration-200'
-              )}
-            >
-              <Sparkles className="size-2.5" />
-              AI
-            </span>
+        <Icon
+          className={cn(
+            'size-5 shrink-0 transition-colors duration-200',
+            isActive ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200'
           )}
-        </>
-      )}
+        />
 
-      {/* Tooltip content for collapsed state - rendered outside */}
-    </button>
+        {!collapsed && (
+          <>
+            <span className="truncate transition-opacity duration-200 flex-1 text-left">{item.label}</span>
+
+            <div className="flex items-center gap-1 ml-auto">
+              {item.aiPowered && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none tracking-wider',
+                    'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 ring-1 ring-emerald-500/30',
+                    'transition-opacity duration-200'
+                  )}
+                >
+                  <Sparkles className="size-2.5" />
+                  AI
+                </span>
+              )}
+              {item.subItems.length > 0 && (
+                <ChevronDown
+                  className={cn(
+                    'size-3.5 text-slate-500 transition-transform duration-200',
+                    expanded && 'rotate-180'
+                  )}
+                />
+              )}
+            </div>
+          </>
+        )}
+      </button>
+
+      {/* Sub-menu items */}
+      {!collapsed && expanded && item.subItems.length > 0 && (
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3">
+          {item.subItems.map((subItem) => {
+            const SubIcon = subItem.icon
+            const isSubActive = activeSubItem === subItem.key
+            return (
+              <button
+                key={subItem.key}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSubItemSelect(subItem.key)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150',
+                  'hover:bg-white/[0.06]',
+                  isSubActive
+                    ? 'text-emerald-400 bg-emerald-500/[0.1]'
+                    : 'text-slate-400 hover:text-slate-200'
+                )}
+              >
+                <SubIcon className="size-3.5 shrink-0" />
+                <span className="truncate">{subItem.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 
   if (collapsed) {
@@ -181,6 +498,10 @@ interface SidebarContentProps {
   activeModule: ModuleKey
   searchQuery: string
   onSearchChange: (query: string) => void
+  expandedModule: ModuleKey | null
+  onToggleExpand: (key: ModuleKey) => void
+  activeSubItem: string | null
+  onSubItemSelect: (subKey: string) => void
 }
 
 function SidebarContent({
@@ -190,14 +511,21 @@ function SidebarContent({
   activeModule,
   searchQuery,
   onSearchChange,
+  expandedModule,
+  onToggleExpand,
+  activeSubItem,
+  onSubItemSelect,
 }: SidebarContentProps) {
   const { data: session } = useSession()
-  const userName = session?.user?.name || 'User'
-  const userRole = (session?.user as any)?.role || 'Employee'
-  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  const { goHome, homeView } = useHRMSStore()
+
   const filteredItems = navItems.filter((item) =>
     item.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const userName = session?.user?.name || 'User'
+  const userRole = (session?.user as any)?.role || 'Employee'
+  const userInitials = userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="flex h-full flex-col bg-slate-900">
@@ -223,7 +551,7 @@ function SidebarContent({
             <span className="text-lg font-bold tracking-tight text-white">
               eh2r AI
             </span>
-            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-emerald-400/80">
+            <span className="text-[9px] font-medium uppercase tracking-[0.15em] text-emerald-400/80">
               An AI Product of MARQ AI
             </span>
           </div>
@@ -249,9 +577,48 @@ function SidebarContent({
         )}
       </div>
 
+      {/* ── Home Button ── */}
+      <div className={cn('shrink-0 px-2 pt-2', collapsed && 'px-1')}>
+        {collapsed ? (
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={goHome}
+                  className={cn(
+                    'flex w-full items-center justify-center rounded-lg py-2 transition-all duration-200',
+                    homeView
+                      ? 'bg-emerald-500/[0.18] text-emerald-400'
+                      : 'text-slate-400 hover:bg-white/[0.08] hover:text-white'
+                  )}
+                >
+                  <Home className="size-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={12} className="bg-slate-800 text-white border-slate-700">
+                Home
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <button
+            onClick={goHome}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
+              homeView
+                ? 'bg-emerald-500/[0.18] text-emerald-400'
+                : 'text-slate-400 hover:bg-white/[0.08] hover:text-white'
+            )}
+          >
+            <Home className="size-5 shrink-0" />
+            <span>Home</span>
+          </button>
+        )}
+      </div>
+
       {/* ── Search ── */}
       {!collapsed && (
-        <div className="shrink-0 px-3 pt-3 transition-all duration-300">
+        <div className="shrink-0 px-3 pt-2 transition-all duration-300">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-500" />
             <Input
@@ -266,16 +633,20 @@ function SidebarContent({
       )}
 
       {/* ── Navigation ── */}
-      <ScrollArea className="flex-1 px-2 py-2">
+      <ScrollArea className="flex-1 px-2 py-2 sidebar-scroll">
         <TooltipProvider>
-          <nav className="flex flex-col gap-1">
+          <nav className="flex flex-col gap-0.5">
             {filteredItems.map((item) => (
               <NavItemButton
                 key={item.key}
                 item={item}
                 isActive={activeModule === item.key}
                 collapsed={collapsed}
+                expanded={expandedModule === item.key}
                 onSelect={() => onNavSelect(item.key)}
+                onToggleExpand={() => onToggleExpand(item.key)}
+                activeSubItem={activeSubItem}
+                onSubItemSelect={onSubItemSelect}
               />
             ))}
           </nav>
@@ -300,7 +671,6 @@ function SidebarContent({
             variant="ghost"
             size="sm"
             className="flex-1 justify-start gap-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-            onClick={() => onNavSelect('settings')}
           >
             <Settings className="size-4" />
             <span className="text-xs">Settings</span>
@@ -308,8 +678,8 @@ function SidebarContent({
           <Button
             variant="ghost"
             size="sm"
-            className="flex-1 justify-start gap-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
             onClick={() => signOut({ callbackUrl: '/login' })}
+            className="flex-1 justify-start gap-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
           >
             <LogOut className="size-4" />
             <span className="text-xs">Logout</span>
@@ -326,7 +696,6 @@ function SidebarContent({
                   variant="ghost"
                   size="icon"
                   className="size-8 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                  onClick={() => onNavSelect('settings')}
                 >
                   <Settings className="size-4" />
                 </Button>
@@ -342,7 +711,8 @@ function SidebarContent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-8 text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="size-8 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
                 >
                   <LogOut className="size-4" />
                 </Button>
@@ -371,7 +741,7 @@ function SidebarContent({
           )}
         >
           <Avatar className="size-8 ring-2 ring-emerald-500/30">
-            <AvatarImage src="" alt={userName} />
+            <AvatarImage src={(session?.user as any)?.avatar || ''} alt={userName} />
             <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
               {userInitials}
             </AvatarFallback>
@@ -435,7 +805,6 @@ function useHasMounted() {
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true
-      // Schedule state update after effect cleanup to avoid cascading renders
       const id = requestAnimationFrame(() => setMounted(true))
       return () => cancelAnimationFrame(id)
     }
@@ -451,10 +820,15 @@ export default function Sidebar() {
     activeModule,
     sidebarOpen,
     searchQuery,
+    activeSubItem,
     setActiveModule,
     setSidebarOpen,
     setSearchQuery,
+    setActiveSubItem,
+    selectModule,
   } = useHRMSStore()
+
+  const [expandedModule, setExpandedModule] = useState<ModuleKey | null>(null)
 
   const mounted = useHasMounted()
   const isMobile = useSyncExternalStore(
@@ -466,12 +840,26 @@ export default function Sidebar() {
   // Auto-close sidebar on mobile when selecting a module
   const handleNavSelect = useCallback(
     (key: ModuleKey) => {
-      setActiveModule(key)
+      selectModule(key)
       if (isMobile) {
         setSidebarOpen(false)
       }
     },
-    [isMobile, setActiveModule, setSidebarOpen]
+    [isMobile, selectModule, setSidebarOpen]
+  )
+
+  const handleToggleExpand = useCallback(
+    (key: ModuleKey) => {
+      setExpandedModule((prev) => (prev === key ? null : key))
+    },
+    []
+  )
+
+  const handleSubItemSelect = useCallback(
+    (subKey: string) => {
+      setActiveSubItem(subKey)
+    },
+    [setActiveSubItem]
   )
 
   // Don't render until mounted to avoid hydration mismatch
@@ -496,6 +884,10 @@ export default function Sidebar() {
             activeModule={activeModule}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            expandedModule={expandedModule}
+            onToggleExpand={handleToggleExpand}
+            activeSubItem={activeSubItem}
+            onSubItemSelect={handleSubItemSelect}
           />
         </SheetContent>
       </Sheet>
@@ -519,6 +911,10 @@ export default function Sidebar() {
           activeModule={activeModule}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          expandedModule={expandedModule}
+          onToggleExpand={handleToggleExpand}
+          activeSubItem={activeSubItem}
+          onSubItemSelect={handleSubItemSelect}
         />
 
         {/* Expand button when collapsed */}
