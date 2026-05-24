@@ -65,3 +65,35 @@ Stage Summary:
 - Database: Neon PostgreSQL with all 22 tables synced, 20 employees, 11 user accounts seeded
 - Deployment: https://ai-hrms-rho.vercel.app - successfully deployed
 - Login credentials: admin@company.com/Admin@2024, priya.sharma@company.com/HRAdmin@2024, etc.
+---
+Task ID: 1
+Agent: Main Agent
+Task: Add scrollbar to sidebar, module icons home page, rebrand to eh2r AI, sidebar sub-menus
+
+Work Log:
+- Read all key project files (Sidebar.tsx, page.tsx, store.ts, Dashboard.tsx, login/page.tsx, auth.ts, schema.prisma, globals.css)
+- Updated Zustand store (store.ts) with new ModuleKeys: projects, clients, subvendors, jobportal + homeView state, goHome(), selectModule()
+- Added custom scrollbar CSS styling to globals.css for sidebar-scroll and custom-scrollbar classes
+- Completely rewrote Sidebar.tsx with:
+  - 14 module navigation items with expandable sub-menus (chevron toggle)
+  - Visible scrollbar on navigation area
+  - "eh2r AI - An AI Product of MARQ AI" branding
+  - Home button to return to module icons view
+  - Fixed logout button to call signOut() properly
+  - User profile using session data instead of hardcoded values
+  - Sub-menu items per module (e.g., Employee has Directory, Add Employee, Departments, Assets, Documents)
+- Created ModuleHome.tsx - module icons grid page shown initially after login, clicking a module selects it
+- Updated login page (login/page.tsx) - removed demo credentials panel, rebranded to "eh2r AI"
+- Created ProjectManagement.tsx - Kanban board with 5 columns, task cards with priorities/tags/assignees
+- Created ClientPortal.tsx - Client management + ticket system with stats, search, and filtering
+- Created SubVendorPortal.tsx - Vendor management + resume uploads with status tracking
+- Created JobPortal.tsx - Full recruitment pipeline view with AI fit scores, source filtering, pipeline stats
+- Updated page.tsx - Home view toggle (ModuleHome when homeView=true, ActiveComponent when false), breadcrumb nav with Home icon
+- Fixed build errors: Resume icon → FileUser, Home → HomeIcon (name conflict)
+- Successfully built and pushed to GitHub
+
+Stage Summary:
+- All code changes pushed to GitHub (maheshkpreddy/ai-hrms)
+- 10 files changed, 2131 insertions, 203 deletions
+- Build passes successfully
+- Key features: scrollbar on sidebar, module icons home page, sub-menus per module, eh2r AI branding, 4 new module components
