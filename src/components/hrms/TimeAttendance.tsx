@@ -377,10 +377,19 @@ export default function TimeAttendance() {
   const [submittingLeave, setSubmittingLeave] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [currentEmployeeDbId, setCurrentEmployeeDbId] = useState<string>('')
-  const [attendanceMarked, setAttendanceMarked] = useState(false)
   const [markingAttendance, setMarkingAttendance] = useState(false)
   const [checkOutLoading, setCheckOutLoading] = useState<string | null>(null)
+  const [checkInError, setCheckInError] = useState<string | null>(null)
   const { data: session } = useSession()
+
+  // Get today's date in local timezone as YYYY-MM-DD
+  const todayLocal = useMemo(() => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }, [])
 
   // ── Get current user's employee ID from session ────────────────────────────
   useEffect(() => {
@@ -398,7 +407,22 @@ export default function TimeAttendance() {
     refetch: refetchAttendance,
   } = useApi<any>({
     baseUrl: '/api/attendance',
-    params: { page: 1, limit: 20, status: statusFilter !== 'all' ? statusFilter : undefined },
+    params: { page: 1, limit: 50, status: statusFilter !== 'all' ? statusFilter : undefined },
+  })
+
+  // Fetch current employee's today attendance record specifically
+  const {
+    data: myTodayAttendanceResponse,
+    refetch: refetchMyTodayAttendance,
+  } = useApi<any>({
+    baseUrl: '/api/attendance',
+    params: {
+      employeeId: currentEmployeeDbId || undefined,
+      date: todayLocal,
+      page: 1,
+      limit: 1,
+    },
+    enabled: !!currentEmployeeDbId,
   })
 
   const {
@@ -550,57 +574,59 @@ export default function TimeAttendance() {
 
   // ── Mutation Handlers ────────────────────────────────────────────────────────
   const handleMarkAttendance = useCallback(async () => {
-    if (!currentEmployeeDbId) return
+    if (!currentEmployeeDbId) {
+      setCheckInError('No employee record linked to your account. Please contact HR.')
+      return
+    }
     setMarkingAttendance(true)
+    setCheckInError(null)
     try {
       await apiPost('/api/attendance', {
         employeeId: currentEmployeeDbId,
-        date: today.toISOString().split('T')[0],
+        date: todayLocal,
         checkIn: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
         status: 'present',
       })
-      setAttendanceMarked(true)
       refetchAttendance()
+      refetchMyTodayAttendance()
     } catch (err: any) {
-      // If already checked in, just update the state
+      // If already checked in, refetch to update the state
       if (err?.message?.includes('already exists')) {
-        setAttendanceMarked(true)
+        refetchMyTodayAttendance()
+      } else {
+        setCheckInError(err?.message || 'Failed to check in. Please try again.')
       }
       console.error('Failed to mark attendance:', err)
     } finally {
       setMarkingAttendance(false)
     }
-  }, [refetchAttendance, currentEmployeeDbId])
+  }, [refetchAttendance, refetchMyTodayAttendance, currentEmployeeDbId, todayLocal])
 
   const handleCheckOut = useCallback(async () => {
-    // Find today's attendance record for current employee
-    const todayRecord = attendanceRecords.find(
-      (a) => a.employeeId === currentEmployeeDbId && a.date === today.toISOString().split('T')[0]
-    )
-    if (!todayRecord) return
-    setCheckOutLoading(todayRecord.id)
+    // Find today's attendance record for current employee from the dedicated query
+    const myTodayRecord = myTodayAttendanceResponse?.records?.[0]
+    if (!myTodayRecord) return
+    setCheckOutLoading(myTodayRecord.id)
+    setCheckInError(null)
     try {
       await apiPatch('/api/attendance', {
-        id: todayRecord.id,
+        id: myTodayRecord.id,
         checkOut: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
       })
       refetchAttendance()
+      refetchMyTodayAttendance()
     } catch (err) {
+      setCheckInError('Failed to check out. Please try again.')
       console.error('Failed to check out:', err)
     } finally {
       setCheckOutLoading(null)
     }
-  }, [refetchAttendance, attendanceRecords, currentEmployeeDbId])
+  }, [refetchAttendance, refetchMyTodayAttendance, myTodayAttendanceResponse])
 
-  // Check if current user has already checked in today
-  const todayAttendance = useMemo(() => {
-    return attendanceRecords.find(
-      (a) => a.employeeId === currentEmployeeDbId && a.date === today.toISOString().split('T')[0]
-    )
-  }, [attendanceRecords, currentEmployeeDbId])
-
-  const hasCheckedIn = !!todayAttendance
-  const hasCheckedOut = !!(todayAttendance?.checkOut && todayAttendance.checkOut !== '—')
+  // Check if current user has already checked in today (from the dedicated API call)
+  const myTodayRecord = myTodayAttendanceResponse?.records?.[0]
+  const hasCheckedIn = !!myTodayRecord
+  const hasCheckedOut = !!(myTodayRecord?.checkOut && myTodayRecord.checkOut !== '00:00')
 
   // ── Export handlers ─────────────────────────────────────────────────────────
   const handleExportAttendance = useCallback(() => {
@@ -815,28 +841,45 @@ export default function TimeAttendance() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-2">
-                {!hasCheckedIn ? (
-                  <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={handleMarkAttendance} disabled={markingAttendance || !currentEmployeeDbId}>
-                    {markingAttendance ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
-                    Check In
+              <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                <div className="flex gap-2">
+                  {!currentEmployeeDbId ? (
+                    <Button size="sm" className="gap-1.5" disabled title="No employee record linked to your account">
+                      <UserCheck className="h-4 w-4" />
+                      Check In
+                    </Button>
+                  ) : !hasCheckedIn ? (
+                    <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700" onClick={handleMarkAttendance} disabled={markingAttendance}>
+                      {markingAttendance ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+                      Check In
+                    </Button>
+                  ) : !hasCheckedOut ? (
+                    <Button size="sm" className="gap-1.5 bg-amber-600 hover:bg-amber-700" onClick={handleCheckOut} disabled={!!checkOutLoading}>
+                      {checkOutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
+                      Check Out
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="gap-1.5 text-emerald-600" disabled>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Completed
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExportAttendance} disabled={filteredAttendance.length === 0}>
+                    <Download className="h-4 w-4" />
+                    Export Report
                   </Button>
-                ) : !hasCheckedOut ? (
-                  <Button size="sm" className="gap-1.5 bg-amber-600 hover:bg-amber-700" onClick={handleCheckOut} disabled={!!checkOutLoading}>
-                    {checkOutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />}
-                    Check Out
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" className="gap-1.5 text-emerald-600" disabled>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Completed
-                  </Button>
+                </div>
+                {!currentEmployeeDbId && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">No employee record linked — contact HR</span>
                 )}
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={handleExportAttendance} disabled={filteredAttendance.length === 0}>
-                  <Download className="h-4 w-4" />
-                  Export Report
-                </Button>
               </div>
+              {checkInError && (
+                <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {checkInError}
+                  <button onClick={() => setCheckInError(null)} className="ml-auto text-red-500 hover:text-red-700">&times;</button>
+                </div>
+              )}
             </div>
 
             {/* Error State */}

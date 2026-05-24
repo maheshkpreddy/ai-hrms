@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import {
   LayoutDashboard,
   Users,
@@ -19,7 +19,6 @@ import {
   ChevronRight,
   ChevronDown,
   Menu,
-  LogOut,
   Settings,
   Sparkles,
   Home,
@@ -662,69 +661,6 @@ function SidebarContent({
       </ScrollArea>
 
       {/* ── Bottom Section ── */}
-      <Separator className="bg-slate-700/50" />
-
-      {/* Quick actions */}
-      {!collapsed && (
-        <div className="flex shrink-0 items-center gap-1 px-3 py-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-1 justify-start gap-2 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-          >
-            <Settings className="size-4" />
-            <span className="text-xs">Settings</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            className="flex-1 justify-start gap-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
-          >
-            <LogOut className="size-4" />
-            <span className="text-xs">Logout</span>
-          </Button>
-        </div>
-      )}
-
-      {collapsed && (
-        <div className="flex shrink-0 items-center justify-center gap-1 px-2 py-2">
-          <TooltipProvider>
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-slate-400 hover:bg-white/[0.06] hover:text-white"
-                >
-                  <Settings className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={12} className="bg-slate-800 text-white border-slate-700">
-                Settings
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => signOut({ callbackUrl: '/login' })}
-                  className="size-8 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
-                >
-                  <LogOut className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={12} className="bg-slate-800 text-white border-slate-700">
-                Logout
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      )}
-
       <Separator className="bg-slate-700/50" />
 
       {/* User profile */}
