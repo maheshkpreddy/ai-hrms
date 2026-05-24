@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Search,
   Plus,
@@ -64,6 +64,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { useSession } from 'next-auth/react'
 
@@ -267,11 +268,32 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ComponentT
 
 export default function CompanyManagement() {
   const { toast } = useToast()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const { data: session } = useSession()
   const employeeId = (session?.user as any)?.employeeId || ''
 
   // ── Tab State ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('companies')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'company-info':
+          setActiveTab('companies')
+          break
+        case 'branches':
+          setActiveTab('locations')
+          break
+        case 'policies':
+          setActiveTab('companies')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   // ── Company State ─────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Star,
   TrendingUp,
@@ -65,6 +65,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useApi, apiPost } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PerformanceReview {
@@ -339,6 +340,28 @@ const aiSuggestedQuestions = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function Performance() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activePerfTab, setActivePerfTab] = useState('reviews')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'reviews':
+          setActivePerfTab('reviews')
+          break
+        case 'goals':
+          setActivePerfTab('okrs')
+          break
+        case 'feedback':
+          setActivePerfTab('attrition')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState('')
@@ -681,7 +704,7 @@ export default function Performance() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="reviews" className="space-y-6">
+        <Tabs value={activePerfTab} onValueChange={setActivePerfTab} className="space-y-6">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="reviews" className="gap-1.5">
               <Star className="h-3.5 w-3.5" />

@@ -41,6 +41,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useEffect } from 'react'
 import { useApi } from '@/lib/useApi'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 
@@ -158,7 +159,14 @@ export default function Dashboard() {
   const { data, loading, error } = useApi<DashboardData>({
     baseUrl: '/api/dashboard',
   })
-  const { setActiveModule } = useHRMSStore()
+  const { setActiveModule, activeSubItem, setActiveSubItem } = useHRMSStore()
+
+  // Clear activeSubItem when navigating to this module
+  useEffect(() => {
+    if (activeSubItem) {
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   const overview = data?.overview ?? null
   const charts = data?.charts ?? null

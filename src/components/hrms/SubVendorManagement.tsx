@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -247,6 +248,28 @@ function EmptyResumes() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SubVendorManagement() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeVendorTab, setActiveVendorTab] = useState('vendors')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'vendor-list':
+          setActiveVendorTab('vendors')
+          break
+        case 'resume-uploads':
+          setActiveVendorTab('resumes')
+          break
+        case 'vendor-assignments':
+          setActiveVendorTab('vendors')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   const { toast } = useToast()
 
   // Vendor state
@@ -537,7 +560,7 @@ export default function SubVendorManagement() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="vendors" className="space-y-6">
+        <Tabs value={activeVendorTab} onValueChange={setActiveVendorTab} className="space-y-6">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="vendors" className="gap-1.5">
               <Users className="h-4 w-4" />

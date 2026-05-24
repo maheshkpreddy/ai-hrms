@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   FolderKanban,
   Users,
@@ -49,6 +49,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
 import { exportProjectReport } from '@/lib/excelExport'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface Employee {
@@ -289,6 +290,28 @@ function TableSkeleton({ rows = 5, cols = 5 }: { rows?: number; cols?: number })
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 export default function ProjectManagement() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeProjectTab, setActiveProjectTab] = useState('projects')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'kanban-board':
+          setActiveProjectTab('projects')
+          break
+        case 'project-list':
+          setActiveProjectTab('projects')
+          break
+        case 'timelines':
+          setActiveProjectTab('milestones')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   // ── State ────────────────────────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
@@ -829,7 +852,7 @@ export default function ProjectManagement() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="projects" className="space-y-6">
+        <Tabs value={activeProjectTab} onValueChange={setActiveProjectTab} className="space-y-6">
           <TabsList className="w-full flex-wrap sm:w-auto">
             <TabsTrigger value="projects" className="gap-1.5">
               <FolderKanban className="h-4 w-4" />

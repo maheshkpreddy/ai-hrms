@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -194,6 +195,14 @@ function SkeletonCard() {
 
 export default function ClientPortal() {
   const { toast } = useToast()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+
+  // Clear activeSubItem when navigating to this module
+  useEffect(() => {
+    if (activeSubItem) {
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   // ── Tab state ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('clients')

@@ -44,6 +44,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApi, apiPatch, apiPost } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
@@ -253,6 +254,14 @@ function ProfileSkeleton() {
 export default function ProfileManagement() {
   const { data: session } = useSession()
   const { toast } = useToast()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+
+  // Clear activeSubItem when navigating to this module
+  useEffect(() => {
+    if (activeSubItem) {
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   // Get employeeId from session
   const employeeId = (session?.user as any)?.employeeId || ''

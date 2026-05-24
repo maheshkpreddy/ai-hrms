@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   ListTodo,
   Plus,
@@ -70,6 +70,7 @@ import {
 } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { useSession } from 'next-auth/react'
 
@@ -278,8 +279,16 @@ function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
 
 export default function TaskManagement() {
   const { toast } = useToast()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const { data: session } = useSession()
   const currentEmployeeId = (session?.user as any)?.employeeId || ''
+
+  // Clear activeSubItem when navigating to this module
+  useEffect(() => {
+    if (activeSubItem) {
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('all')

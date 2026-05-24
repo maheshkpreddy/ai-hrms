@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Search,
   UserPlus,
@@ -83,6 +83,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApi, apiPost, apiPut, apiDelete } from '@/lib/useApi'
 import { exportEmployeeReport } from '@/lib/excelExport'
 import { useToast } from '@/hooks/use-toast'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -280,6 +281,7 @@ function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
 
 export default function EmployeeManagement() {
   const { toast } = useToast()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
 
   // State
   const [searchQuery, setSearchQuery] = useState('')
@@ -317,6 +319,27 @@ export default function EmployeeManagement() {
     panNumber: '',
     pfNumber: '',
   })
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'add-employee':
+          setEditingEmployeeId(null)
+          setAddOpen(true)
+          break
+        case 'employee-list':
+          // Default view - no special action needed
+          break
+        case 'departments':
+          setOrgChartOpen(true)
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem, setAddOpen, setEditingEmployeeId, setOrgChartOpen])
 
   // ── API hooks ─────────────────────────────────────────────────────────────
 

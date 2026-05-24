@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Users,
   TrendingDown,
@@ -66,6 +66,7 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApi } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface DashboardOverview {
@@ -252,6 +253,28 @@ function KPISkeleton() {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function Analytics() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState('realtime')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'hr-analytics':
+          setActiveAnalyticsTab('realtime')
+          break
+        case 'custom-reports':
+          setActiveAnalyticsTab('reports')
+          break
+        case 'export-data':
+          setActiveAnalyticsTab('reports')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [customReport, setCustomReport] = useState({
     name: '',
@@ -627,7 +650,7 @@ export default function Analytics() {
         </div>
 
         {/* ─── Tabs ─────────────────────────────────────────────────────── */}
-        <Tabs defaultValue="realtime" className="space-y-6">
+        <Tabs value={activeAnalyticsTab} onValueChange={setActiveAnalyticsTab} className="space-y-6">
           <TabsList className="w-full sm:w-auto flex flex-wrap">
             <TabsTrigger value="realtime" className="gap-1.5">
               <LayoutDashboard className="h-4 w-4" />

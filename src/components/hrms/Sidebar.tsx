@@ -435,7 +435,8 @@ function NavItemButton({
                 key={subItem.key}
                 onClick={(e) => {
                   e.stopPropagation()
-                  onSubItemSelect(subItem.key)
+                  onSelect() // Navigate to the parent module first (clears activeSubItem)
+                  onSubItemSelect(subItem.key) // Then set the sub-item after
                 }}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150',

@@ -6,12 +6,10 @@ export async function GET(
 ) {
   const { platform } = await params
 
-  if (platform === 'android') {
-    return NextResponse.redirect('https://play.google.com/store/apps/details?id=com.aihrms.mobile')
-  }
-
-  if (platform === 'ios') {
-    return NextResponse.redirect('https://apps.apple.com/app/ai-hrms/id1234567890')
+  // Redirect to the mobile app info page
+  // The mobile apps are coming soon - redirect users to the download info page
+  if (platform === 'android' || platform === 'ios') {
+    return NextResponse.redirect(new URL('/mobile-app', request.url))
   }
 
   return NextResponse.json({ error: 'Invalid platform. Use "android" or "ios".' }, { status: 400 })

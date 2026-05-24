@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Shield,
   ShieldCheck,
@@ -52,6 +52,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { useApi, apiPost, apiPatch } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Static constants (schema structure, not data) ────────────────────────
 const permissionTypes = ['read', 'write', 'modify', 'delete', 'admin'] as const
@@ -396,6 +397,28 @@ function SkeletonTable() {
 
 // ─── Main Component ───────────────────────────────────────────────────────
 export default function RBACSecurity() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeRBACTab, setActiveRBACTab] = useState('roles')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'roles':
+          setActiveRBACTab('roles')
+          break
+        case 'permissions':
+          setActiveRBACTab('security')
+          break
+        case 'audit-logs':
+          setActiveRBACTab('audit')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   // ── Roles & Permissions state ─────────────────────────────────────────
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingRole, setEditingRole] = useState<UIRole | null>(null)
@@ -601,7 +624,7 @@ export default function RBACSecurity() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="roles" className="space-y-6">
+        <Tabs value={activeRBACTab} onValueChange={setActiveRBACTab} className="space-y-6">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="roles" className="gap-1.5">
               <Shield className="h-4 w-4" />

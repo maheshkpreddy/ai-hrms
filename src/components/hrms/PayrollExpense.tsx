@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Banknote,
   CheckCircle2,
@@ -80,6 +80,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useApi, apiPost, apiPatch } from '@/lib/useApi'
 import { exportPayrollReport, exportExpenseReport } from '@/lib/excelExport'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── API Response Types ──────────────────────────────────────────────────────
 interface PayrollRecord {
@@ -569,6 +570,29 @@ function StatCardSkeleton() {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function PayrollExpense() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activePayrollTab, setActivePayrollTab] = useState('payroll')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'process-payroll':
+          setActivePayrollTab('payroll')
+          break
+        case 'expenses':
+          setActivePayrollTab('expenses')
+          break
+        case 'reports':
+          setActivePayrollTab('payroll')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   const [selectedMonth, setSelectedMonth] = useState('January')
   const [selectedYear, setSelectedYear] = useState('2024')
   const [processingPayroll, setProcessingPayroll] = useState(false)
@@ -812,7 +836,7 @@ export default function PayrollExpense() {
         )}
 
         {/* ─── Tabs ──────────────────────────────────────────────────────── */}
-        <Tabs defaultValue="payroll" className="space-y-6">
+        <Tabs value={activePayrollTab} onValueChange={setActivePayrollTab} className="space-y-6">
           <TabsList className="h-10 w-full sm:w-auto">
             <TabsTrigger value="payroll" className="gap-1.5 text-xs sm:text-sm">
               <Banknote className="h-4 w-4" />

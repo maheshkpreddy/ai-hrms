@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Search,
   Sparkles,
@@ -63,6 +63,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { useApi, apiPost } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types for API responses ──────────────────────────────────────────────────
 interface CourseItem {
@@ -290,6 +291,28 @@ function StatSkeleton() {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function LearningDevelopment() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeLearningTab, setActiveLearningTab] = useState('catalog')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'courses':
+          setActiveLearningTab('catalog')
+          break
+        case 'enrollments':
+          setActiveLearningTab('mylearning')
+          break
+        case 'certifications':
+          setActiveLearningTab('skills')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   // Course Catalog state
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -659,7 +682,7 @@ export default function LearningDevelopment() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="catalog" className="space-y-6">
+        <Tabs value={activeLearningTab} onValueChange={setActiveLearningTab} className="space-y-6">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="catalog" className="gap-1.5">
               <BookOpen className="h-4 w-4" />

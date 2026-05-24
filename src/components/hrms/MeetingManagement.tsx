@@ -61,6 +61,7 @@ import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { useToast } from '@/hooks/use-toast'
 import { useSession } from 'next-auth/react'
 
@@ -308,6 +309,14 @@ const emptyForm: MeetingForm = {
 export default function MeetingManagement() {
   const { data: session } = useSession()
   const { toast } = useToast()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+
+  // Clear activeSubItem when navigating to this module
+  useEffect(() => {
+    if (activeSubItem) {
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   // State
   const [activeTab, setActiveTab] = useState('upcoming')

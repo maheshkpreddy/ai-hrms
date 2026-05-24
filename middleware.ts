@@ -15,7 +15,8 @@ export const config = {
      * - _next/image (image optimization)
      * - favicon.ico, logo.svg, public files
      * - login page itself
+     * - mobile-app page (public download info)
      */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|logo.svg|login).*)',
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|logo.svg|login|mobile-app).*)',
   ],
 }

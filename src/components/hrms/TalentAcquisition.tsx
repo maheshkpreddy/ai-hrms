@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Briefcase,
   Users,
@@ -78,6 +78,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useApi, apiPost, apiPatch } from '@/lib/useApi'
 import { cn } from '@/lib/utils'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -495,6 +496,34 @@ function PipelineSkeleton() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function TalentAcquisition() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeTalentTab, setActiveTalentTab] = useState('jobs')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'job-postings':
+          setActiveTalentTab('jobs')
+          break
+        case 'candidate-pool':
+          setActiveTalentTab('pipeline')
+          break
+        case 'interviews':
+          setActiveTalentTab('ai-interview')
+          break
+        case 'offers':
+          setActiveTalentTab('pipeline')
+          break
+        case 'onboarding':
+          setActiveTalentTab('onboarding')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   // Job Postings state
   const [deptFilter, setDeptFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -887,7 +916,7 @@ export default function TalentAcquisition() {
         </div>
 
         {/* ─── Tabs ──────────────────────────────────────────────────────── */}
-        <Tabs defaultValue="jobs" className="space-y-6">
+        <Tabs value={activeTalentTab} onValueChange={setActiveTalentTab} className="space-y-6">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="jobs" className="gap-1.5">
               <Briefcase className="h-4 w-4" />

@@ -373,7 +373,34 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 
 export default function SelfService() {
   const { data: session } = useSession()
-  const { setActiveModule } = useHRMSStore()
+  const { setActiveModule, activeSubItem, setActiveSubItem } = useHRMSStore()
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'my-profile':
+          setActiveTab('profile')
+          setActiveSubItem(null)
+          break
+        case 'my-leaves':
+          setActiveModule('attendance')
+          setActiveSubItem(null)
+          break
+        case 'my-payslips':
+          setActiveModule('payroll')
+          setActiveSubItem(null)
+          break
+        case 'raise-request':
+          setActiveTab('profile')
+          setActiveSubItem(null)
+          break
+        default:
+          setActiveSubItem(null)
+          break
+      }
+    }
+  }, [activeSubItem, setActiveSubItem, setActiveModule])
 
   // Get employee data from session
   const sessionEmployeeId = (session?.user as any)?.employeeId || ''

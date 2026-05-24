@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
+import { useHRMSStore } from '@/lib/store'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -274,6 +275,37 @@ function EmptyState({ icon: Icon, title, description, action }: { icon: React.El
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function JobPortal() {
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeJobPortalTab, setActiveJobPortalTab] = useState('pipeline')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'candidate-resumes':
+          setActiveJobPortalTab('pipeline')
+          break
+        case 'search-candidates':
+          setActiveJobPortalTab('candidates')
+          break
+        case 'shortlisted':
+          setActiveJobPortalTab('applications')
+          break
+        case 'interview-process':
+          setActiveJobPortalTab('interviews')
+          break
+        case 'offer-generation':
+          setActiveJobPortalTab('offers')
+          break
+        case 'background-check':
+          setActiveJobPortalTab('background')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
   // ── Search & Filter State ──────────────────────────────────────────────────
   const [candidateSearch, setCandidateSearch] = useState('')
   const [skillsSearch, setSkillsSearch] = useState('')
@@ -729,7 +761,7 @@ export default function JobPortal() {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="pipeline" className="space-y-6">
+        <Tabs value={activeJobPortalTab} onValueChange={setActiveJobPortalTab} className="space-y-6">
           <TabsList className="w-full flex-wrap sm:w-auto">
             <TabsTrigger value="pipeline" className="gap-1.5"><Briefcase className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
             <TabsTrigger value="candidates" className="gap-1.5"><UserPlus className="h-4 w-4" /><span className="hidden sm:inline">Candidates</span></TabsTrigger>

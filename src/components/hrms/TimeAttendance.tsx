@@ -68,6 +68,7 @@ import { useApi, apiPost, apiPatch } from '@/lib/useApi'
 import { cn } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
 import { exportAttendanceReport, exportLeaveReport } from '@/lib/excelExport'
+import { useHRMSStore } from '@/lib/store'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface AttendanceRecord {
@@ -398,6 +399,29 @@ export default function TimeAttendance() {
   const [submittingAdminAttendance, setSubmittingAdminAttendance] = useState(false)
   const [adminAttendanceMessage, setAdminAttendanceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { data: session } = useSession()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const [activeAttendanceTab, setActiveAttendanceTab] = useState('attendance')
+
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'mark-attendance':
+          setActiveAttendanceTab('attendance')
+          break
+        case 'shifts':
+        case 'holidays':
+          setActiveAttendanceTab('shifts')
+          break
+        case 'export':
+          setActiveAttendanceTab('attendance')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
 
   // Get today's date in local timezone as YYYY-MM-DD
   const todayLocal = useMemo(() => {
@@ -817,7 +841,7 @@ export default function TimeAttendance() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="attendance" className="space-y-6">
+        <Tabs value={activeAttendanceTab} onValueChange={setActiveAttendanceTab} className="space-y-6">
           <TabsList className="w-full flex-wrap sm:w-auto">
             <TabsTrigger value="attendance" className="gap-1.5">
               <Clock className="h-4 w-4" />
