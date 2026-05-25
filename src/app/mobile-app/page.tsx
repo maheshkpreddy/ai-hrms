@@ -1,11 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Smartphone, Download, QrCode, Bell, ArrowLeft, CheckCircle2, Tablet, Shield, Clock, Sparkles } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+
+// Extend Window interface for PWA install prompt
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 export default function MobileAppPage() {
   const [email, setEmail] = useState('')
@@ -18,11 +24,58 @@ export default function MobileAppPage() {
     }
   }
 
+  // PWA install prompt state
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [isInstalled, setIsInstalled] = useState(false)
+  const [isInstalling, setIsInstalling] = useState(false)
+  const [installingPlatform, setInstallingPlatform] = useState<'android' | 'ios' | null>(null)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+    }
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true)
+      setInstallPrompt(null)
+    })
+
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstallClick = async (platform: 'android' | 'ios') => {
+    if (!installPrompt) return
+    setInstallingPlatform(platform)
+    setIsInstalling(true)
+    try {
+      await installPrompt.prompt()
+      const result = await installPrompt.userChoice
+      if (result.outcome === 'accepted') {
+        setIsInstalled(true)
+        setInstallPrompt(null)
+      }
+    } catch {
+      // Install prompt failed
+    } finally {
+      setIsInstalling(false)
+      setInstallingPlatform(null)
+    }
+  }
+
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : ''
+  const isAndroid = userAgent.includes('android')
+  const isIOS = /iphone|ipad|ipod/.test(userAgent)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Back link */}
-        <button onClick={() => window.location.href = '/'} className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={() => window.location.href = '/login'} className="mb-6 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
           Back to eh2r AI
         </button>
@@ -36,6 +89,16 @@ export default function MobileAppPage() {
           <p className="mt-2 text-lg text-muted-foreground">Take your HRMS wherever you go</p>
           <p className="mt-1 text-sm text-emerald-600 dark:text-emerald-400 font-medium">An AI Product of MARQ AI</p>
         </div>
+
+        {/* Already installed indicator */}
+        {isInstalled && (
+          <Card className="mb-6 border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20">
+            <CardContent className="p-4 flex items-center justify-center gap-2 text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="font-medium">eh2r AI is installed on your device!</span>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Download Cards */}
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -53,11 +116,36 @@ export default function MobileAppPage() {
               </div>
               <p className="mb-4 text-sm text-muted-foreground">Access attendance, leaves, payslips, and more from your Android device. Mark check-in/check-out with geofencing support.</p>
               <div className="space-y-2">
-                <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/'}>
-                  <Download className="h-4 w-4" />
-                  Install as Web App (Works Now!)
-                </Button>
-                <p className="text-[11px] text-muted-foreground text-center">Open in Chrome → Menu (⋮) → &quot;Add to Home Screen&quot;</p>
+                {installPrompt && !isInstalled ? (
+                  <>
+                    <Button
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => handleInstallClick('android')}
+                      disabled={isInstalling}
+                    >
+                      {isInstalling && installingPlatform === 'android' ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Install as Web App
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">One-tap install — works like a native app</p>
+                  </>
+                ) : isInstalled ? (
+                  <div className="flex items-center justify-center gap-2 py-2 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">Installed</span>
+                  </div>
+                ) : (
+                  <>
+                    <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/'}>
+                      <Download className="h-4 w-4" />
+                      Install as Web App
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">Open in Chrome → Menu (⋮) → &quot;Add to Home Screen&quot;</p>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -76,11 +164,36 @@ export default function MobileAppPage() {
               </div>
               <p className="mb-4 text-sm text-muted-foreground">Full HRMS experience on your iPhone or iPad. Receive push notifications for approvals, leave requests, and announcements.</p>
               <div className="space-y-2">
-                <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/'}>
-                  <Download className="h-4 w-4" />
-                  Install as Web App (Works Now!)
-                </Button>
-                <p className="text-[11px] text-muted-foreground text-center">Open in Safari → Share → &quot;Add to Home Screen&quot;</p>
+                {installPrompt && !isInstalled ? (
+                  <>
+                    <Button
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+                      onClick={() => handleInstallClick('ios')}
+                      disabled={isInstalling}
+                    >
+                      {isInstalling && installingPlatform === 'ios' ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Install as Web App
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">One-tap install — works like a native app</p>
+                  </>
+                ) : isInstalled ? (
+                  <div className="flex items-center justify-center gap-2 py-2 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm font-medium">Installed</span>
+                  </div>
+                ) : (
+                  <>
+                    <Button className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={() => window.location.href = '/'}>
+                      <Download className="h-4 w-4" />
+                      Install as Web App
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">Open in Safari → Share → &quot;Add to Home Screen&quot;</p>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -93,13 +206,13 @@ export default function MobileAppPage() {
               <div className="flex h-40 w-40 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600">
                 <div className="text-center">
                   <QrCode className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                  <p className="mt-2 text-xs text-muted-foreground">Scan to download</p>
-                  <p className="text-[10px] text-muted-foreground/60">(Available soon)</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Scan to open</p>
+                  <p className="text-[10px] text-muted-foreground/60">Point camera at QR code</p>
                 </div>
               </div>
               <div className="text-center sm:text-left">
-                <h3 className="text-lg font-semibold">Quick Download via QR Code</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Point your phone camera at the QR code to download the eh2r AI app directly. Available for both Android and iOS.</p>
+                <h3 className="text-lg font-semibold">Quick Access via QR Code</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Point your phone camera at the QR code to open eh2r AI directly. Then install it as a web app from your browser for quick access anytime.</p>
               </div>
             </div>
           </CardContent>
@@ -135,8 +248,8 @@ export default function MobileAppPage() {
         <Card className="mb-8">
           <CardContent className="p-6">
             <div className="text-center">
-              <h3 className="text-lg font-semibold">Get Notified When Available</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Enter your email to be the first to know when the mobile app launches.</p>
+              <h3 className="text-lg font-semibold">Get Notified When Native App is Available</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Enter your email to be the first to know when the native Android and iOS apps launch.</p>
               {!subscribed ? (
                 <div className="mt-4 flex max-w-md mx-auto gap-2">
                   <Input

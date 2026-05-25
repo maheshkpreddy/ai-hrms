@@ -1,9 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, LogIn, Sparkles, Building, CheckCircle2, Smartphone, Apple } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Sparkles, Building, CheckCircle2, Smartphone, Apple, Download } from 'lucide-react'
+
+// Extend Window interface for PWA install prompt
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,6 +21,48 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [companyVerified, setCompanyVerified] = useState(false)
   const [verifyingCompany, setVerifyingCompany] = useState(false)
+
+  // PWA install prompt state
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [isInstalled, setIsInstalled] = useState(false)
+  const [isInstalling, setIsInstalling] = useState(false)
+
+  // Capture the beforeinstallprompt event
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+    }
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true)
+      setInstallPrompt(null)
+    })
+
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return
+    setIsInstalling(true)
+    try {
+      await installPrompt.prompt()
+      const result = await installPrompt.userChoice
+      if (result.outcome === 'accepted') {
+        setIsInstalled(true)
+        setInstallPrompt(null)
+      }
+    } catch {
+      // Install prompt failed, fall back to manual instructions
+    } finally {
+      setIsInstalling(false)
+    }
+  }
 
   const verifyCompany = async () => {
     if (!companyCode.trim()) {
@@ -69,6 +117,12 @@ export default function LoginPage() {
     }
   }
 
+  // Detect if user is on Android or iOS
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : ''
+  const isAndroid = userAgent.includes('android')
+  const isIOS = /iphone|ipad|ipod/.test(userAgent)
+  const isMobile = isAndroid || isIOS
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)' }}>
       <div className="w-full max-w-[960px]">
@@ -120,8 +174,8 @@ export default function LoginPage() {
                   <Smartphone className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-white">Mobile App Available</p>
-                  <p className="text-xs text-slate-400">Access HRMS on the go with Android & iOS apps</p>
+                  <p className="text-sm font-medium text-white">Install as Web App</p>
+                  <p className="text-xs text-slate-400">Access HRMS on the go — install directly from your browser</p>
                 </div>
               </div>
             </div>
@@ -261,8 +315,65 @@ export default function LoginPage() {
               Sign in with Google
             </button>
 
-            {/* Mobile App Download */}
+            {/* ─── Install as Web App Section ─── */}
             <div className="mt-5 pt-5 border-t border-white/5">
+              {/* PWA Install Button — shown when browser supports install */}
+              {installPrompt && !isInstalled && (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={handleInstallClick}
+                    disabled={isInstalling}
+                    className="w-full flex items-center justify-center gap-2.5 py-3 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 font-medium transition-all text-sm"
+                  >
+                    {isInstalling ? (
+                      <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    Install as Web App
+                  </button>
+                  <p className="text-[10px] text-slate-500 text-center mt-1.5">
+                    Install eh2r AI on your device for quick access — works like a native app
+                  </p>
+                </div>
+              )}
+
+              {/* Already installed indicator */}
+              {isInstalled && (
+                <div className="mb-4 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 text-sm">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="font-medium">App Installed</span>
+                </div>
+              )}
+
+              {/* Manual install instructions — shown when no PWA prompt but on mobile */}
+              {isMobile && !installPrompt && !isInstalled && (
+                <div className="mb-4">
+                  <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                    <p className="text-xs text-slate-300 font-medium mb-2 flex items-center gap-1.5">
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      Install as Web App
+                    </p>
+                    {isAndroid && (
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Open this page in <span className="text-white font-medium">Chrome</span>, tap the
+                        <span className="text-white font-medium"> menu (⋮)</span>, then select
+                        <span className="text-emerald-400 font-medium"> &quot;Add to Home Screen&quot;</span>
+                      </p>
+                    )}
+                    {isIOS && (
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Open this page in <span className="text-white font-medium">Safari</span>, tap the
+                        <span className="text-white font-medium"> Share button (⬆)</span>, then select
+                        <span className="text-emerald-400 font-medium"> &quot;Add to Home Screen&quot;</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile App Download Buttons */}
               <p className="text-center text-slate-500 text-[10px] mb-3">Get the mobile app</p>
               <div className="flex gap-3">
                 <a

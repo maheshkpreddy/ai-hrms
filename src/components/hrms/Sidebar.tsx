@@ -351,7 +351,7 @@ interface NavItemButtonProps {
   onSelect: () => void
   onToggleExpand: () => void
   activeSubItem: string | null
-  onSubItemSelect: (subKey: string) => void
+  onSubItemSelect: (moduleKey: ModuleKey, subKey: string) => void
 }
 
 function NavItemButton({
@@ -435,8 +435,7 @@ function NavItemButton({
                 key={subItem.key}
                 onClick={(e) => {
                   e.stopPropagation()
-                  onSelect() // Navigate to the parent module first (clears activeSubItem)
-                  onSubItemSelect(subItem.key) // Then set the sub-item after
+                  onSubItemSelect(item.key, subItem.key)
                 }}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150',
@@ -490,7 +489,7 @@ interface SidebarContentProps {
   expandedModule: ModuleKey | null
   onToggleExpand: (key: ModuleKey) => void
   activeSubItem: string | null
-  onSubItemSelect: (subKey: string) => void
+  onSubItemSelect: (moduleKey: ModuleKey, subKey: string) => void
 }
 
 function SidebarContent({
@@ -747,11 +746,10 @@ export default function Sidebar() {
     sidebarOpen,
     searchQuery,
     activeSubItem,
-    setActiveModule,
     setSidebarOpen,
     setSearchQuery,
-    setActiveSubItem,
     selectModule,
+    selectModuleWithSubItem,
   } = useHRMSStore()
 
   const [expandedModule, setExpandedModule] = useState<ModuleKey | null>(null)
@@ -781,11 +779,18 @@ export default function Sidebar() {
     []
   )
 
+  // When a sub-item is clicked, we need to navigate to its parent module AND set the sub-item
+  // in a single atomic update to avoid selectModule clearing activeSubItem
   const handleSubItemSelect = useCallback(
-    (subKey: string) => {
-      setActiveSubItem(subKey)
+    (moduleKey: ModuleKey, subKey: string) => {
+      selectModuleWithSubItem(moduleKey, subKey)
+      // Auto-expand the parent module in sidebar
+      setExpandedModule(moduleKey)
+      if (isMobile) {
+        setSidebarOpen(false)
+      }
     },
-    [setActiveSubItem]
+    [selectModuleWithSubItem, isMobile, setSidebarOpen]
   )
 
   // Don't render until mounted to avoid hydration mismatch

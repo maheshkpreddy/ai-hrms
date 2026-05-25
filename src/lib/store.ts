@@ -41,6 +41,7 @@ interface HRMSState {
   setAllowedModules: (modules: ModuleKey[] | null) => void
   goHome: () => void
   selectModule: (module: ModuleKey) => void
+  selectModuleWithSubItem: (module: ModuleKey, subItem: string) => void
 }
 
 // Maps the Role's `dashboard` field to the default module shown when that role logs in
@@ -96,4 +97,5 @@ export const useHRMSStore = create<HRMSState>((set) => ({
   setAllowedModules: (modules) => set({ allowedModules: modules }),
   goHome: () => set({ homeView: true, activeSubItem: null }),
   selectModule: (module) => set({ activeModule: module, homeView: false, activeSubItem: null }),
+  selectModuleWithSubItem: (module, subItem) => set({ activeModule: module, homeView: false, activeSubItem: subItem }),
 }))

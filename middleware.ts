@@ -17,6 +17,6 @@ export const config = {
      * - login page itself
      * - mobile-app page (public download info)
      */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|logo.svg|login|mobile-app).*)',
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|logo.svg|login|mobile-app|manifest.webmanifest|sw.js|robots.txt).*)',
   ],
 }
