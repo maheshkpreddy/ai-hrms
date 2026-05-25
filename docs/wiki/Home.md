@@ -264,3 +264,48 @@ mobile/
 - **Added**: Role Master with configurable permissions per module
 - **Added**: Role-based dashboard routing
 - **Added**: Flutter mobile app scaffold
+
+
+---
+
+## 🎬 Training Videos
+
+Comprehensive training videos with voice-over narration are available for all modules and user roles.
+
+### 📦 Module-Wise Training Videos
+
+| # | Module | Video |
+|---|--------|-------|
+| 01 | Dashboard | [Watch Training](./Training-01-Dashboard) |
+| 02 | Employee Management | [Watch Training](./Training-02-Employee-Management) |
+| 03 | Company Management | [Watch Training](./Training-03-Company-Management) |
+| 04 | Asset Management | [Watch Training](./Training-04-Asset-Management) |
+| 05 | Document Management | [Watch Training](./Training-05-Document-Management) |
+| 06 | Task Management | [Watch Training](./Training-06-Task-Management) |
+| 07 | Meeting Management | [Watch Training](./Training-07-Meeting-Management) |
+| 08 | RBAC and Security | [Watch Training](./Training-08-RBAC-and-Security) |
+| 09 | AI Talent Acquisition | [Watch Training](./Training-09-AI-Talent-Acquisition) |
+| 10 | Time and Attendance | [Watch Training](./Training-10-Time-and-Attendance) |
+| 11 | Payroll and Expenses | [Watch Training](./Training-11-Payroll-and-Expenses) |
+| 12 | Performance Management | [Watch Training](./Training-12-Performance-Management) |
+| 13 | Learning and Development | [Watch Training](./Training-13-Learning-and-Development) |
+| 14 | Project Kanban | [Watch Training](./Training-14-Project-Kanban) |
+| 15 | Client Portal | [Watch Training](./Training-15-Client-Portal) |
+| 16 | Sub-Vendor Management | [Watch Training](./Training-16-Sub-Vendor-Management) |
+| 17 | AI Job Portal | [Watch Training](./Training-17-AI-Job-Portal) |
+| 18 | Analytics and Reporting | [Watch Training](./Training-18-Analytics-and-Reporting) |
+| 19 | Employee Self-Service | [Watch Training](./Training-19-Employee-Self-Service) |
+| 20 | My Profile | [Watch Training](./Training-20-My-Profile) |
+
+### 👤 Role-Wise Training Videos
+
+| Role | Video |
+|------|-------|
+| Super Admin | [Watch Training](./Training-Role-Super-Admin) |
+| HR Admin | [Watch Training](./Training-Role-HR-Admin) |
+| Department Manager | [Watch Training](./Training-Role-Manager) |
+| Employee | [Watch Training](./Training-Role-Employee) |
+| Recruiter | [Watch Training](./Training-Role-Recruiter) |
+| Payroll Specialist | [Watch Training](./Training-Role-Payroll) |
+| L&D Manager | [Watch Training](./Training-Role-LD-Manager) |
+
