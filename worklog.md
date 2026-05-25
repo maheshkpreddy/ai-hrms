@@ -97,3 +97,28 @@ Stage Summary:
 - 10 files changed, 2131 insertions, 203 deletions
 - Build passes successfully
 - Key features: scrollbar on sidebar, module icons home page, sub-menus per module, eh2r AI branding, 4 new module components
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix client-side crash, sub-menu navigation, add PWA install support
+
+Work Log:
+- Analyzed the root cause of client-side exception: sub-item click called onSelect() (which calls selectModule → resets activeSubItem to null) then onSubItemSelect() (sets activeSubItem). The selectModule clearing activeSubItem caused state conflicts and errors.
+- Added selectModuleWithSubItem() action to Zustand store that atomically sets both activeModule AND activeSubItem in a single state update
+- Updated Sidebar.tsx NavItemButton to use onSubItemSelect(moduleKey, subKey) instead of separate onSelect() + onSubItemSelect() calls
+- Updated SidebarContentProps and NavItemButtonProps interfaces to match new signature
+- Created PWA manifest (public/manifest.webmanifest) with app name, icons, theme color, display: standalone
+- Created service worker (public/sw.js) with network-first caching strategy and offline fallback
+- Updated layout.tsx to include manifest link, theme-color meta, apple-web-app-capable, and service worker registration
+- Added beforeinstallprompt handler to login page with "Install as Web App" button
+- Added manual install instructions for Android (Chrome ⋮ menu → Add to Home Screen) and iOS (Safari Share → Add to Home Screen)
+- Updated mobile-app page with PWA install integration and handleSubscribe fix
+- Updated middleware.ts to allow public access to manifest.webmanifest and sw.js
+- Build succeeded, pushed to GitHub/Vercel
+
+Stage Summary:
+- Fixed sub-menu navigation bug by using atomic state update
+- Added full PWA support (manifest + service worker + install prompt)
+- "Install as Web App" button now shows on login page when browser supports it
+- Mobile users see platform-specific manual install instructions
+- App should no longer crash on load
