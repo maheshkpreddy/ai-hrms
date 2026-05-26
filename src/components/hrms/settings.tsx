@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { updateEmployee } from '@/lib/api';
 import { useAppStore } from '@/store/app-store';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,12 +13,28 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  User, Bell, Palette, Key, Plug, Shield, Save, Camera
+  User, Bell, Palette, Key, Plug, Shield, Save, Camera, Loader2,
 } from 'lucide-react';
 
 export function Settings() {
-  const { userName, userEmail, userRole, darkMode, toggleDarkMode } = useAppStore();
+  const { userName, userEmail, userRole, user, darkMode, toggleDarkMode } = useAppStore();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Profile form state — initialized from store values
+  const [profileForm, setProfileForm] = useState(() => {
+    const nameParts = (userName || '').split(' ');
+    return {
+      firstName: nameParts[0] || '',
+      lastName: nameParts.slice(1).join(' ') || '',
+      email: userEmail || '',
+      phone: '',
+    };
+  });
+
+  // Notification preferences — TODO: Replace with API persistence when notification settings endpoint is available
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -24,6 +43,38 @@ export function Settings() {
     recruitment: true,
     weekly_digest: false,
   });
+
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => {
+      const employeeId = user?.employeeId;
+      if (!employeeId) {
+        throw new Error('No employee ID found. Please log in again.');
+      }
+      return updateEmployee(employeeId, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast({ title: 'Profile Updated', description: 'Your profile changes have been saved successfully.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message || 'Failed to update profile.', variant: 'destructive' });
+    },
+  });
+
+  const handleSaveProfile = () => {
+    updateProfileMutation.mutate({
+      firstName: profileForm.firstName,
+      lastName: profileForm.lastName,
+      email: profileForm.email,
+      phone: profileForm.phone || undefined,
+    });
+  };
+
+  // TODO: Replace with API call when notification preferences endpoint is available
+  const handleSaveNotifications = () => {
+    toast({ title: 'Preferences Saved', description: 'Notification preferences saved locally. API persistence coming soon.' });
+  };
 
   return (
     <div className="space-y-6">
@@ -60,12 +111,28 @@ export function Settings() {
               <Separator />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-sm">Full Name</Label>
-                  <Input defaultValue={userName} />
+                  <Label className="text-sm">First Name</Label>
+                  <Input
+                    value={profileForm.firstName}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="Enter first name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Last Name</Label>
+                  <Input
+                    value={profileForm.lastName}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="Enter last name"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Email</Label>
-                  <Input defaultValue={userEmail} type="email" />
+                  <Input
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, email: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Role</Label>
@@ -73,10 +140,29 @@ export function Settings() {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Phone</Label>
-                  <Input placeholder="Enter phone number" />
+                  <Input
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter phone number"
+                  />
                 </div>
               </div>
-              <Button className="bg-emerald-600 hover:bg-emerald-700"><Save className="h-4 w-4 mr-2" /> Save Changes</Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={handleSaveProfile}
+                disabled={updateProfileMutation.isPending}
+              >
+                {updateProfileMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+                ) : (
+                  <><Save className="h-4 w-4 mr-2" /> Save Changes</>
+                )}
+              </Button>
+              {updateProfileMutation.isError && (
+                <p className="text-xs text-destructive mt-1">
+                  {updateProfileMutation.error?.message || 'Failed to save changes.'}
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -86,6 +172,10 @@ export function Settings() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4" /> Notification Preferences</CardTitle>
+              {/* TODO: Add API persistence for notification preferences when endpoint is available */}
+              <CardDescription className="text-xs text-amber-600 dark:text-amber-400">
+                Notification preferences are saved locally. Server-side persistence coming soon.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {[
@@ -107,7 +197,9 @@ export function Settings() {
                   />
                 </div>
               ))}
-              <Button className="bg-emerald-600 hover:bg-emerald-700"><Save className="h-4 w-4 mr-2" /> Save Preferences</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSaveNotifications}>
+                <Save className="h-4 w-4 mr-2" /> Save Preferences
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -152,7 +244,7 @@ export function Settings() {
           </Card>
         </TabsContent>
 
-        {/* API Keys */}
+        {/* API Keys — TODO: Replace with real API key management when endpoint is available */}
         <TabsContent value="api" className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
@@ -177,15 +269,23 @@ export function Settings() {
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Shield className="h-3 w-3" /> API keys are encrypted and never shown in full
               </p>
+              {/* TODO: Implement real API key management with CRUD operations */}
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                API key management is currently display-only. Full CRUD support coming soon.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Integrations */}
+        {/* Integrations — TODO: Replace with real integration management when endpoint is available */}
         <TabsContent value="integrations" className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2"><Plug className="h-4 w-4" /> Integration Settings</CardTitle>
+              {/* TODO: Implement real integration connect/disconnect with API when endpoint is available */}
+              <CardDescription className="text-xs text-amber-600 dark:text-amber-400">
+                Integration management is currently display-only. Full connectivity support coming soon.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {[

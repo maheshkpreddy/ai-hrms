@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getJobs, getCandidates, createJob, updateCandidate } from '@/lib/api';
+import { getJobs, getCandidates, createJob, createCandidate, updateCandidate } from '@/lib/api';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -64,10 +64,17 @@ export function Recruitment() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
   const [showAddJob, setShowAddJob] = useState(false);
+  const [showAddCandidate, setShowAddCandidate] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [jobForm, setJobForm] = useState({
     title: '', department: '', location: '', employmentType: 'full_time',
     priority: 'medium', positions: '1',
+  });
+  const [candidateForm, setCandidateForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '',
+    currentCompany: '', currentTitle: '', experience: '',
+    expectedSalary: '', noticePeriod: '', source: 'linkedin',
   });
 
   const fetchData = useCallback(async () => {
@@ -114,6 +121,41 @@ export function Recruitment() {
       fetchData();
     } catch {
       toast.error('Failed to create job posting');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenAddCandidate = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setCandidateForm({
+      firstName: '', lastName: '', email: '', phone: '',
+      currentCompany: '', currentTitle: '', experience: '',
+      expectedSalary: '', noticePeriod: '', source: 'linkedin',
+    });
+    setShowAddCandidate(true);
+  };
+
+  const handleCreateCandidate = async () => {
+    try {
+      setSubmitting(true);
+      await createCandidate({
+        ...candidateForm,
+        jobId: selectedJobId,
+        experience: candidateForm.experience ? parseInt(candidateForm.experience) : undefined,
+        expectedSalary: candidateForm.expectedSalary ? parseFloat(candidateForm.expectedSalary) : undefined,
+        status: 'applied',
+      });
+      toast.success('Candidate added successfully');
+      setShowAddCandidate(false);
+      setCandidateForm({
+        firstName: '', lastName: '', email: '', phone: '',
+        currentCompany: '', currentTitle: '', experience: '',
+        expectedSalary: '', noticePeriod: '', source: 'linkedin',
+      });
+      fetchData();
+    } catch {
+      toast.error('Failed to add candidate');
     } finally {
       setSubmitting(false);
     }
@@ -246,7 +288,7 @@ export function Recruitment() {
                       <Button variant="outline" size="sm">
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" onClick={() => handleOpenAddCandidate(job.id)}>
                         <UserPlus className="h-3.5 w-3.5 mr-1" /> Add Candidate
                       </Button>
                     </div>
@@ -360,6 +402,80 @@ export function Recruitment() {
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Add Candidate Dialog */}
+      <Dialog open={showAddCandidate} onOpenChange={setShowAddCandidate}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Candidate</DialogTitle>
+            <DialogDescription>Add a new candidate to the recruitment pipeline</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">First Name</Label>
+                <Input placeholder="First name" value={candidateForm.firstName} onChange={(e) => setCandidateForm(f => ({ ...f, firstName: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Last Name</Label>
+                <Input placeholder="Last name" value={candidateForm.lastName} onChange={(e) => setCandidateForm(f => ({ ...f, lastName: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Email</Label>
+                <Input type="email" placeholder="Email" value={candidateForm.email} onChange={(e) => setCandidateForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Phone</Label>
+                <Input placeholder="Phone" value={candidateForm.phone} onChange={(e) => setCandidateForm(f => ({ ...f, phone: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Current Company</Label>
+                <Input placeholder="Company" value={candidateForm.currentCompany} onChange={(e) => setCandidateForm(f => ({ ...f, currentCompany: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Current Title</Label>
+                <Input placeholder="Job title" value={candidateForm.currentTitle} onChange={(e) => setCandidateForm(f => ({ ...f, currentTitle: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Experience (yrs)</Label>
+                <Input type="number" placeholder="0" value={candidateForm.experience} onChange={(e) => setCandidateForm(f => ({ ...f, experience: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Expected Salary</Label>
+                <Input type="number" placeholder="0" value={candidateForm.expectedSalary} onChange={(e) => setCandidateForm(f => ({ ...f, expectedSalary: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Notice Period</Label>
+                <Input placeholder="e.g. 30 days" value={candidateForm.noticePeriod} onChange={(e) => setCandidateForm(f => ({ ...f, noticePeriod: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Source</Label>
+              <Select value={candidateForm.source} onValueChange={(v) => setCandidateForm(f => ({ ...f, source: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="linkedin">LinkedIn</SelectItem>
+                  <SelectItem value="referral">Referral</SelectItem>
+                  <SelectItem value="website">Company Website</SelectItem>
+                  <SelectItem value="job_board">Job Board</SelectItem>
+                  <SelectItem value="agency">Recruitment Agency</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateCandidate} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Add Candidate
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Job Dialog */}
       <Dialog open={showAddJob} onOpenChange={setShowAddJob}>

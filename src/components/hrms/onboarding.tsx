@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getOnboardingTasks, updateOnboardingTask } from '@/lib/api';
+import { getOnboardingTasks, createOnboardingTask, updateOnboardingTask } from '@/lib/api';
 import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,10 @@ import {
   UserPlus, CheckCircle2, Clock, FileText, Laptop,
   Users, BookOpen, ClipboardList, ChevronRight, Plus, Loader2
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -52,6 +56,11 @@ export function Onboarding() {
   const [tasks, setTasks] = useState<OnboardingTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    title: '', description: '', category: 'general', dueDate: '',
+  });
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -117,6 +126,25 @@ export function Onboarding() {
     }
   };
 
+  const handleCreateTask = async () => {
+    try {
+      setSubmitting(true);
+      await createOnboardingTask({
+        ...taskForm,
+        dueDate: taskForm.dueDate || undefined,
+        status: 'pending',
+      });
+      toast.success('Onboarding task created');
+      setShowCreateTask(false);
+      setTaskForm({ title: '', description: '', category: 'general', dueDate: '' });
+      fetchTasks();
+    } catch {
+      toast.error('Failed to create onboarding task');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const inProgressCount = employees.filter(e => e.status === 'in_progress').length;
   const upcomingCount = employees.filter(e => e.status === 'upcoming').length;
   const completedCount = employees.filter(e => e.status === 'completed').length;
@@ -137,8 +165,8 @@ export function Onboarding() {
           <h1 className="text-2xl font-bold tracking-tight">Onboarding</h1>
           <p className="text-muted-foreground text-sm">Manage new employee onboarding process</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
-          <Plus className="h-4 w-4 mr-2" /> Start Onboarding
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowCreateTask(true)}>
+          <Plus className="h-4 w-4 mr-2" /> Create Task
         </Button>
       </div>
 
@@ -255,6 +283,48 @@ export function Onboarding() {
           </CardContent>
         </Card>
       </div>
+      {/* Create Task Dialog */}
+      <Dialog open={showCreateTask} onOpenChange={setShowCreateTask}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Onboarding Task</DialogTitle>
+            <DialogDescription>Add a new task to the onboarding template</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Title</Label>
+              <Input placeholder="Task title" value={taskForm.title} onChange={(e) => setTaskForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Description</Label>
+              <Input placeholder="Task description" value={taskForm.description} onChange={(e) => setTaskForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Category</Label>
+                <Select value={taskForm.category} onValueChange={(v) => setTaskForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="it_setup">IT Setup</SelectItem>
+                    <SelectItem value="hr_orientation">HR Orientation</SelectItem>
+                    <SelectItem value="department_intro">Department Intro</SelectItem>
+                    <SelectItem value="training">Training</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Due Date</Label>
+                <Input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm(f => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateTask} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

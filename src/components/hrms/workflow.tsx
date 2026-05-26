@@ -5,13 +5,17 @@ import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   WorkflowIcon, Plus, ArrowRight, CheckCircle2,
-  Clock, Eye, BarChart3, Loader2, XCircle
+  Clock, Eye, BarChart3, Loader2, XCircle, Trash2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getWorkflows } from '@/lib/api';
+import { getWorkflows, createWorkflowDefinition, processWorkflowStepApi } from '@/lib/api';
 import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -42,25 +46,49 @@ interface WorkflowInst {
   createdAt: string;
 }
 
+interface WorkflowStepInput {
+  name: string;
+  stepOrder: number;
+  approverRole: string;
+}
+
 export function Workflow() {
   const { currentCompany } = useAppStore();
   const [definitions, setDefinitions] = useState<WorkflowDef[]>([]);
   const [instances, setInstances] = useState<WorkflowInst[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [workflowForm, setWorkflowForm] = useState({
+    name: '', type: 'approval', entity: 'leave', description: '',
+  });
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStepInput[]>([
+    { name: 'Manager Approval', stepOrder: 0, approverRole: 'manager' },
+  ]);
 
   const fetchData = useCallback(async () => {
     try {
       const companyId = currentCompany?.id || '';
       const [defRes, instRes] = await Promise.all([
+        getWorkflows({ companyId, entity: undefined }),
+        getWorkflows({ companyId, entity: undefined }),
+      ]);
+      // The API returns definitions or instances based on `type` param, but our getWorkflows
+      // doesn't have a type param. Let's use raw fetch approach for the dual-type endpoint.
+      const defData = defRes as { data?: WorkflowDef[] };
+      const instData = instRes as { data?: WorkflowInst[] };
+      // Since the endpoint returns based on type param, we need to use direct calls
+      const [defResRaw, instResRaw] = await Promise.all([
         fetch(`/api/workflows?type=definitions&companyId=${companyId}`),
         fetch(`/api/workflows?type=instances&companyId=${companyId}`),
       ]);
-      const defData = await defRes.json();
-      const instData = await instRes.json();
-      setDefinitions(defData.data || []);
-      setInstances(instData.data || []);
+      const defJson = await defResRaw.json();
+      const instJson = await instResRaw.json();
+      setDefinitions(defJson.data || []);
+      setInstances(instJson.data || []);
     } catch (err) {
       console.error('Workflow fetch error:', err);
+      toast.error('Failed to load workflows');
     } finally {
       setLoading(false);
     }
@@ -70,21 +98,58 @@ export function Workflow() {
 
   const handleProcessStep = async (instanceId: string, stepOrder: number, action: 'approve' | 'reject') => {
     try {
-      const res = await fetch('/api/workflows', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instanceId,
-          stepOrder,
-          action,
-          actionedBy: 'current-user',
-        }),
+      await processWorkflowStepApi({
+        instanceId,
+        stepOrder,
+        action,
+        actionedBy: 'current-user',
       });
-      if (!res.ok) throw new Error('Action failed');
       toast.success(`Workflow step ${action}d successfully`);
       fetchData();
     } catch {
       toast.error('Failed to process workflow step');
+    }
+  };
+
+  const handleAddStep = () => {
+    setWorkflowSteps(prev => [
+      ...prev,
+      { name: '', stepOrder: prev.length, approverRole: '' },
+    ]);
+  };
+
+  const handleRemoveStep = (index: number) => {
+    setWorkflowSteps(prev => prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, stepOrder: i })));
+  };
+
+  const handleStepChange = (index: number, field: keyof WorkflowStepInput, value: string) => {
+    setWorkflowSteps(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  };
+
+  const handleCreateWorkflow = async () => {
+    try {
+      setSubmitting(true);
+      await createWorkflowDefinition({
+        name: workflowForm.name,
+        type: workflowForm.type,
+        entity: workflowForm.entity,
+        description: workflowForm.description || undefined,
+        companyId: currentCompany?.id,
+        steps: workflowSteps.map((s, i) => ({
+          name: s.name,
+          stepOrder: i,
+          approverRole: s.approverRole || undefined,
+        })),
+      });
+      toast.success('Workflow definition created');
+      setShowCreateDialog(false);
+      setWorkflowForm({ name: '', type: 'approval', entity: 'leave', description: '' });
+      setWorkflowSteps([{ name: 'Manager Approval', stepOrder: 0, approverRole: 'manager' }]);
+      fetchData();
+    } catch {
+      toast.error('Failed to create workflow definition');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -110,7 +175,7 @@ export function Workflow() {
           <h1 className="text-2xl font-bold tracking-tight">Workflow Builder</h1>
           <p className="text-muted-foreground text-sm">Automate HR processes with approval workflows</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => toast.info('Use the workflow templates to create new workflows')}>
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" /> Create Workflow
         </Button>
       </div>
@@ -312,6 +377,91 @@ export function Workflow() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create Workflow Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Workflow</DialogTitle>
+            <DialogDescription>Define a new approval workflow for HR processes</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Workflow Name</Label>
+              <Input placeholder="e.g. Leave Approval Workflow" value={workflowForm.name} onChange={(e) => setWorkflowForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Type</Label>
+                <Select value={workflowForm.type} onValueChange={(v) => setWorkflowForm(f => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="approval">Approval</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="notification">Notification</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Entity</Label>
+                <Select value={workflowForm.entity} onValueChange={(v) => setWorkflowForm(f => ({ ...f, entity: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="leave">Leave</SelectItem>
+                    <SelectItem value="travel">Travel</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="recruitment">Recruitment</SelectItem>
+                    <SelectItem value="performance">Performance</SelectItem>
+                    <SelectItem value="onboarding">Onboarding</SelectItem>
+                    <SelectItem value="offboarding">Offboarding</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Description</Label>
+              <Input placeholder="Optional description" value={workflowForm.description} onChange={(e) => setWorkflowForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+
+            {/* Steps Builder */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Workflow Steps</Label>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleAddStep}>
+                  <Plus className="h-3 w-3 mr-1" /> Add Step
+                </Button>
+              </div>
+              {workflowSteps.map((step, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-6 shrink-0">{index + 1}.</span>
+                  <Input
+                    placeholder="Step name"
+                    value={step.name}
+                    onChange={(e) => handleStepChange(index, 'name', e.target.value)}
+                    className="flex-1 h-8 text-sm"
+                  />
+                  <Input
+                    placeholder="Approver role"
+                    value={step.approverRole}
+                    onChange={(e) => handleStepChange(index, 'approverRole', e.target.value)}
+                    className="flex-1 h-8 text-sm"
+                  />
+                  {workflowSteps.length > 1 && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-red-500 hover:text-red-700" onClick={() => handleRemoveStep(index)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateWorkflow} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Workflow
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

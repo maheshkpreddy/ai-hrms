@@ -113,6 +113,22 @@ async function findOrCreateWorkflowDef(data: {
   });
 }
 
+/**
+ * Alias for findOrCreateWorkflowDef — creates a workflow definition with steps
+ * if one with the same entity + companyId does not already exist.
+ */
+async function findOrCreateWorkflow(data: {
+  name: string;
+  type: string;
+  entity: string;
+  description?: string;
+  isActive: boolean;
+  companyId: string;
+  steps: { name: string; stepOrder: number; approverRole?: string; approverType: string; autoApprove?: boolean; action: string }[];
+}) {
+  return findOrCreateWorkflowDef(data);
+}
+
 async function findOrCreateSurvey(data: {
   title: string;
   description?: string;
@@ -142,6 +158,143 @@ async function findOrCreateShift(data: {
   });
   if (existing) return existing;
   return db.shift.create({ data });
+}
+
+// ==================== WORKFLOW DEFINITION TEMPLATES ====================
+// These are the 7 major HRMS workflow templates applied to every company.
+
+function getWorkflowTemplates(companyId: string) {
+  return [
+    // 1. Leave Approval Workflow — entity: "leave", 3 steps
+    {
+      name: 'Leave Approval Workflow',
+      type: 'approval',
+      entity: 'leave',
+      description: 'Standard leave approval: Direct Manager → HR Review → Auto-approve if both approved',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'Direct Manager Approval', stepOrder: 0, approverRole: 'manager', approverType: 'role', action: 'approve_reject' },
+        { name: 'HR Review', stepOrder: 1, approverRole: 'hr', approverType: 'role', action: 'approve_reject' },
+        { name: 'Auto-approve', stepOrder: 2, approverType: 'system', autoApprove: true, action: 'approve_reject' },
+      ],
+    },
+    // 2. Travel Request Approval — entity: "travel", 2 steps
+    {
+      name: 'Travel Request Approval',
+      type: 'approval',
+      entity: 'travel',
+      description: 'Travel request approval: Manager → Finance',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'Manager Approval', stepOrder: 0, approverRole: 'manager', approverType: 'role', action: 'approve_reject' },
+        { name: 'Finance Approval', stepOrder: 1, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
+      ],
+    },
+    // 3. Expense Claim Approval — entity: "expense", 2 steps
+    {
+      name: 'Expense Claim Approval',
+      type: 'approval',
+      entity: 'expense',
+      description: 'Expense claim approval: Manager → Finance',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'Manager Approval', stepOrder: 0, approverRole: 'manager', approverType: 'role', action: 'approve_reject' },
+        { name: 'Finance Approval', stepOrder: 1, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
+      ],
+    },
+    // 4. Recruitment Pipeline — entity: "recruitment", 4 steps
+    {
+      name: 'Recruitment Pipeline',
+      type: 'approval',
+      entity: 'recruitment',
+      description: 'Recruitment pipeline: HR Screening → Technical Interview → HR Interview → Offer Approval',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'HR Screening', stepOrder: 0, approverRole: 'hr', approverType: 'role', action: 'approve_reject' },
+        { name: 'Technical Interview', stepOrder: 1, approverRole: 'manager', approverType: 'role', action: 'approve_reject' },
+        { name: 'HR Interview', stepOrder: 2, approverRole: 'hr', approverType: 'role', action: 'approve_reject' },
+        { name: 'Offer Approval', stepOrder: 3, approverRole: 'admin', approverType: 'role', action: 'approve_reject' },
+      ],
+    },
+    // 5. Performance Review — entity: "performance", 3 steps
+    {
+      name: 'Performance Review',
+      type: 'review',
+      entity: 'performance',
+      description: 'Performance review: Self Assessment → Manager Review → HR Calibration',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'Self Assessment', stepOrder: 0, approverType: 'self', autoApprove: true, action: 'approve_reject' },
+        { name: 'Manager Review', stepOrder: 1, approverRole: 'manager', approverType: 'role', action: 'approve_reject' },
+        { name: 'HR Calibration', stepOrder: 2, approverRole: 'hr', approverType: 'role', action: 'approve_reject' },
+      ],
+    },
+    // 6. Onboarding Workflow — entity: "onboarding", 3 steps
+    {
+      name: 'Onboarding Workflow',
+      type: 'approval',
+      entity: 'onboarding',
+      description: 'Onboarding: IT Setup → HR Orientation → Department Introduction',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'IT Setup', stepOrder: 0, approverType: 'system', autoApprove: true, action: 'complete' },
+        { name: 'HR Orientation', stepOrder: 1, approverType: 'system', autoApprove: true, action: 'complete' },
+        { name: 'Department Introduction', stepOrder: 2, approverType: 'system', autoApprove: true, action: 'complete' },
+      ],
+    },
+    // 7. Offboarding Workflow — entity: "offboarding", 4 steps
+    {
+      name: 'Offboarding Workflow',
+      type: 'approval',
+      entity: 'offboarding',
+      description: 'Offboarding: Manager Clearance → IT Asset Recovery → Finance Clearance → HR Exit Interview',
+      isActive: true,
+      companyId,
+      steps: [
+        { name: 'Manager Clearance', stepOrder: 0, approverRole: 'manager', approverType: 'role', action: 'approve_reject' },
+        { name: 'IT Asset Recovery', stepOrder: 1, approverRole: 'admin', approverType: 'role', action: 'approve_reject' },
+        { name: 'Finance Clearance', stepOrder: 2, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
+        { name: 'HR Exit Interview', stepOrder: 3, approverRole: 'hr', approverType: 'role', action: 'approve_reject' },
+      ],
+    },
+  ];
+}
+
+// ==================== LEAVE POLICY TEMPLATES ====================
+
+function getLeavePolicyTemplates(companyId: string) {
+  return [
+    { name: 'Casual Leave', type: 'casual', totalDays: 12, carryForward: true, maxCarryDays: 3, isPaid: true, companyId },
+    { name: 'Sick Leave', type: 'sick', totalDays: 10, carryForward: false, isPaid: true, companyId },
+    { name: 'Earned Leave', type: 'earned', totalDays: 15, carryForward: true, maxCarryDays: 5, isPaid: true, companyId },
+    { name: 'Maternity Leave', type: 'maternity', totalDays: 182, carryForward: false, isPaid: true, companyId },
+    { name: 'Paternity Leave', type: 'paternity', totalDays: 15, carryForward: false, isPaid: true, companyId },
+  ];
+}
+
+// ==================== PAYROLL STRUCTURE TEMPLATES ====================
+
+function getPayrollStructureTemplates(companyId: string) {
+  return [
+    { name: 'Standard Salaried', basicPay: 8000, hra: 3200, da: 800, transportAllowance: 1500, medicalAllowance: 500, specialAllowance: 2000, pfEmployee: 960, pfEmployer: 960, esiEmployee: 200, esiEmployer: 550, taxDeduction: 1200, companyId },
+  ];
+}
+
+// ==================== SHIFT TEMPLATES ====================
+
+function getShiftTemplates(companyId: string) {
+  return [
+    { name: 'Morning Shift', startTime: '06:00', endTime: '14:00', breakMinutes: 30, isActive: true, companyId },
+    { name: 'Evening Shift', startTime: '14:00', endTime: '22:00', breakMinutes: 30, isActive: true, companyId },
+    { name: 'Night Shift', startTime: '22:00', endTime: '06:00', breakMinutes: 30, isActive: true, companyId },
+    { name: 'General Shift', startTime: '09:00', endTime: '18:00', breakMinutes: 60, isActive: true, companyId },
+  ];
 }
 
 // ==================== MAIN SEED FUNCTION ====================
@@ -649,29 +802,21 @@ export async function POST() {
       log.push(`Attendance: already exist (${existingAttendanceCount}), skipped`);
     }
 
-    // ==================== LEAVE POLICIES ====================
+    // ==================== LEAVE POLICIES (for each company) ====================
     log.push('--- Seeding Leave Policies ---');
-    const existingLeavePolicyCount = await db.leavePolicy.count();
-    if (existingLeavePolicyCount < 5) {
-      const policyDefs = [
-        { name: 'Casual Leave', type: 'casual', totalDays: 12, carryForward: true, maxCarryDays: 3, isPaid: true, companyId: tcg.id },
-        { name: 'Sick Leave', type: 'sick', totalDays: 10, carryForward: false, isPaid: true, companyId: tcg.id },
-        { name: 'Paid Leave', type: 'paid', totalDays: 15, carryForward: true, maxCarryDays: 5, isPaid: true, companyId: tcg.id },
-        { name: 'Maternity Leave', type: 'maternity', totalDays: 182, carryForward: false, isPaid: true, companyId: tcg.id },
-        { name: 'Comp Off', type: 'comp_off', totalDays: 5, carryForward: false, isPaid: true, companyId: tcg.id },
-      ];
-      for (const policy of policyDefs) {
+    let totalLeavePoliciesEnsured = 0;
+    for (const company of companies) {
+      const policyTemplates = getLeavePolicyTemplates(company.id);
+      for (const policy of policyTemplates) {
         const existing = await db.leavePolicy.findFirst({ where: { type: policy.type, companyId: policy.companyId } });
         if (!existing) {
           await db.leavePolicy.create({ data: policy });
+          totalLeavePoliciesEnsured++;
         }
       }
-      created.leavePolicies = 5;
-      log.push('Leave Policies: 5 ensured');
-    } else {
-      created.leavePolicies = existingLeavePolicyCount;
-      log.push(`Leave Policies: already exist (${existingLeavePolicyCount}), skipped`);
     }
+    created.leavePolicies = await db.leavePolicy.count();
+    log.push(`Leave Policies: ${totalLeavePoliciesEnsured} new, total ${created.leavePolicies} (Casual, Sick, Earned, Maternity, Paternity per company)`);
 
     // ==================== LEAVES ====================
     log.push('--- Seeding Leaves ---');
@@ -719,19 +864,21 @@ export async function POST() {
       created.auditLogs = existingAuditCount;
     }
 
-    // ==================== PAYROLL ====================
+    // ==================== PAYROLL STRUCTURES (for each company) ====================
     log.push('--- Seeding Payroll ---');
-    const existingPayrollStructCount = await db.payrollStructure.count();
-    if (existingPayrollStructCount < 1) {
-      await db.payrollStructure.create({
-        data: { name: 'Standard Salaried', basicPay: 8000, hra: 3200, da: 800, transportAllowance: 1500, medicalAllowance: 500, specialAllowance: 2000, pfEmployee: 960, pfEmployer: 960, esiEmployee: 200, esiEmployer: 550, taxDeduction: 1200, companyId: tcg.id },
-      });
-      created.payrollStructures = 1;
-      log.push('Payroll Structures: 1 created');
-    } else {
-      created.payrollStructures = existingPayrollStructCount;
-      log.push(`Payroll Structures: already exist (${existingPayrollStructCount}), skipped`);
+    let totalPayrollStructuresEnsured = 0;
+    for (const company of companies) {
+      const structTemplates = getPayrollStructureTemplates(company.id);
+      for (const struct of structTemplates) {
+        const existing = await db.payrollStructure.findFirst({ where: { name: struct.name, companyId: struct.companyId } });
+        if (!existing) {
+          await db.payrollStructure.create({ data: struct });
+          totalPayrollStructuresEnsured++;
+        }
+      }
     }
+    created.payrollStructures = await db.payrollStructure.count();
+    log.push(`Payroll Structures: ${totalPayrollStructuresEnsured} new, total ${created.payrollStructures} (Standard Salaried per company)`);
 
     if (empSarah && empRaj && empEmily && empMichael) {
       const existingPayrollRecCount = await db.payrollRecord.count();
@@ -905,103 +1052,18 @@ export async function POST() {
       log.push(`Vendors: already exist (${existingVendorCount}), Sub-vendors: already exist`);
     }
 
-    // ==================== WORKFLOW DEFINITIONS (8 comprehensive workflows) ====================
+    // ==================== WORKFLOW DEFINITIONS (7 comprehensive workflows per company) ====================
     log.push('--- Seeding Workflow Definitions ---');
-    const existingWorkflowCount = await db.workflowDefinition.count();
-    if (existingWorkflowCount < 8) {
-      // 1. Leave Approval Workflow: Manager → HR
-      await findOrCreateWorkflowDef({
-        name: 'Leave Approval Workflow', type: 'approval', entity: 'leave',
-        description: 'Standard leave approval: Manager → HR', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'Manager Approval', stepOrder: 0, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'HR Approval', stepOrder: 1, approverRole: 'hr_executive', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      // 2. Expense Approval Workflow: Manager → Finance
-      await findOrCreateWorkflowDef({
-        name: 'Expense Approval Workflow', type: 'approval', entity: 'expense',
-        description: 'Expense approval: Manager → Finance', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'Manager Approval', stepOrder: 0, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'Finance Review', stepOrder: 1, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      // 3. Travel Request Workflow: Manager → HR → Finance
-      await findOrCreateWorkflowDef({
-        name: 'Travel Request Workflow', type: 'approval', entity: 'travel',
-        description: 'Travel approval: Manager → HR → Finance', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'Manager Approval', stepOrder: 0, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'HR Approval', stepOrder: 1, approverRole: 'hr_executive', approverType: 'role', action: 'approve_reject' },
-          { name: 'Finance Approval', stepOrder: 2, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      // 4. Recruitment Approval Workflow: HR → Department Head → CEO
-      await findOrCreateWorkflowDef({
-        name: 'Recruitment Approval Workflow', type: 'approval', entity: 'recruitment',
-        description: 'Recruitment approval: HR → Department Head → CEO (for senior roles)', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'HR Review', stepOrder: 0, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
-          { name: 'Department Head Approval', stepOrder: 1, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'CEO Approval', stepOrder: 2, approverRole: 'super_admin', approverType: 'role', autoApprove: false, action: 'approve_reject' },
-        ],
-      });
-
-      // 5. Onboarding Workflow: HR → IT → Department Manager
-      await findOrCreateWorkflowDef({
-        name: 'Onboarding Workflow', type: 'approval', entity: 'onboarding',
-        description: 'Onboarding process: HR → IT → Department Manager', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'HR Orientation Setup', stepOrder: 0, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
-          { name: 'IT Setup & Access Provision', stepOrder: 1, approverRole: 'it_admin', approverType: 'role', action: 'approve_reject' },
-          { name: 'Department Manager Welcome', stepOrder: 2, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      // 6. Offboarding Workflow: Manager → HR → IT → Finance
-      await findOrCreateWorkflowDef({
-        name: 'Offboarding Workflow', type: 'approval', entity: 'offboarding',
-        description: 'Offboarding process: Manager → HR → IT → Finance', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'Manager Clearance', stepOrder: 0, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'HR Exit Processing', stepOrder: 1, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
-          { name: 'IT Asset Recovery & Access Revocation', stepOrder: 2, approverRole: 'it_admin', approverType: 'role', action: 'approve_reject' },
-          { name: 'Finance Settlement', stepOrder: 3, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      // 7. Performance Review Workflow: Self Review → Manager Review → HR Review
-      await findOrCreateWorkflowDef({
-        name: 'Performance Review Workflow', type: 'review', entity: 'performance_review',
-        description: 'Performance review: Self Review → Manager Review → HR Review', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'Self Review', stepOrder: 0, approverRole: 'employee', approverType: 'self', autoApprove: true, action: 'submit' },
-          { name: 'Manager Review', stepOrder: 1, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'HR Review & Finalization', stepOrder: 2, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      // 8. Probation Completion Workflow: Manager → HR → Admin
-      await findOrCreateWorkflowDef({
-        name: 'Probation Completion Workflow', type: 'approval', entity: 'probation_completion',
-        description: 'Probation completion: Manager → HR → Admin', isActive: true, companyId: tcg.id,
-        steps: [
-          { name: 'Manager Evaluation', stepOrder: 0, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
-          { name: 'HR Confirmation', stepOrder: 1, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
-          { name: 'Admin Final Approval', stepOrder: 2, approverRole: 'super_admin', approverType: 'role', action: 'approve_reject' },
-        ],
-      });
-
-      created.workflows = 8;
-      log.push('Workflow Definitions: 8 ensured (Leave, Expense, Travel, Recruitment, Onboarding, Offboarding, Performance Review, Probation Completion)');
-    } else {
-      created.workflows = existingWorkflowCount;
-      log.push(`Workflow Definitions: already exist (${existingWorkflowCount}), skipped`);
+    let totalWorkflowsEnsured = 0;
+    for (const company of companies) {
+      const workflowTemplates = getWorkflowTemplates(company.id);
+      for (const wf of workflowTemplates) {
+        await findOrCreateWorkflow(wf);
+        totalWorkflowsEnsured++;
+      }
     }
+    created.workflows = await db.workflowDefinition.count();
+    log.push(`Workflow Definitions: ${totalWorkflowsEnsured} templates across ${companies.length} companies, total ${created.workflows} (Leave, Travel, Expense, Recruitment, Performance, Onboarding, Offboarding)`);
 
     // ==================== SURVEYS ====================
     log.push('--- Seeding Surveys ---');
@@ -1062,43 +1124,38 @@ export async function POST() {
       log.push(`Onboarding Tasks: already exist (${existingOnboardingCount}), skipped`);
     }
 
-    // ==================== SHIFTS ====================
+    // ==================== SHIFTS (for each company) ====================
     log.push('--- Seeding Shifts ---');
-    const existingShiftCount = await db.shift.count();
-    if (existingShiftCount < 4) {
-      const shifts = await Promise.all([
-        findOrCreateShift({ name: 'Morning Shift', startTime: '06:00', endTime: '14:00', breakMinutes: 30, isActive: true, companyId: tcg.id }),
-        findOrCreateShift({ name: 'General Shift', startTime: '09:00', endTime: '18:00', breakMinutes: 60, isActive: true, companyId: tcg.id }),
-        findOrCreateShift({ name: 'Evening Shift', startTime: '14:00', endTime: '22:00', breakMinutes: 30, isActive: true, companyId: tcg.id }),
-        findOrCreateShift({ name: 'Night Shift', startTime: '22:00', endTime: '06:00', breakMinutes: 30, isActive: true, companyId: tcg.id }),
-      ]);
+    let totalShiftsEnsured = 0;
+    for (const company of companies) {
+      const shiftTemplates = getShiftTemplates(company.id);
+      for (const shiftData of shiftTemplates) {
+        await findOrCreateShift(shiftData);
+        totalShiftsEnsured++;
+      }
+    }
+    created.shifts = await db.shift.count();
+    log.push(`Shifts: ${totalShiftsEnsured} templates across ${companies.length} companies, total ${created.shifts} (Morning, Evening, Night, General per company)`);
 
-      // Shift members
-      if (empSarah && empRaj && empEmily) {
-        const generalShift = shifts[1];
+    // Shift members (TCG employees on General Shift)
+    if (empSarah && empRaj && empEmily) {
+      const tcgGeneralShift = await db.shift.findFirst({ where: { name: 'General Shift', companyId: tcg.id } });
+      if (tcgGeneralShift) {
         const effectiveDate = new Date('2025-01-01');
-        if (generalShift) {
-          for (const emp of [empSarah, empRaj, empEmily]) {
-            try {
-              await db.shiftMember.upsert({
-                where: { employeeId_effectiveDate_shiftId: { employeeId: emp.id, effectiveDate, shiftId: generalShift.id } },
-                update: {},
-                create: { effectiveDate, shiftId: generalShift.id, employeeId: emp.id },
-              });
-            } catch {
-              // Skip if already exists
-            }
+        for (const emp of [empSarah, empRaj, empEmily]) {
+          try {
+            await db.shiftMember.upsert({
+              where: { employeeId_effectiveDate_shiftId: { employeeId: emp.id, effectiveDate, shiftId: tcgGeneralShift.id } },
+              update: {},
+              create: { effectiveDate, shiftId: tcgGeneralShift.id, employeeId: emp.id },
+            });
+          } catch {
+            // Skip if already exists
           }
         }
       }
-      created.shifts = shifts.length;
-      created.shiftMembers = 3;
-      log.push('Shifts: 4 ensured, Shift Members: 3 ensured');
-    } else {
-      created.shifts = existingShiftCount;
-      created.shiftMembers = await db.shiftMember.count();
-      log.push(`Shifts: already exist (${existingShiftCount}), skipped`);
     }
+    created.shiftMembers = await db.shiftMember.count();
 
     // ==================== COMPLIANCE ITEMS ====================
     log.push('--- Seeding Compliance Items ---');

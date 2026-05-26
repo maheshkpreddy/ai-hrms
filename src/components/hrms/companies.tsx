@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getCompanies, createCompany } from '@/lib/api';
+import { getCompanies, createCompany, updateCompany } from '@/lib/api';
 import { useAppStore } from '@/store/app-store';
 import type { CompanyInfo } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,11 @@ export function Companies() {
   const { companies, setCompanies, setCurrentCompany } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [showAddCompany, setShowAddCompany] = useState(false);
+  const [showEditCompany, setShowEditCompany] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<CompanyInfo | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '', code: '', industry: 'IT Services', country: '', currency: 'USD', isActive: true,
+  });
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -63,6 +68,35 @@ export function Companies() {
       fetchCompanies();
     } catch {
       toast.error('Failed to create company');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenEdit = (company: CompanyInfo) => {
+    setEditingCompany(company);
+    setEditForm({
+      name: company.name,
+      code: company.code,
+      industry: company.industry || 'IT Services',
+      country: company.country || '',
+      currency: company.currency || 'USD',
+      isActive: company.isActive,
+    });
+    setShowEditCompany(true);
+  };
+
+  const handleEditCompany = async () => {
+    if (!editingCompany) return;
+    try {
+      setSubmitting(true);
+      await updateCompany(editingCompany.id, editForm);
+      toast.success('Company updated successfully');
+      setShowEditCompany(false);
+      setEditingCompany(null);
+      fetchCompanies();
+    } catch {
+      toast.error('Failed to update company');
     } finally {
       setSubmitting(false);
     }
@@ -118,7 +152,7 @@ export function Companies() {
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCompany(company.id)}>
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEdit(company)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -221,6 +255,73 @@ export function Companies() {
             <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateCompany} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Add Company
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Edit Company Dialog */}
+      <Dialog open={showEditCompany} onOpenChange={setShowEditCompany}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Company</DialogTitle>
+            <DialogDescription>Update company information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Company Name</Label>
+              <Input placeholder="Enter company name" value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Company Code</Label>
+                <Input placeholder="e.g. TCG" value={editForm.code} onChange={(e) => setEditForm(f => ({ ...f, code: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Industry</Label>
+                <Select value={editForm.industry} onValueChange={(v) => setEditForm(f => ({ ...f, industry: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IT Services">IT Services</SelectItem>
+                    <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+                    <SelectItem value="Healthcare">Healthcare</SelectItem>
+                    <SelectItem value="Retail">Retail</SelectItem>
+                    <SelectItem value="Logistics">Logistics</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Country</Label>
+                <Input placeholder="Country" value={editForm.country} onChange={(e) => setEditForm(f => ({ ...f, country: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Currency</Label>
+                <Select value={editForm.currency} onValueChange={(v) => setEditForm(f => ({ ...f, currency: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="INR">INR</SelectItem>
+                    <SelectItem value="GBP">GBP</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="SGD">SGD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="editIsActive"
+                checked={editForm.isActive}
+                onChange={(e) => setEditForm(f => ({ ...f, isActive: e.target.checked }))}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="editIsActive" className="text-sm">Active</Label>
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleEditCompany} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Changes
             </Button>
           </div>
         </DialogContent>

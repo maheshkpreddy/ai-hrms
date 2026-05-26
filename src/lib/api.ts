@@ -332,7 +332,11 @@ export async function initiateWorkflow(data: { workflowDefId: string; entityId: 
   return apiFetch('/workflows', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export async function processWorkflowStep(data: { instanceId: string; stepOrder: number; action: 'approve' | 'reject'; comments?: string; actionedBy: string }) {
+export async function createWorkflowDefinition(data: Record<string, unknown>) {
+  return apiFetch('/workflows', { method: 'POST', body: JSON.stringify({ action: 'create_definition', ...data }) });
+}
+
+export async function processWorkflowStepApi(data: { instanceId: string; stepOrder: number; action: 'approve' | 'reject'; comments?: string; actionedBy: string }) {
   return apiFetch('/workflows', { method: 'PATCH', body: JSON.stringify(data) });
 }
 
@@ -349,6 +353,20 @@ export async function createSurvey(data: Record<string, unknown>) {
 
 export async function submitSurveyResponse(data: { questionId: string; answer: string; employeeId: string }) {
   return apiFetch('/surveys', { method: 'POST', body: JSON.stringify({ action: 'respond', ...data }) });
+}
+
+// ==================== DEPARTMENTS ====================
+export async function getDepartments(params?: { companyId?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params) Object.entries(params).forEach(([k, v]) => { if (v) query.set(k, v); });
+  return apiFetch<{ id: string; name: string; code: string; description: string | null; isActive: boolean; companyId: string }[]>(`/departments?${query.toString()}`);
+}
+
+// ==================== BRANCHES ====================
+export async function getBranches(params?: { companyId?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params) Object.entries(params).forEach(([k, v]) => { if (v) query.set(k, v); });
+  return apiFetch<{ id: string; name: string; code: string; city: string | null; country: string | null; isActive: boolean; companyId: string }[]>(`/branches?${query.toString()}`);
 }
 
 // ==================== ONBOARDING ====================
