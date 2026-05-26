@@ -1,22 +1,20 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getLearningRecords, createLearningRecord } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GraduationCap, BookOpen, Award, Clock, Users, Star, Play, CheckCircle2, BarChart3 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { GraduationCap, BookOpen, Award, Clock, Users, Star, Play, CheckCircle2, BarChart3, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
-
-const COURSES = [
-  { id: 1, title: 'Leadership Excellence Program', category: 'Leadership', duration: '8 weeks', enrolled: 45, rating: 4.8, level: 'Advanced', progress: 65, image: '🧭' },
-  { id: 2, title: 'Cloud Architecture Masterclass', category: 'Technical', duration: '6 weeks', enrolled: 32, rating: 4.6, level: 'Advanced', progress: 0, image: '☁️' },
-  { id: 3, title: 'Effective Communication Skills', category: 'Soft Skills', duration: '4 weeks', enrolled: 78, rating: 4.9, level: 'Beginner', progress: 90, image: '💬' },
-  { id: 4, title: 'Data Analytics with Python', category: 'Technical', duration: '10 weeks', enrolled: 56, rating: 4.5, level: 'Intermediate', progress: 30, image: '📊' },
-  { id: 5, title: 'Project Management Professional', category: 'Management', duration: '12 weeks', enrolled: 23, rating: 4.7, level: 'Intermediate', progress: 0, image: '📋' },
-  { id: 6, title: 'Cybersecurity Fundamentals', category: 'Technical', duration: '5 weeks', enrolled: 41, rating: 4.4, level: 'Beginner', progress: 100, image: '🔒' },
-];
+import { toast } from 'sonner';
 
 const LEARNING_PATHS = [
   { title: 'Engineering Leadership Track', courses: 5, duration: '6 months', enrolled: 12, progress: 40 },
@@ -48,7 +46,81 @@ const radarData = SKILL_MATRIX.map(s => ({
   Required: s.required,
 }));
 
+interface LearningData {
+  id: string; courseName: string; category: string; duration: string; status: string; progress: number;
+  enrolled?: number; rating?: number; level?: string;
+}
+
 export function Learning() {
+  const { user, currentCompany } = useAppStore();
+  const [courses, setCourses] = useState<LearningData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    courseName: '', category: 'Technical', duration: '', level: 'Beginner',
+  });
+
+  const fetchLearning = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getLearningRecords({});
+      setCourses((res as { data: LearningData[] }).data || []);
+    } catch {
+      toast.error('Failed to load learning data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchLearning(); }, [fetchLearning]);
+
+  const handleEnroll = async (courseName: string) => {
+    try {
+      await createLearningRecord({
+        courseName,
+        employeeId: user?.employeeId || user?.id || 'demo',
+        status: 'in_progress',
+        progress: 0,
+        category: form.category,
+        companyId: currentCompany?.id,
+      });
+      toast.success('Enrolled successfully');
+      fetchLearning();
+    } catch {
+      toast.error('Failed to enroll');
+    }
+  };
+
+  const handleCreateCourse = async () => {
+    try {
+      setSubmitting(true);
+      await createLearningRecord({
+        ...form,
+        employeeId: user?.employeeId || user?.id || 'demo',
+        status: 'available',
+        progress: 0,
+        companyId: currentCompany?.id,
+      });
+      toast.success('Course created');
+      setShowCreateDialog(false);
+      setForm({ courseName: '', category: 'Technical', duration: '', level: 'Beginner' });
+      fetchLearning();
+    } catch {
+      toast.error('Failed to create course');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -56,7 +128,7 @@ export function Learning() {
           <h1 className="text-2xl font-bold tracking-tight">Learning & Development</h1>
           <p className="text-muted-foreground text-sm">Upskill your workforce with targeted learning programs</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowCreateDialog(true)}>
           <BookOpen className="h-4 w-4 mr-2" /> Create Course
         </Button>
       </div>
@@ -66,14 +138,14 @@ export function Learning() {
         <Card>
           <CardContent className="p-4 text-center">
             <BookOpen className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
-            <p className="text-2xl font-bold">{COURSES.length}</p>
+            <p className="text-2xl font-bold">{courses.length}</p>
             <p className="text-xs text-muted-foreground">Active Courses</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Users className="h-5 w-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">275</p>
+            <p className="text-2xl font-bold">{courses.reduce((s, c) => s + (c.enrolled || 0), 0)}</p>
             <p className="text-xs text-muted-foreground">Total Enrollments</p>
           </CardContent>
         </Card>
@@ -103,32 +175,39 @@ export function Learning() {
 
         <TabsContent value="catalog">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {COURSES.map(course => (
+            {courses.map(course => (
               <Card key={course.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-3">
-                    <span className="text-3xl">{course.image}</span>
-                    <Badge variant="secondary" className="text-[10px]">{course.level}</Badge>
+                    <span className="text-3xl"><GraduationCap className="h-8 w-8 text-emerald-500" /></span>
+                    <Badge variant="secondary" className="text-[10px]">{course.level || 'N/A'}</Badge>
                   </div>
-                  <h3 className="font-semibold text-sm mb-1">{course.title}</h3>
-                  <p className="text-xs text-muted-foreground mb-3">{course.category} · {course.duration}</p>
+                  <h3 className="font-semibold text-sm mb-1">{course.courseName}</h3>
+                  <p className="text-xs text-muted-foreground mb-3">{course.category} · {course.duration || 'Self-paced'}</p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                    <span className="flex items-center gap-1"><Users className="h-3 w-3" />{course.enrolled} enrolled</span>
-                    <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{course.rating}</span>
+                    <span className="flex items-center gap-1"><Users className="h-3 w-3" />{course.enrolled || 0} enrolled</span>
+                    <span className="flex items-center gap-1"><Star className="h-3 w-3 text-amber-500" />{course.rating || 'N/A'}</span>
                   </div>
-                  {course.progress > 0 && (
+                  {(course.progress || 0) > 0 && (
                     <div className="mb-2">
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span>Progress</span>
                         <span className="font-medium">{course.progress}%</span>
                       </div>
-                      <Progress value={course.progress} className="h-2" />
+                      <Progress value={course.progress || 0} className="h-2" />
                     </div>
                   )}
-                  <Button variant={course.progress > 0 ? 'default' : 'outline'} size="sm" className="w-full mt-1">
-                    {course.progress === 0 ? 'Enroll' : course.progress === 100 ? 'Completed' : 'Continue'}
-                    {course.progress > 0 && course.progress < 100 && <Play className="h-3 w-3 ml-1" />}
-                    {course.progress === 100 && <CheckCircle2 className="h-3 w-3 ml-1" />}
+                  <Button
+                    variant={(course.progress || 0) > 0 ? 'default' : 'outline'}
+                    size="sm"
+                    className="w-full mt-1"
+                    onClick={() => {
+                      if ((course.progress || 0) === 0) handleEnroll(course.courseName);
+                    }}
+                  >
+                    {(course.progress || 0) === 0 ? 'Enroll' : (course.progress || 0) === 100 ? 'Completed' : 'Continue'}
+                    {(course.progress || 0) > 0 && (course.progress || 0) < 100 && <Play className="h-3 w-3 ml-1" />}
+                    {(course.progress || 0) === 100 && <CheckCircle2 className="h-3 w-3 ml-1" />}
                   </Button>
                 </CardContent>
               </Card>
@@ -231,6 +310,55 @@ export function Learning() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create Course Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Course</DialogTitle>
+            <DialogDescription>Add a new course to the learning catalog</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Course Name</Label>
+              <Input placeholder="Course title" value={form.courseName} onChange={(e) => setForm(f => ({ ...f, courseName: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Category</Label>
+                <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Technical">Technical</SelectItem>
+                    <SelectItem value="Leadership">Leadership</SelectItem>
+                    <SelectItem value="Soft Skills">Soft Skills</SelectItem>
+                    <SelectItem value="Management">Management</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Level</Label>
+                <Select value={form.level} onValueChange={(v) => setForm(f => ({ ...f, level: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Beginner">Beginner</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Duration</Label>
+              <Input placeholder="e.g. 6 weeks" value={form.duration} onChange={(e) => setForm(f => ({ ...f, duration: e.target.value }))} />
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateCourse} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Course
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

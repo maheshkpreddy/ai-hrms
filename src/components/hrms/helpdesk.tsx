@@ -1,27 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getTickets, createTicket, updateTicket } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Headphones, Plus, Search, Clock, CheckCircle2, AlertCircle,
-  MessageSquare, ArrowUp, ArrowRight, ArrowDown, Filter
+  MessageSquare, ArrowUp, ArrowRight, ArrowDown, Filter, Loader2
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-
-const TICKETS = [
-  { id: 'TK-001', subject: 'Unable to access VPN', category: 'IT Support', priority: 'high', status: 'open', created: '2 hours ago', assignee: 'IT Team', sla: '2h remaining' },
-  { id: 'TK-002', subject: 'Payroll discrepancy for December', category: 'Payroll', priority: 'high', status: 'in_progress', created: '4 hours ago', assignee: 'Finance Team', sla: '1h remaining' },
-  { id: 'TK-003', subject: 'Leave balance not updated', category: 'HR', priority: 'medium', status: 'open', created: '6 hours ago', assignee: 'HR Team', sla: '6h remaining' },
-  { id: 'TK-004', subject: 'Laptop keyboard not working', category: 'IT Support', priority: 'medium', status: 'in_progress', created: '1 day ago', assignee: 'IT Team', sla: '4h remaining' },
-  { id: 'TK-005', subject: 'New badge request', category: 'Admin', priority: 'low', status: 'resolved', created: '2 days ago', assignee: 'Admin Team', sla: 'Met' },
-  { id: 'TK-006', subject: 'Benefits enrollment question', category: 'HR', priority: 'low', status: 'resolved', created: '3 days ago', assignee: 'HR Team', sla: 'Met' },
-  { id: 'TK-007', subject: 'Expense approval delay', category: 'Finance', priority: 'medium', status: 'open', created: '5 hours ago', assignee: 'Finance Team', sla: '12h remaining' },
-  { id: 'TK-008', subject: 'Office temperature issue - Floor 3', category: 'Facilities', priority: 'low', status: 'open', created: '1 day ago', assignee: 'Facilities', sla: '24h remaining' },
-];
+import { toast } from 'sonner';
 
 const PRIORITY_CONFIG: Record<string, { icon: React.ReactNode; color: string }> = {
   high: { icon: <ArrowUp className="h-3.5 w-3.5" />, color: 'bg-red-100 text-red-800 dark:bg-red-950/30 dark:text-red-400' },
@@ -44,15 +38,79 @@ const CATEGORY_DATA = [
   { name: 'Facilities', value: 10, color: '#ef4444' },
 ];
 
+interface TicketData {
+  id: string; subject: string; category: string; priority: string; status: string;
+  created: string; assignee: string; sla: string; description?: string;
+}
+
 export function Helpdesk() {
+  const { user } = useAppStore();
+  const [tickets, setTickets] = useState<TicketData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    subject: '', category: 'IT Support', priority: 'medium', description: '',
+  });
 
-  const filteredTickets = TICKETS.filter(t => {
+  const fetchTickets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getTickets({});
+      setTickets((res as { data: TicketData[] }).data || []);
+    } catch {
+      toast.error('Failed to load tickets');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchTickets(); }, [fetchTickets]);
+
+  const filteredTickets = tickets.filter(t => {
     const matchesSearch = t.subject.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPriority = priorityFilter === 'all' || t.priority === priorityFilter;
     return matchesSearch && matchesPriority;
   });
+
+  const handleCreateTicket = async () => {
+    try {
+      setSubmitting(true);
+      await createTicket({
+        ...form,
+        employeeId: user?.employeeId || user?.id || 'demo',
+        status: 'open',
+      });
+      toast.success('Ticket created successfully');
+      setShowCreateDialog(false);
+      setForm({ subject: '', category: 'IT Support', priority: 'medium', description: '' });
+      fetchTickets();
+    } catch {
+      toast.error('Failed to create ticket');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusUpdate = async (id: string, status: string) => {
+    try {
+      await updateTicket(id, { status });
+      toast.success(`Ticket status updated to ${status}`);
+      fetchTickets();
+    } catch {
+      toast.error('Failed to update ticket status');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -61,7 +119,7 @@ export function Helpdesk() {
           <h1 className="text-2xl font-bold tracking-tight">Helpdesk</h1>
           <p className="text-muted-foreground text-sm">Manage support tickets and SLA compliance</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" /> Create Ticket
         </Button>
       </div>
@@ -71,21 +129,21 @@ export function Helpdesk() {
         <Card>
           <CardContent className="p-4 text-center">
             <AlertCircle className="h-5 w-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">{TICKETS.filter(t => t.status === 'open').length}</p>
+            <p className="text-2xl font-bold">{tickets.filter(t => t.status === 'open').length}</p>
             <p className="text-xs text-muted-foreground">Open Tickets</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Clock className="h-5 w-5 mx-auto text-amber-600 mb-1" />
-            <p className="text-2xl font-bold">{TICKETS.filter(t => t.status === 'in_progress').length}</p>
+            <p className="text-2xl font-bold">{tickets.filter(t => t.status === 'in_progress').length}</p>
             <p className="text-xs text-muted-foreground">In Progress</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <CheckCircle2 className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
-            <p className="text-2xl font-bold">{TICKETS.filter(t => t.status === 'resolved').length}</p>
+            <p className="text-2xl font-bold">{tickets.filter(t => t.status === 'resolved').length}</p>
             <p className="text-xs text-muted-foreground">Resolved</p>
           </CardContent>
         </Card>
@@ -121,30 +179,41 @@ export function Helpdesk() {
             </div>
           </CardHeader>
           <CardContent className="max-h-96 overflow-y-auto space-y-2">
-            {filteredTickets.map(ticket => (
-              <div key={ticket.id} className="p-3 rounded-lg border border-border hover:bg-accent/30 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-muted-foreground">{ticket.id}</span>
-                    <Badge className={`text-[10px] ${PRIORITY_CONFIG[ticket.priority].color}`}>
-                      {PRIORITY_CONFIG[ticket.priority].icon} {ticket.priority}
-                    </Badge>
-                    <Badge className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>{ticket.status.replace('_', ' ')}</Badge>
+            {filteredTickets.map(ticket => {
+              const priorityCfg = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.medium;
+              return (
+                <div key={ticket.id} className="p-3 rounded-lg border border-border hover:bg-accent/30 transition-colors">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground">{ticket.id?.slice(0, 8)}</span>
+                      <Badge className={`text-[10px] ${priorityCfg.color}`}>
+                        {priorityCfg.icon} {ticket.priority}
+                      </Badge>
+                      <Badge className={`text-[10px] ${STATUS_COLORS[ticket.status] || ''}`}>{ticket.status.replace('_', ' ')}</Badge>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{ticket.created || ''}</span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{ticket.created}</span>
+                  <p className="text-sm font-medium">{ticket.subject}</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>{ticket.category}</span>
+                    <span>·</span>
+                    <span>{ticket.assignee || 'Unassigned'}</span>
+                    <span>·</span>
+                    <span>{ticket.sla || 'N/A'}</span>
+                  </div>
+                  {ticket.status === 'open' && (
+                    <div className="mt-2 flex gap-1">
+                      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleStatusUpdate(ticket.id, 'in_progress')}>Start Progress</Button>
+                    </div>
+                  )}
+                  {ticket.status === 'in_progress' && (
+                    <div className="mt-2 flex gap-1">
+                      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleStatusUpdate(ticket.id, 'resolved')}>Resolve</Button>
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm font-medium">{ticket.subject}</p>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>{ticket.category}</span>
-                  <span>·</span>
-                  <span>{ticket.assignee}</span>
-                  <span>·</span>
-                  <span className={ticket.sla === 'Met' ? 'text-emerald-600' : ticket.sla.includes('1h') ? 'text-red-600' : 'text-amber-600'}>
-                    SLA: {ticket.sla}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -168,6 +237,56 @@ export function Helpdesk() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Ticket Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Support Ticket</DialogTitle>
+            <DialogDescription>Submit a new support request</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Subject</Label>
+              <Input placeholder="Brief description of the issue" value={form.subject} onChange={(e) => setForm(f => ({ ...f, subject: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Category</Label>
+                <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IT Support">IT Support</SelectItem>
+                    <SelectItem value="HR">HR</SelectItem>
+                    <SelectItem value="Finance">Finance</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
+                    <SelectItem value="Facilities">Facilities</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Priority</Label>
+                <Select value={form.priority} onValueChange={(v) => setForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Description</Label>
+              <Input placeholder="Detailed description of the issue" value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateTicket} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Submit Ticket
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,18 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
-import { MOCK_LEAVES } from '@/lib/mock-data';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getLeaves, applyLeave, approveRejectLeave } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   CalendarDays, CheckCircle2, XCircle, Clock, Plus,
-  TrendingUp, Sun, Heart, Baby, Gift, Calendar
+  TrendingUp, Sun, Heart, Baby, Gift, Calendar, Loader2
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { toast } from 'sonner';
 
 const LEAVE_STATUS_COLORS: Record<string, string> = {
   approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400',
@@ -37,12 +43,86 @@ const leaveTrendData = [
   { month: 'Jan', requests: 55 },
 ];
 
-// Calendar days for current month
 const calendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const weekends = [4, 5, 11, 12, 18, 19, 25, 26];
 const leaveDays = [20, 21, 22, 23, 25];
 
+interface LeaveData {
+  id: string; type: string; startDate: string; endDate: string; totalDays: number;
+  reason: string; status: string;
+  employee: { id: string; firstName: string; lastName: string } | string;
+}
+
 export function Leave() {
+  const { user } = useAppStore();
+  const [leaves, setLeaves] = useState<LeaveData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showApplyDialog, setShowApplyDialog] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    type: 'casual', startDate: '', endDate: '', reason: '',
+  });
+
+  const fetchLeaves = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getLeaves({});
+      setLeaves((res as { data: LeaveData[] }).data || []);
+    } catch {
+      toast.error('Failed to load leave data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchLeaves(); }, [fetchLeaves]);
+
+  const getEmployeeName = (leave: LeaveData) => {
+    if (typeof leave.employee === 'string') return leave.employee;
+    return `${leave.employee.firstName} ${leave.employee.lastName}`;
+  };
+
+  const handleApplyLeave = async () => {
+    try {
+      setSubmitting(true);
+      const start = new Date(form.startDate);
+      const end = new Date(form.endDate);
+      const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      await applyLeave({
+        ...form,
+        totalDays,
+        employeeId: user?.employeeId || user?.id || 'demo',
+        status: 'pending',
+      });
+      toast.success('Leave application submitted');
+      setShowApplyDialog(false);
+      setForm({ type: 'casual', startDate: '', endDate: '', reason: '' });
+      fetchLeaves();
+    } catch {
+      toast.error('Failed to apply leave');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApproveReject = async (id: string, action: 'approve' | 'reject') => {
+    try {
+      await approveRejectLeave(id, action);
+      toast.success(`Leave ${action === 'approve' ? 'approved' : 'rejected'}`);
+      fetchLeaves();
+    } catch {
+      toast.error(`Failed to ${action} leave`);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -50,7 +130,7 @@ export function Leave() {
           <h1 className="text-2xl font-bold tracking-tight">Leave Management</h1>
           <p className="text-muted-foreground text-sm">Track leave balances and manage requests</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowApplyDialog(true)}>
           <Plus className="h-4 w-4 mr-2" /> Apply Leave
         </Button>
       </div>
@@ -94,13 +174,13 @@ export function Leave() {
 
         {/* Leave Requests */}
         <TabsContent value="requests" className="space-y-3">
-          {MOCK_LEAVES.map(leave => (
+          {leaves.map(leave => (
             <Card key={leave.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-sm">{leave.employee}</h3>
+                      <h3 className="font-semibold text-sm">{getEmployeeName(leave)}</h3>
                       <Badge className={`text-[10px] ${LEAVE_STATUS_COLORS[leave.status]}`}>
                         {leave.status}
                       </Badge>
@@ -114,10 +194,10 @@ export function Leave() {
                   </div>
                   {leave.status === 'pending' && (
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-300 hover:bg-emerald-50">
+                      <Button size="sm" variant="outline" className="text-emerald-600 border-emerald-300 hover:bg-emerald-50" onClick={() => handleApproveReject(leave.id, 'approve')}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50">
+                      <Button size="sm" variant="outline" className="text-red-600 border-red-300 hover:bg-red-50" onClick={() => handleApproveReject(leave.id, 'reject')}>
                         <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                       </Button>
                     </div>
@@ -143,7 +223,6 @@ export function Leave() {
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
-                {/* Empty cells for offset (Jan 2025 starts on Wednesday) */}
                 <div /><div />
                 {calendarDays.map(day => {
                   const isWeekend = weekends.includes(day);
@@ -200,15 +279,15 @@ export function Leave() {
             <CardContent>
               <div className="space-y-3">
                 <div className="p-3 rounded-lg border border-border bg-emerald-50/50 dark:bg-emerald-950/20">
-                  <p className="text-sm font-medium">📈 Peak Leave Period</p>
+                  <p className="text-sm font-medium">Peak Leave Period</p>
                   <p className="text-xs text-muted-foreground mt-1">Expect 30% increase in leave requests during Dec 20-31. Plan staffing accordingly.</p>
                 </div>
                 <div className="p-3 rounded-lg border border-border bg-amber-50/50 dark:bg-amber-950/20">
-                  <p className="text-sm font-medium">⚠️ Sick Leave Spike</p>
+                  <p className="text-sm font-medium">Sick Leave Spike</p>
                   <p className="text-xs text-muted-foreground mt-1">Historical data shows increased sick leaves in February. Consider flu vaccination drive.</p>
                 </div>
                 <div className="p-3 rounded-lg border border-border bg-blue-50/50 dark:bg-blue-950/20">
-                  <p className="text-sm font-medium">💡 Recommendation</p>
+                  <p className="text-sm font-medium">Recommendation</p>
                   <p className="text-xs text-muted-foreground mt-1">3 employees in Operations are likely to request long leave in Q2. Plan cross-training now.</p>
                 </div>
               </div>
@@ -216,6 +295,49 @@ export function Leave() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Apply Leave Dialog */}
+      <Dialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Apply for Leave</DialogTitle>
+            <DialogDescription>Submit a leave request for approval</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Leave Type</Label>
+              <Select value={form.type} onValueChange={(v) => setForm(f => ({ ...f, type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="casual">Casual Leave</SelectItem>
+                  <SelectItem value="sick">Sick Leave</SelectItem>
+                  <SelectItem value="paid">Paid Leave</SelectItem>
+                  <SelectItem value="maternity">Maternity/Paternity</SelectItem>
+                  <SelectItem value="comp_off">Comp Off</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Start Date</Label>
+                <Input type="date" value={form.startDate} onChange={(e) => setForm(f => ({ ...f, startDate: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">End Date</Label>
+                <Input type="date" value={form.endDate} onChange={(e) => setForm(f => ({ ...f, endDate: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Reason</Label>
+              <Input placeholder="Reason for leave" value={form.reason} onChange={(e) => setForm(f => ({ ...f, reason: e.target.value }))} />
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleApplyLeave} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Submit Leave Request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

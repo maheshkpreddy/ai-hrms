@@ -1,31 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getGoals, createGoal, updateGoal } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, Target, Award, Brain, ChevronRight, Star, Users, BarChart3 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { TrendingUp, Target, Award, Brain, ChevronRight, Star, Users, BarChart3, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-
-const OKRS = [
-  { id: 1, objective: 'Improve Engineering Team Productivity', keyResults: [
-    { kr: 'Reduce sprint cycle time by 20%', progress: 75 },
-    { kr: 'Increase code review turnaround by 30%', progress: 60 },
-    { kr: 'Achieve 95% sprint completion rate', progress: 88 },
-  ], owner: 'Sarah Johnson', overall: 74 },
-  { id: 2, objective: 'Enhance Employee Engagement Score', keyResults: [
-    { kr: 'Achieve eNPS score of 50+', progress: 65 },
-    { kr: 'Reduce voluntary attrition by 15%', progress: 50 },
-    { kr: 'Complete 90% pulse survey participation', progress: 82 },
-  ], owner: 'Raj Patel', overall: 66 },
-  { id: 3, objective: 'Streamline Recruitment Process', keyResults: [
-    { kr: 'Reduce time-to-hire to 25 days', progress: 70 },
-    { kr: 'Increase offer acceptance rate to 85%', progress: 90 },
-    { kr: 'Achieve 80% AI screening accuracy', progress: 85 },
-  ], owner: 'Emily Chen', overall: 82 },
-];
+import { toast } from 'sonner';
 
 const REVIEW_CYCLES = [
   { name: 'Q4 2024 Performance Review', period: 'Oct - Dec 2024', status: 'completed', completion: 100 },
@@ -49,7 +38,79 @@ const performanceTrendData = [
   { quarter: 'Q1 2025', avg: 4.0 },
 ];
 
+interface GoalData {
+  id: string; title: string; description?: string; type: string; status: string; progress: number;
+  owner?: { id: string; firstName: string; lastName: string } | string;
+  keyResults?: { kr: string; progress: number }[];
+}
+
 export function Performance() {
+  const { currentCompany, user } = useAppStore();
+  const [goals, setGoals] = useState<GoalData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', type: 'okr' });
+
+  const fetchGoals = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getGoals({});
+      setGoals((res as { data: GoalData[] }).data || []);
+    } catch {
+      toast.error('Failed to load goals');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchGoals(); }, [fetchGoals]);
+
+  const handleCreateGoal = async () => {
+    try {
+      setSubmitting(true);
+      await createGoal({
+        ...form,
+        progress: 0,
+        status: 'active',
+        employeeId: user?.employeeId || user?.id || 'demo',
+        companyId: currentCompany?.id,
+      });
+      toast.success('Goal created successfully');
+      setShowCreateDialog(false);
+      setForm({ title: '', description: '', type: 'okr' });
+      fetchGoals();
+    } catch {
+      toast.error('Failed to create goal');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateProgress = async (id: string, progress: number) => {
+    try {
+      await updateGoal(id, { progress, status: progress >= 100 ? 'completed' : 'active' });
+      toast.success('Progress updated');
+      fetchGoals();
+    } catch {
+      toast.error('Failed to update progress');
+    }
+  };
+
+  const getOwnerName = (goal: GoalData) => {
+    if (!goal.owner) return 'Unassigned';
+    if (typeof goal.owner === 'string') return goal.owner;
+    return `${goal.owner.firstName} ${goal.owner.lastName}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -57,7 +118,7 @@ export function Performance() {
           <h1 className="text-2xl font-bold tracking-tight">Performance Management</h1>
           <p className="text-muted-foreground text-sm">Track OKRs, manage reviews, and drive growth</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowCreateDialog(true)}>
           <Target className="h-4 w-4 mr-2" /> Create OKR
         </Button>
       </div>
@@ -67,7 +128,7 @@ export function Performance() {
         <Card>
           <CardContent className="p-4 text-center">
             <Target className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
-            <p className="text-2xl font-bold">{OKRS.length}</p>
+            <p className="text-2xl font-bold">{goals.length}</p>
             <p className="text-xs text-muted-foreground">Active OKRs</p>
           </CardContent>
         </Card>
@@ -103,32 +164,43 @@ export function Performance() {
         </TabsList>
 
         <TabsContent value="okrs" className="space-y-4">
-          {OKRS.map(okr => (
-            <Card key={okr.id}>
+          {goals.map(goal => (
+            <Card key={goal.id}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div>
-                    <h3 className="font-semibold text-sm">{okr.objective}</h3>
-                    <p className="text-xs text-muted-foreground">Owner: {okr.owner}</p>
+                    <h3 className="font-semibold text-sm">{goal.title}</h3>
+                    <p className="text-xs text-muted-foreground">Owner: {getOwnerName(goal)}</p>
                   </div>
-                  <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
-                    {okr.overall}% Complete
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+                      {goal.progress || 0}% Complete
+                    </Badge>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={goal.progress || 0}
+                      onChange={(e) => handleUpdateProgress(goal.id, parseInt(e.target.value) || 0)}
+                      className="w-20 h-8 text-xs"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {okr.keyResults.map((kr, i) => (
-                    <div key={i}>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-muted-foreground">{kr.kr}</span>
-                        <span className="font-medium">{kr.progress}%</span>
-                      </div>
-                      <Progress value={kr.progress} className="h-2" />
-                    </div>
-                  ))}
-                </div>
+                <Progress value={goal.progress || 0} className="h-2" />
+                {goal.description && (
+                  <p className="text-xs text-muted-foreground mt-2">{goal.description}</p>
+                )}
               </CardContent>
             </Card>
           ))}
+          {goals.length === 0 && (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No OKRs found. Create one to get started.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="reviews" className="space-y-4">
@@ -207,25 +279,60 @@ export function Performance() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="p-3 rounded-lg border border-border bg-emerald-50/50 dark:bg-emerald-950/20">
-                <p className="text-sm font-medium">🎯 High Potential Identified</p>
+                <p className="text-sm font-medium">High Potential Identified</p>
                 <p className="text-xs text-muted-foreground mt-1">3 employees in Engineering show exceptional growth trajectory. Recommend for leadership development program.</p>
               </div>
               <div className="p-3 rounded-lg border border-border bg-amber-50/50 dark:bg-amber-950/20">
-                <p className="text-sm font-medium">⚠️ Performance Risk</p>
+                <p className="text-sm font-medium">Performance Risk</p>
                 <p className="text-xs text-muted-foreground mt-1">5 employees have declining performance scores over 2 quarters. Suggest intervention meetings.</p>
               </div>
               <div className="p-3 rounded-lg border border-border bg-blue-50/50 dark:bg-blue-950/20">
-                <p className="text-sm font-medium">📊 Calibration Recommendation</p>
+                <p className="text-sm font-medium">Calibration Recommendation</p>
                 <p className="text-xs text-muted-foreground mt-1">Sales team ratings are 15% above company average. Consider calibration session for consistency.</p>
               </div>
               <div className="p-3 rounded-lg border border-border bg-purple-50/50 dark:bg-purple-950/20">
-                <p className="text-sm font-medium">💡 Skill Development</p>
+                <p className="text-sm font-medium">Skill Development</p>
                 <p className="text-xs text-muted-foreground mt-1">Leadership skills gap identified in 12 mid-level managers. Recommend enrolling in management training.</p>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create OKR Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create OKR / Goal</DialogTitle>
+            <DialogDescription>Define a new objective or key result</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Title</Label>
+              <Input placeholder="Objective title" value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Description</Label>
+              <Input placeholder="Describe the objective" value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Type</Label>
+              <Select value={form.type} onValueChange={(v) => setForm(f => ({ ...f, type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="okr">OKR</SelectItem>
+                  <SelectItem value="individual">Individual Goal</SelectItem>
+                  <SelectItem value="team">Team Goal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateGoal} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Goal
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

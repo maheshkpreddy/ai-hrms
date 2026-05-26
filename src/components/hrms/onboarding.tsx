@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getOnboardingTasks, updateOnboardingTask } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,30 +10,9 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   UserPlus, CheckCircle2, Clock, FileText, Laptop,
-  Users, BookOpen, ClipboardList, ChevronRight, Plus
+  Users, BookOpen, ClipboardList, ChevronRight, Plus, Loader2
 } from 'lucide-react';
-
-const ONBOARDING_EMPLOYEES = [
-  { id: 'ob1', name: 'Michael Brown', designation: 'DevOps Lead', department: 'Engineering', startDate: '2024-09-01', progress: 75, status: 'in_progress', tasks: { total: 12, completed: 9 } },
-  { id: 'ob2', name: 'Sarah Miller', designation: 'Marketing Manager', department: 'Marketing', startDate: '2025-02-01', progress: 20, status: 'in_progress', tasks: { total: 12, completed: 2 } },
-  { id: 'ob3', name: 'Kevin Zhang', designation: 'Data Analyst', department: 'Analytics', startDate: '2025-02-10', progress: 0, status: 'upcoming', tasks: { total: 12, completed: 0 } },
-  { id: 'ob4', name: 'Amy Johnson', designation: 'UX Designer', department: 'Design', startDate: '2024-12-01', progress: 100, status: 'completed', tasks: { total: 12, completed: 12 } },
-];
-
-const ONBOARDING_TASKS = [
-  { id: 't1', category: 'Documentation', task: 'Complete employment contract signing', assignee: 'HR', status: 'completed', icon: <FileText className="h-4 w-4" /> },
-  { id: 't2', category: 'Documentation', task: 'Submit ID documents and tax forms', assignee: 'Employee', status: 'completed', icon: <FileText className="h-4 w-4" /> },
-  { id: 't3', category: 'IT Setup', task: 'Provision laptop and accounts', assignee: 'IT', status: 'completed', icon: <Laptop className="h-4 w-4" /> },
-  { id: 't4', category: 'IT Setup', task: 'Email and Slack access', assignee: 'IT', status: 'completed', icon: <Laptop className="h-4 w-4" /> },
-  { id: 't5', category: 'Orientation', task: 'Company culture presentation', assignee: 'HR', status: 'completed', icon: <Users className="h-4 w-4" /> },
-  { id: 't6', category: 'Orientation', task: 'Office tour and team introductions', assignee: 'Manager', status: 'completed', icon: <Users className="h-4 w-4" /> },
-  { id: 't7', category: 'Training', task: 'Complete compliance training', assignee: 'Employee', status: 'in_progress', icon: <BookOpen className="h-4 w-4" /> },
-  { id: 't8', category: 'Training', task: 'Department-specific onboarding', assignee: 'Manager', status: 'pending', icon: <BookOpen className="h-4 w-4" /> },
-  { id: 't9', category: 'Setup', task: 'Benefits enrollment', assignee: 'HR', status: 'pending', icon: <ClipboardList className="h-4 w-4" /> },
-  { id: 't10', category: 'Setup', task: 'Emergency contacts setup', assignee: 'Employee', status: 'pending', icon: <ClipboardList className="h-4 w-4" /> },
-  { id: 't11', category: 'Review', task: '30-day check-in meeting', assignee: 'Manager', status: 'pending', icon: <CheckCircle2 className="h-4 w-4" /> },
-  { id: 't12', category: 'Review', task: 'Probation goals setting', assignee: 'Manager', status: 'pending', icon: <CheckCircle2 className="h-4 w-4" /> },
-];
+import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400',
@@ -46,8 +27,108 @@ const TASK_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-800 dark:bg-slate-950/30 dark:text-slate-400',
 };
 
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  Documentation: <FileText className="h-4 w-4" />,
+  IT: <Laptop className="h-4 w-4" />,
+  Orientation: <Users className="h-4 w-4" />,
+  Training: <BookOpen className="h-4 w-4" />,
+  Setup: <ClipboardList className="h-4 w-4" />,
+  Review: <CheckCircle2 className="h-4 w-4" />,
+};
+
+interface OnboardingEmployee {
+  id: string; employeeName: string; designation: string; department: string;
+  startDate: string; progress: number; status: string;
+  tasks: { total: number; completed: number };
+}
+
+interface OnboardingTask {
+  id: string; taskName: string; category: string; assignee: string; status: string;
+  employeeId: string;
+}
+
 export function Onboarding() {
-  const [selectedEmployee, setSelectedEmployee] = useState(ONBOARDING_EMPLOYEES[0]);
+  const { user } = useAppStore();
+  const [tasks, setTasks] = useState<OnboardingTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getOnboardingTasks({});
+      const taskData = (res as { data: OnboardingTask[] }).data || [];
+      setTasks(taskData);
+      if (taskData.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(taskData[0].employeeId);
+      }
+    } catch {
+      toast.error('Failed to load onboarding data');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedEmployeeId]);
+
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  // Group tasks by employee
+  const employeeMap = new Map<string, { id: string; name: string; tasks: OnboardingTask[] }>();
+  tasks.forEach(task => {
+    if (!employeeMap.has(task.employeeId)) {
+      employeeMap.set(task.employeeId, {
+        id: task.employeeId,
+        name: task.employeeId,
+        tasks: [],
+      });
+    }
+    employeeMap.get(task.employeeId)!.tasks.push(task);
+  });
+
+  const employees: OnboardingEmployee[] = Array.from(employeeMap.entries()).map(([id, data]) => {
+    const totalTasks = data.tasks.length;
+    const completedTasks = data.tasks.filter(t => t.status === 'completed').length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+    const hasPending = data.tasks.some(t => t.status === 'pending');
+    const hasInProgress = data.tasks.some(t => t.status === 'in_progress');
+    const status = progress === 100 ? 'completed' : hasInProgress ? 'in_progress' : hasPending ? 'in_progress' : 'upcoming';
+    return {
+      id,
+      employeeName: data.name,
+      designation: 'New Hire',
+      department: 'N/A',
+      startDate: '',
+      progress,
+      status,
+      tasks: { total: totalTasks, completed: completedTasks },
+    };
+  });
+
+  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId) || employees[0];
+  const selectedTasks = tasks.filter(t => t.employeeId === selectedEmployeeId);
+
+  const handleToggleTask = async (taskId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'completed' ? 'pending' : currentStatus === 'pending' ? 'in_progress' : 'completed';
+      await updateOnboardingTask(taskId, { status: newStatus });
+      toast.success('Task status updated');
+      fetchTasks();
+    } catch {
+      toast.error('Failed to update task');
+    }
+  };
+
+  const inProgressCount = employees.filter(e => e.status === 'in_progress').length;
+  const upcomingCount = employees.filter(e => e.status === 'upcoming').length;
+  const completedCount = employees.filter(e => e.status === 'completed').length;
+  const avgCompletion = employees.length > 0 ? Math.round(employees.reduce((s, e) => s + e.progress, 0) / employees.length) : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -66,28 +147,28 @@ export function Onboarding() {
         <Card>
           <CardContent className="p-4 text-center">
             <UserPlus className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
-            <p className="text-2xl font-bold">{ONBOARDING_EMPLOYEES.filter(e => e.status === 'in_progress').length}</p>
+            <p className="text-2xl font-bold">{inProgressCount}</p>
             <p className="text-xs text-muted-foreground">In Progress</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Clock className="h-5 w-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">{ONBOARDING_EMPLOYEES.filter(e => e.status === 'upcoming').length}</p>
+            <p className="text-2xl font-bold">{upcomingCount}</p>
             <p className="text-xs text-muted-foreground">Upcoming</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <CheckCircle2 className="h-5 w-5 mx-auto text-teal-600 mb-1" />
-            <p className="text-2xl font-bold">{ONBOARDING_EMPLOYEES.filter(e => e.status === 'completed').length}</p>
+            <p className="text-2xl font-bold">{completedCount}</p>
             <p className="text-xs text-muted-foreground">Completed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <ClipboardList className="h-5 w-5 mx-auto text-amber-600 mb-1" />
-            <p className="text-2xl font-bold">75%</p>
+            <p className="text-2xl font-bold">{avgCompletion}%</p>
             <p className="text-xs text-muted-foreground">Avg Completion</p>
           </CardContent>
         </Card>
@@ -100,28 +181,33 @@ export function Onboarding() {
             <CardTitle className="text-base">New Hires</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-96 overflow-y-auto">
-            {ONBOARDING_EMPLOYEES.map(emp => (
+            {employees.map(emp => (
               <div
                 key={emp.id}
-                onClick={() => setSelectedEmployee(emp)}
+                onClick={() => setSelectedEmployeeId(emp.id)}
                 className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                  selectedEmployee.id === emp.id ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-border hover:bg-accent/30'
+                  selectedEmployeeId === emp.id ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' : 'border-border hover:bg-accent/30'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <div>
-                    <p className="text-sm font-medium">{emp.name}</p>
+                    <p className="text-sm font-medium">{emp.employeeName}</p>
                     <p className="text-xs text-muted-foreground">{emp.designation} · {emp.department}</p>
                   </div>
-                  <Badge className={`text-[10px] ${STATUS_COLORS[emp.status]}`}>{emp.status.replace('_', ' ')}</Badge>
+                  <Badge className={`text-[10px] ${STATUS_COLORS[emp.status] || ''}`}>{emp.status.replace('_', ' ')}</Badge>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <Progress value={emp.progress} className="h-1.5 flex-1" />
                   <span className="text-[10px] text-muted-foreground">{emp.progress}%</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">Start: {emp.startDate} · {emp.tasks.completed}/{emp.tasks.total} tasks</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{emp.tasks.completed}/{emp.tasks.total} tasks</p>
               </div>
             ))}
+            {employees.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No onboarding records found
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -130,32 +216,42 @@ export function Onboarding() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-base">Onboarding Checklist — {selectedEmployee.name}</CardTitle>
-                <CardDescription>{selectedEmployee.designation} · {selectedEmployee.department}</CardDescription>
+                <CardTitle className="text-base">Onboarding Checklist — {selectedEmployee?.employeeName || 'Select Employee'}</CardTitle>
+                <CardDescription>{selectedEmployee?.designation} · {selectedEmployee?.department}</CardDescription>
               </div>
-              <Badge className={STATUS_COLORS[selectedEmployee.status]}>{selectedEmployee.status.replace('_', ' ')}</Badge>
+              {selectedEmployee && (
+                <Badge className={STATUS_COLORS[selectedEmployee.status] || ''}>{selectedEmployee.status.replace('_', ' ')}</Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent className="max-h-96 overflow-y-auto space-y-2">
-            {ONBOARDING_TASKS.map(task => (
+            {selectedTasks.map(task => (
               <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/30 transition-colors">
-                <button className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                  task.status === 'completed' ? 'bg-emerald-500 border-emerald-500' :
-                  task.status === 'in_progress' ? 'border-amber-500' : 'border-muted-foreground/30'
-                }`}>
+                <button
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    task.status === 'completed' ? 'bg-emerald-500 border-emerald-500' :
+                    task.status === 'in_progress' ? 'border-amber-500' : 'border-muted-foreground/30'
+                  }`}
+                  onClick={() => handleToggleTask(task.id, task.status)}
+                >
                   {task.status === 'completed' && <CheckCircle2 className="h-3 w-3 text-white" />}
                   {task.status === 'in_progress' && <div className="w-2 h-2 rounded-full bg-amber-500" />}
                 </button>
                 <div className="flex-1">
-                  <p className={`text-sm ${task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>{task.task}</p>
+                  <p className={`text-sm ${task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>{task.taskName}</p>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant="secondary" className="text-[10px] h-4">{task.category}</Badge>
                     <span>Assignee: {task.assignee}</span>
                   </div>
                 </div>
-                <Badge className={`text-[10px] ${TASK_STATUS_COLORS[task.status]}`}>{task.status.replace('_', ' ')}</Badge>
+                <Badge className={`text-[10px] ${TASK_STATUS_COLORS[task.status] || ''}`}>{task.status.replace('_', ' ')}</Badge>
               </div>
             ))}
+            {selectedTasks.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No tasks found for this employee
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

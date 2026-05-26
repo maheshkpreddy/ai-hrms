@@ -20,7 +20,7 @@ model Company {
   currency    String   @default("USD")
   timezone    String   @default("UTC")
   isActive    Boolean  @default(true)
-  parentId    String?  // For holding company hierarchy
+  parentId    String?
   parent      Company?  @relation("CompanyHierarchy", fields: [parentId], references: [id])
   children    Company[] @relation("CompanyHierarchy")
   branches    Branch[]
@@ -32,6 +32,9 @@ model Company {
   vendors     Vendor[]
   leavePolicies LeavePolicy[]
   payrollStructures PayrollStructure[]
+  surveys     Survey[]
+  workflowDefs WorkflowDefinition[]
+  shifts      Shift[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -76,12 +79,14 @@ model User {
   password      String
   name          String
   avatar        String?
-  role          String   @default("employee") // super_admin, company_hr_admin, hr_executive, dept_head, reporting_manager, employee, finance, it_admin, recruiter, vendor, client, auditor
+  role          String   @default("employee")
   isActive      Boolean  @default(true)
   companyId     String?
   company       Company? @relation(fields: [companyId], references: [id])
   employee      Employee?
   lastLogin     DateTime?
+  notifications Notification[]
+  auditLogs     AuditLog[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -107,30 +112,27 @@ model Employee {
   zipCode         String?
   emergencyContact String?
   emergencyPhone  String?
-  // Professional
   designation     String
   jobTitle        String?
-  employmentType  String   @default("full-time") // full-time, part-time, contract, intern
-  status          String   @default("active") // active, on_leave, probation, notice_period, exited
+  employmentType  String   @default("full-time")
+  status          String   @default("active")
   joiningDate     DateTime
   exitDate        DateTime?
   probationEnd    DateTime?
-  // Reporting
   reportingManagerId String?
   reportingManager   Employee?  @relation("ReportingMatrix", fields: [reportingManagerId], references: [id])
   directReports      Employee[] @relation("ReportingMatrix")
   approvedLeaves     Leave[]    @relation("LeaveApprovals")
-  // Organization
+  approvedExpenses   ExpenseClaim[] @relation("ExpenseApprovals")
+  approvedTravel     TravelRequest[] @relation("TravelApprovals")
   companyId       String
   company         Company  @relation(fields: [companyId], references: [id])
   branchId        String?
   branch          Branch?  @relation(fields: [branchId], references: [id])
   departmentId    String
   department      Department @relation(fields: [departmentId], references: [id])
-  // User link
   userId          String?  @unique
   user            User?    @relation(fields: [userId], references: [id])
-  // Relations
   attendance      Attendance[]
   leaves          Leave[]
   payrollRecords  PayrollRecord[]
@@ -140,6 +142,12 @@ model Employee {
   travelRequests  TravelRequest[]
   learningRecords LearningRecord[]
   tickets         Ticket[]
+  onboardingTasks OnboardingTask[]
+  documents       Document[]
+  reviewsGiven    PerformanceReview[] @relation("Reviewer")
+  reviewsReceived PerformanceReview[] @relation("Reviewee")
+  alumniRecord    AlumniRecord?
+  shiftMembers    ShiftMember[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -158,8 +166,8 @@ model Job {
   experienceMax   Int?
   salaryMin       Float?
   salaryMax       Float?
-  status          String   @default("draft") // draft, open, on_hold, closed, filled
-  priority        String   @default("medium") // low, medium, high, urgent
+  status          String   @default("draft")
+  priority        String   @default("medium")
   positions       Int      @default(1)
   filledPositions Int      @default(0)
   postedDate      DateTime?
@@ -184,11 +192,12 @@ model Candidate {
   experience      Int?
   expectedSalary  Float?
   noticePeriod    String?
-  status          String   @default("applied") // applied, screening, shortlisted, interviewing, offered, hired, rejected, on_hold
-  source          String?  // portal, referral, vendor, linkedin, naukri
+  status          String   @default("applied")
+  source          String?
   aiScore         Float?
   skillMatch      Float?
   cultureFitScore Float?
+  notes           String?
   jobId           String
   job             Job      @relation(fields: [jobId], references: [id])
   interviews      Interview[]
@@ -198,13 +207,14 @@ model Candidate {
 
 model Interview {
   id            String   @id @default(cuid())
-  type          String   @default("technical") // technical, hr, manager, ai_screening
+  type          String   @default("technical")
   scheduledAt   DateTime
-  duration      Int?     // minutes
-  status        String   @default("scheduled") // scheduled, completed, cancelled, no_show
+  duration      Int?
+  status        String   @default("scheduled")
   feedback      String?
   rating        Int?
   meetingLink   String?
+  aiTranscript  String?
   candidateId   String
   candidate     Candidate @relation(fields: [candidateId], references: [id])
   jobId         String
@@ -220,10 +230,10 @@ model Attendance {
   date        DateTime
   checkIn     DateTime?
   checkOut    DateTime?
-  breakDuration Int?   // minutes
+  breakDuration Int?
   workHours   Float?
-  status      String   @default("present") // present, absent, late, half_day, work_from_home, on_leave
-  source      String   @default("web") // biometric, gps, qr, rfid, mobile, web
+  status      String   @default("present")
+  source      String   @default("web")
   notes       String?
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
@@ -238,7 +248,7 @@ model Attendance {
 model LeavePolicy {
   id            String   @id @default(cuid())
   name          String
-  type          String   // casual, sick, paid, maternity, paternity, comp_off, lop
+  type          String
   totalDays     Int
   carryForward  Boolean  @default(false)
   maxCarryDays  Int      @default(0)
@@ -251,16 +261,19 @@ model LeavePolicy {
 
 model Leave {
   id          String   @id @default(cuid())
-  type        String   // casual, sick, paid, maternity, paternity, comp_off, lop
+  type        String
   startDate   DateTime
   endDate     DateTime
   totalDays   Float
   reason      String?
-  status      String   @default("pending") // pending, approved, rejected, cancelled
+  status      String   @default("pending")
+  approverComment String?
   approverId  String?
   approver    Employee? @relation("LeaveApprovals", fields: [approverId], references: [id])
   employeeId  String
   employee    Employee  @relation(fields: [employeeId], references: [id])
+  workflowInstanceId String?
+  workflowInstance   WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -295,7 +308,7 @@ model PayrollRecord {
   grossSalary     Float
   totalDeductions Float
   netSalary       Float
-  status          String   @default("processed") // draft, processed, paid, held
+  status          String   @default("processed")
   paymentDate     DateTime?
   employeeId      String
   employee        Employee @relation(fields: [employeeId], references: [id])
@@ -311,10 +324,10 @@ model Goal {
   id          String   @id @default(cuid())
   title       String
   description String?
-  type        String   @default("individual") // individual, team, department, company
-  category    String?  // okr, kpi, smart
+  type        String   @default("individual")
+  category    String?
   progress    Int      @default(0)
-  status      String   @default("not_started") // not_started, in_progress, completed, overdue
+  status      String   @default("not_started")
   startDate   DateTime
   endDate     DateTime
   employeeId  String
@@ -323,17 +336,45 @@ model Goal {
   updatedAt   DateTime @updatedAt
 }
 
+model ReviewCycle {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("annual")
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("draft")
+  companyId   String
+  reviews     PerformanceReview[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PerformanceReview {
+  id          String   @id @default(cuid())
+  cycleId     String?
+  cycle       ReviewCycle? @relation(fields: [cycleId], references: [id])
+  reviewerId  String
+  reviewer    Employee @relation("Reviewer", fields: [reviewerId], references: [id])
+  revieweeId  String
+  reviewee    Employee @relation("Reviewee", fields: [revieweeId], references: [id])
+  rating      Int
+  comments    String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // ==================== ASSETS ====================
 
 model AssetAllocation {
   id          String   @id @default(cuid())
-  assetType   String   // laptop, desktop, phone, sim, access_card, software_license
+  assetType   String
   assetName   String
   assetCode   String?
   serialNumber String?
   allocatedAt DateTime @default(now())
   returnedAt  DateTime?
-  status      String   @default("allocated") // allocated, returned, damaged, lost
+  status      String   @default("allocated")
   notes       String?
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
@@ -351,22 +392,32 @@ model TravelRequest {
   returnDate      DateTime
   estimatedCost   Float?
   approvedCost    Float?
-  status          String   @default("pending") // pending, approved, rejected, completed, cancelled
+  status          String   @default("pending")
+  approverComment String?
+  approverId      String?
+  approver        Employee? @relation("TravelApprovals", fields: [approverId], references: [id])
   employeeId      String
   employee        Employee @relation(fields: [employeeId], references: [id])
+  workflowInstanceId String?
+  workflowInstance   WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
 
 model ExpenseClaim {
   id          String   @id @default(cuid())
-  type        String   // travel, food, accommodation, communication, other
+  type        String
   amount      Float
   description String?
   receipt     String?
-  status      String   @default("pending") // pending, approved, rejected, reimbursed
+  status      String   @default("pending")
+  approverComment String?
+  approverId  String?
+  approver    Employee? @relation("ExpenseApprovals", fields: [approverId], references: [id])
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
+  workflowInstanceId String?
+  workflowInstance   WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -377,8 +428,8 @@ model LearningRecord {
   id          String   @id @default(cuid())
   courseName  String
   provider    String?
-  type        String   @default("e_learning") // e_learning, classroom, certification, workshop
-  status      String   @default("enrolled") // enrolled, in_progress, completed, expired
+  type        String   @default("e_learning")
+  status      String   @default("enrolled")
   completedAt DateTime?
   score       Int?
   certificate String?
@@ -394,10 +445,11 @@ model Ticket {
   id          String   @id @default(cuid())
   subject     String
   description String?
-  category    String   // hr, it, payroll, admin, other
-  priority    String   @default("medium") // low, medium, high, urgent
-  status      String   @default("open") // open, in_progress, resolved, closed
+  category    String
+  priority    String   @default("medium")
+  status      String   @default("open")
   resolution  String?
+  assignedTo  String?
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
   createdAt   DateTime @default(now())
@@ -415,7 +467,7 @@ model Client {
   industry      String?
   contractStart DateTime?
   contractEnd   DateTime?
-  status        String   @default("active") // active, inactive, suspended
+  status        String   @default("active")
   companyId     String
   company       Company  @relation(fields: [companyId], references: [id])
   createdAt     DateTime @default(now())
@@ -428,8 +480,8 @@ model Vendor {
   email          String?
   phone          String?
   vendorCompany  String?
-  serviceType    String?  // recruitment, staffing, payroll, bgv, training
-  status         String   @default("active") // active, inactive, suspended
+  serviceType    String?
+  status         String   @default("active")
   rating         Float?
   companyId      String
   company        Company  @relation(fields: [companyId], references: [id])
@@ -451,6 +503,209 @@ model SubVendor {
   updatedAt   DateTime @updatedAt
 }
 
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id          String   @id @default(cuid())
+  title       String
+  message     String
+  type        String   @default("info")
+  category    String   @default("general")
+  isRead      Boolean  @default(false)
+  actionUrl   String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== WORKFLOW ENGINE ====================
+
+model WorkflowDefinition {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("approval")
+  entity      String
+  description String?
+  isActive    Boolean  @default(true)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  steps       WorkflowStepDef[]
+  instances   WorkflowInstance[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkflowStepDef {
+  id            String   @id @default(cuid())
+  name          String
+  stepOrder     Int
+  approverRole  String?
+  approverType  String   @default("role")
+  autoApprove   Boolean  @default(false)
+  action        String   @default("approve_reject")
+  workflowDefId String
+  workflowDef   WorkflowDefinition @relation(fields: [workflowDefId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WorkflowInstance {
+  id            String   @id @default(cuid())
+  status        String   @default("pending")
+  currentStep   Int      @default(0)
+  initiatedBy   String
+  workflowDefId String
+  workflowDef   WorkflowDefinition @relation(fields: [workflowDefId], references: [id])
+  steps         WorkflowStepInstance[]
+  leaves        Leave[]
+  travelRequests TravelRequest[]
+  expenseClaims  ExpenseClaim[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model WorkflowStepInstance {
+  id            String   @id @default(cuid())
+  stepOrder     Int
+  status        String   @default("pending")
+  actionedBy    String?
+  comments      String?
+  actedAt       DateTime?
+  workflowInstanceId String
+  workflowInstance   WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ==================== SURVEY & ENGAGEMENT ====================
+
+model Survey {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   @default("pulse")
+  status      String   @default("draft")
+  startDate   DateTime?
+  endDate     DateTime?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  questions   SurveyQuestion[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SurveyQuestion {
+  id          String   @id @default(cuid())
+  question    String
+  type        String   @default("rating")
+  options     String?
+  required    Boolean  @default(true)
+  order       Int      @default(0)
+  surveyId    String
+  survey      Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responses   SurveyResponse[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SurveyResponse {
+  id          String   @id @default(cuid())
+  answer      String
+  questionId  String
+  question    SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  employeeId  String
+  createdAt   DateTime @default(now())
+}
+
+// ==================== ONBOARDING ====================
+
+model OnboardingTask {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String   @default("general")
+  status      String   @default("pending")
+  dueDate     DateTime?
+  completedAt DateTime?
+  assignedTo  String?
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== DOCUMENTS ====================
+
+model Document {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("general")
+  fileUrl     String?
+  status      String   @default("active")
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== SHIFTS ====================
+
+model Shift {
+  id          String   @id @default(cuid())
+  name        String
+  startTime   String
+  endTime     String
+  breakMinutes Int     @default(30)
+  isActive    Boolean  @default(true)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  members     ShiftMember[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ShiftMember {
+  id          String   @id @default(cuid())
+  effectiveDate DateTime
+  shiftId     String
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([employeeId, effectiveDate, shiftId])
+}
+
+// ==================== ALUMNI ====================
+
+model AlumniRecord {
+  id          String   @id @default(cuid())
+  exitReason  String?
+  rehireEligible Boolean @default(true)
+  alumniEmail String?
+  joinedAlumniAt DateTime @default(now())
+  employeeId  String   @unique
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== COMPLIANCE ====================
+
+model ComplianceItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  dueDate     DateTime?
+  status      String   @default("pending")
+  assignee    String?
+  companyId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // ==================== AUDIT ====================
 
 model AuditLog {
@@ -460,6 +715,7 @@ model AuditLog {
   entityId    String?
   details     String?
   userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
   ipAddress   String?
   createdAt   DateTime @default(now())
 }

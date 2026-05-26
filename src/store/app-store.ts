@@ -1,9 +1,26 @@
 import { create } from 'zustand';
 import type { UserRole, ModuleKey, CompanyInfo } from '@/lib/types';
 
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  companyId: string | null;
+  avatar: string | null;
+  employeeId?: string;
+  employeeName?: string;
+  companyName?: string;
+  companyCode?: string;
+  companyCurrency?: string;
+}
+
 interface AppState {
   // Auth
   isAuthenticated: boolean;
+  isLoading: boolean;
+  authError: string | null;
+  user: AuthUser | null;
   userRole: UserRole;
   userName: string;
   userEmail: string;
@@ -25,13 +42,16 @@ interface AppState {
   notificationCount: number;
   
   // Actions
-  login: (role: UserRole, name: string, email: string) => void;
+  login: (email: string, password: string) => Promise<void>;
+  demoLogin: (role: UserRole, name: string, email: string) => void;
   logout: () => void;
   setActiveModule: (module: ModuleKey) => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setCurrentCompany: (company: CompanyInfo) => void;
   toggleDarkMode: () => void;
+  setNotificationCount: (count: number) => void;
+  setCompanies: (companies: CompanyInfo[]) => void;
 }
 
 const DEMO_COMPANIES: CompanyInfo[] = [
@@ -42,8 +62,11 @@ const DEMO_COMPANIES: CompanyInfo[] = [
   { id: 'c5', name: 'LogiTrans Worldwide', code: 'LTW', industry: 'Logistics', country: 'SG', currency: 'SGD', employeeCount: 3200, isActive: true },
 ];
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
+  isLoading: false,
+  authError: null,
+  user: null,
   userRole: 'employee',
   userName: '',
   userEmail: '',
@@ -57,18 +80,92 @@ export const useAppStore = create<AppState>((set) => ({
   sidebarCollapsed: false,
   
   darkMode: false,
-  notificationCount: 12,
+  notificationCount: 0,
   
-  login: (role, name, email) => set({
-    isAuthenticated: true,
-    userRole: role,
-    userName: name,
-    userEmail: email,
-    activeModule: 'dashboard',
-  }),
+  login: async (email: string, password: string) => {
+    set({ isLoading: true, authError: null });
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        set({ isLoading: false, authError: data.error || 'Login failed' });
+        return;
+      }
+      
+      const user: AuthUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        role: data.user.role as UserRole,
+        companyId: data.user.companyId,
+        avatar: data.user.avatar,
+        employeeId: data.employee?.employeeId,
+        employeeName: data.employee ? `${data.employee.firstName} ${data.employee.lastName}` : data.user.name,
+        companyName: data.company?.name,
+        companyCode: data.company?.code,
+        companyCurrency: data.company?.currency,
+      };
+      
+      // Find matching demo company or create from API data
+      const company = data.company ? {
+        id: data.company.id,
+        name: data.company.name,
+        code: data.company.code,
+        industry: data.company.industry || '',
+        country: data.company.country || '',
+        currency: data.company.currency,
+        employeeCount: 0,
+        isActive: true,
+      } : DEMO_COMPANIES[0];
+      
+      set({
+        isAuthenticated: true,
+        isLoading: false,
+        authError: null,
+        user,
+        userRole: user.role,
+        userName: user.employeeName || user.name,
+        userEmail: user.email,
+        currentCompany: company,
+        activeModule: 'dashboard',
+      });
+    } catch {
+      set({ isLoading: false, authError: 'Network error. Please try again.' });
+    }
+  },
+  
+  demoLogin: (role, name, email) => {
+    const user: AuthUser = {
+      id: 'demo',
+      email,
+      name,
+      role,
+      companyId: DEMO_COMPANIES[0].id,
+      avatar: null,
+    };
+    set({
+      isAuthenticated: true,
+      isLoading: false,
+      authError: null,
+      user,
+      userRole: role,
+      userName: name,
+      userEmail: email,
+      activeModule: 'dashboard',
+    });
+  },
   
   logout: () => set({
     isAuthenticated: false,
+    isLoading: false,
+    authError: null,
+    user: null,
     userRole: 'employee',
     userName: '',
     userEmail: '',
@@ -80,4 +177,6 @@ export const useAppStore = create<AppState>((set) => ({
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
   setCurrentCompany: (company) => set({ currentCompany: company }),
   toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
+  setNotificationCount: (count) => set({ notificationCount: count }),
+  setCompanies: (companies) => set({ companies }),
 }));

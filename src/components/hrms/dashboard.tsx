@@ -1,31 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '@/store/app-store';
-import { ANALYTICS_DATA, MOCK_EMPLOYEES, MOCK_JOBS, MOCK_ATTENDANCE, MOCK_LEAVES } from '@/lib/mock-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   Users, UserPlus, Briefcase, TrendingDown, Clock, CheckSquare,
   Brain, ArrowUpRight, ArrowDownRight, Activity, Sparkles, Zap,
-  CalendarCheck, DollarSign, BarChart3
+  CalendarCheck, DollarSign, BarChart3, Loader2
 } from 'lucide-react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts';
-
-const KPI_CARDS = [
-  { label: 'Total Employees', value: '2,450', change: 4.2, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
-  { label: 'New Hires (This Month)', value: '24', change: 12.5, icon: UserPlus, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
-  { label: 'Open Positions', value: '18', change: -8.3, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
-  { label: 'Attrition Rate', value: '2.4%', change: -0.8, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' },
-  { label: 'Attendance Today', value: '88%', change: 1.2, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
-  { label: 'Pending Approvals', value: '12', change: -25, icon: CheckSquare, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/30' },
-];
+import { getDashboardStats, getAnalytics } from '@/lib/api';
 
 const QUICK_ACTIONS = [
   { label: 'Add Employee', icon: UserPlus, module: 'employees' as const },
@@ -36,17 +26,6 @@ const QUICK_ACTIONS = [
   { label: 'AI Assistant', icon: Brain, module: 'ai_chatbot' as const },
 ];
 
-const RECENT_ACTIVITIES = [
-  { text: 'Sarah Johnson submitted a leave request', time: '2 min ago', type: 'info' },
-  { text: 'New candidate Alex Turner applied for Senior Developer', time: '15 min ago', type: 'success' },
-  { text: 'Payroll for January 2025 processed successfully', time: '1 hour ago', type: 'success' },
-  { text: 'Attendance anomaly detected for David Wilson', time: '2 hours ago', type: 'warning' },
-  { text: 'Raj Patel completed Performance Review', time: '3 hours ago', type: 'info' },
-  { text: 'Emily Chen enrolled in Leadership Program', time: '4 hours ago', type: 'info' },
-  { text: 'Asset laptop-0045 allocated to Michael Brown', time: '5 hours ago', type: 'info' },
-  { text: '3 new onboarding tasks created', time: '6 hours ago', type: 'success' },
-];
-
 const AI_INSIGHTS = [
   { title: 'Attrition Risk Alert', description: '5 employees in Engineering show high attrition risk based on engagement scores and activity patterns.', severity: 'high' },
   { title: 'Hiring Prediction', description: 'Based on current pipeline, expect 22 hires this month — 8% above target.', severity: 'medium' },
@@ -54,25 +33,82 @@ const AI_INSIGHTS = [
   { title: 'Skill Gap Detected', description: 'Cloud Architecture skills deficit in Engineering. Suggest upskilling program.', severity: 'low' },
 ];
 
+interface DashboardData {
+  totalEmployees: number;
+  activeEmployees: number;
+  newHires: number;
+  openPositions: number;
+  attritionRate: number;
+  attendanceRate: number;
+  pendingApprovals: number;
+  departmentDistribution: { name: string; value: number; color: string }[];
+  recentActivities: { id: string; action: string; entity: string; details: string; createdAt: string }[];
+}
+
 export function Dashboard() {
-  const { setActiveModule } = useAppStore();
+  const { setActiveModule, currentCompany } = useAppStore();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const headcountData = ANALYTICS_DATA.headcount.months.map((m, i) => ({
-    name: m,
-    count: ANALYTICS_DATA.headcount.values[i],
-  }));
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const companyId = currentCompany?.id || '';
+        const [dashboardRes, analyticsRes] = await Promise.all([
+          getDashboardStats(companyId),
+          getAnalytics(companyId),
+        ]);
+        setData(dashboardRes as DashboardData);
+        setAnalyticsData(analyticsRes as Record<string, unknown>);
+      } catch (err) {
+        console.error('Dashboard fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [currentCompany?.id]);
 
-  const hiringData = ANALYTICS_DATA.hiring.months.map((m, i) => ({
-    name: m,
-    Applied: ANALYTICS_DATA.hiring.applied[i],
-    Interviewed: ANALYTICS_DATA.hiring.interviewed[i],
-    Hired: ANALYTICS_DATA.hiring.hired[i],
-  }));
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        <span className="ml-3 text-muted-foreground">Loading dashboard data...</span>
+      </div>
+    );
+  }
 
-  const payrollData = ANALYTICS_DATA.payrollCost.months.map((m, i) => ({
-    name: m,
-    cost: ANALYTICS_DATA.payrollCost.values[i],
-  }));
+  const kpiCards = data ? [
+    { label: 'Total Employees', value: data.totalEmployees.toLocaleString(), change: 4.2, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+    { label: 'New Hires (This Month)', value: String(data.newHires), change: 12.5, icon: UserPlus, color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-950/30' },
+    { label: 'Open Positions', value: String(data.openPositions), change: -8.3, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/30' },
+    { label: 'Attrition Rate', value: `${data.attritionRate}%`, change: -0.8, icon: TrendingDown, color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/30' },
+    { label: 'Attendance Today', value: `${data.attendanceRate}%`, change: 1.2, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/30' },
+    { label: 'Pending Approvals', value: String(data.pendingApprovals), change: -25, icon: CheckSquare, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-950/30' },
+  ] : [];
+
+  const deptData = data?.departmentDistribution || [];
+  const headcountData = (analyticsData as Record<string, Record<string, unknown>> | null)?.headcount as { months: string[]; values: number[] } | undefined;
+  const hiringData = (analyticsData as Record<string, Record<string, unknown>> | null)?.hiring as { months: string[]; applied: number[]; interviewed: number[]; hired: number[] } | undefined;
+  const payrollCostData = (analyticsData as Record<string, Record<string, unknown>> | null)?.payrollCost as { months: string[]; values: number[] } | undefined;
+
+  const headcountChart = headcountData
+    ? headcountData.months.map((m: string, i: number) => ({ name: m, count: headcountData.values[i] }))
+    : [];
+
+  const hiringChart = hiringData
+    ? hiringData.months.map((m: string, i: number) => ({
+        name: m,
+        Applied: hiringData.applied[i],
+        Interviewed: hiringData.interviewed[i],
+        Hired: hiringData.hired[i],
+      }))
+    : [];
+
+  const payrollChart = payrollCostData
+    ? payrollCostData.months.map((m: string, i: number) => ({ name: m, cost: payrollCostData.values[i] }))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -86,13 +122,13 @@ export function Dashboard() {
           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
             <Activity className="h-3 w-3 mr-1" /> Live
           </Badge>
-          <Badge variant="secondary">Jan 2025</Badge>
+          <Badge variant="secondary">{currentCompany?.name || 'All Companies'}</Badge>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {KPI_CARDS.map((kpi) => (
+        {kpiCards.map((kpi) => (
           <Card key={kpi.label} className="hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -117,18 +153,22 @@ export function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Headcount Trend</CardTitle>
-            <CardDescription>7-month employee headcount trend</CardDescription>
+            <CardDescription>Employee headcount over time</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={headcountData}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="#059669" strokeWidth={2} dot={{ fill: '#059669', r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {headcountChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={headcountChart}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="count" stroke="#059669" strokeWidth={2} dot={{ fill: '#059669', r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No headcount data available</div>
+            )}
           </CardContent>
         </Card>
 
@@ -139,25 +179,29 @@ export function Dashboard() {
             <CardDescription>Employee distribution by department</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={ANALYTICS_DATA.departmentDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {ANALYTICS_DATA.departmentDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number) => [`${value} employees`, 'Count']} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {deptData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={deptData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {deptData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => [`${value} employees`, 'Count']} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No department data available</div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -171,18 +215,22 @@ export function Dashboard() {
             <CardDescription>Application to hire conversion</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={hiringData}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Applied" fill="#94a3b8" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Interviewed" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Hired" fill="#059669" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {hiringChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={hiringChart}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="Applied" fill="#94a3b8" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="Interviewed" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="Hired" fill="#059669" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No hiring data available</div>
+            )}
           </CardContent>
         </Card>
 
@@ -190,18 +238,22 @@ export function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Payroll Cost Trend</CardTitle>
-            <CardDescription>Monthly payroll expenditure (in millions)</CardDescription>
+            <CardDescription>Monthly payroll expenditure</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={payrollData}>
-                <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value: number) => [`$${value}M`, 'Cost']} />
-                <Area type="monotone" dataKey="cost" stroke="#059669" fill="#059669" fillOpacity={0.2} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {payrollChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={payrollChart}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value: number) => [`$${value}M`, 'Cost']} />
+                  <Area type="monotone" dataKey="cost" stroke="#059669" fill="#059669" fillOpacity={0.2} strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">No payroll data available</div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -241,18 +293,23 @@ export function Dashboard() {
           </CardHeader>
           <CardContent className="max-h-72 overflow-y-auto">
             <div className="space-y-3">
-              {RECENT_ACTIVITIES.map((activity, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                    activity.type === 'success' ? 'bg-emerald-500' :
-                    activity.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm leading-snug">{activity.text}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{activity.time}</p>
+              {(data?.recentActivities || []).length > 0 ? (
+                data!.recentActivities.map((activity) => (
+                  <div key={activity.id} className="flex items-start gap-2">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                      activity.action === 'CREATE' ? 'bg-emerald-500' :
+                      activity.action === 'UPDATE' ? 'bg-amber-500' :
+                      activity.action === 'DELETE' ? 'bg-red-500' : 'bg-blue-500'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm leading-snug">{activity.details || `${activity.action} on ${activity.entity}`}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{new Date(activity.createdAt).toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No recent activities</p>
+              )}
             </div>
           </CardContent>
         </Card>

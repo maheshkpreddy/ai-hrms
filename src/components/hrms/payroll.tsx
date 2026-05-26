@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { MOCK_PAYROLL, ANALYTICS_DATA } from '@/lib/mock-data';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getPayroll, createPayroll } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DollarSign, TrendingUp, TrendingDown, CreditCard, Wallet,
-  CheckCircle2, Clock, FileText, Download
+  CheckCircle2, Clock, FileText, Download, Loader2
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import { toast } from 'sonner';
 
 const PAYROLL_STATUS_COLORS: Record<string, string> = {
   paid: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400',
@@ -22,18 +24,83 @@ const PAYROLL_STATUS_COLORS: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400',
 };
 
+const payrollCostData = [
+  { name: 'Jul', cost: 2.8 },
+  { name: 'Aug', cost: 2.85 },
+  { name: 'Sep', cost: 2.9 },
+  { name: 'Oct', cost: 2.95 },
+  { name: 'Nov', cost: 3.0 },
+  { name: 'Dec', cost: 3.05 },
+  { name: 'Jan', cost: 3.1 },
+];
+
+interface PayrollData {
+  id: string; basicPay: number; grossSalary: number; totalDeductions: number;
+  netSalary: number; status: string; paymentDate: string | null;
+  employee: { id: string; firstName: string; lastName: string } | string;
+  month?: number; year?: number;
+}
+
 export function Payroll() {
-  const [selectedMonth, setSelectedMonth] = useState('January');
+  const { currentCompany } = useAppStore();
+  const [payrollData, setPayrollData] = useState<PayrollData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState('1');
   const [selectedYear, setSelectedYear] = useState('2025');
+  const [processing, setProcessing] = useState(false);
 
-  const totalPayout = MOCK_PAYROLL.reduce((sum, p) => sum + p.netSalary, 0);
-  const totalDeductions = MOCK_PAYROLL.reduce((sum, p) => sum + p.totalDeductions, 0);
-  const totalGross = MOCK_PAYROLL.reduce((sum, p) => sum + p.grossSalary, 0);
+  const fetchPayroll = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getPayroll({
+        month: parseInt(selectedMonth),
+        year: parseInt(selectedYear),
+      });
+      setPayrollData((res as { data: PayrollData[] }).data || []);
+    } catch {
+      toast.error('Failed to load payroll data');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth, selectedYear]);
 
-  const payrollCostData = ANALYTICS_DATA.payrollCost.months.map((m, i) => ({
-    name: m,
-    cost: ANALYTICS_DATA.payrollCost.values[i],
-  }));
+  useEffect(() => { fetchPayroll(); }, [fetchPayroll]);
+
+  const totalPayout = payrollData.reduce((sum, p) => sum + (p.netSalary || 0), 0);
+  const totalDeductions = payrollData.reduce((sum, p) => sum + (p.totalDeductions || 0), 0);
+  const totalGross = payrollData.reduce((sum, p) => sum + (p.grossSalary || 0), 0);
+
+  const getEmployeeName = (record: PayrollData) => {
+    if (typeof record.employee === 'string') return record.employee;
+    return `${record.employee.firstName} ${record.employee.lastName}`;
+  };
+
+  const handleRunPayroll = async () => {
+    try {
+      setProcessing(true);
+      await createPayroll({
+        month: parseInt(selectedMonth),
+        year: parseInt(selectedYear),
+        companyId: currentCompany?.id,
+      });
+      toast.success('Payroll processing initiated');
+      fetchPayroll();
+    } catch {
+      toast.error('Failed to process payroll');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -48,8 +115,8 @@ export function Payroll() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
-                <SelectItem key={m} value={m}>{m}</SelectItem>
+              {monthNames.map((m, i) => (
+                <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -62,7 +129,8 @@ export function Payroll() {
               <SelectItem value="2024">2024</SelectItem>
             </SelectContent>
           </Select>
-          <Button className="bg-emerald-600 hover:bg-emerald-700">
+          <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleRunPayroll} disabled={processing}>
+            {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             <CreditCard className="h-4 w-4 mr-2" /> Run Payroll
           </Button>
         </div>
@@ -109,7 +177,7 @@ export function Payroll() {
               <CheckCircle2 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{MOCK_PAYROLL.filter(p => p.status === 'paid').length}/{MOCK_PAYROLL.length}</p>
+              <p className="text-2xl font-bold">{payrollData.filter(p => p.status === 'paid').length}/{payrollData.length}</p>
               <p className="text-xs text-muted-foreground">Payments Processed</p>
             </div>
           </CardContent>
@@ -139,7 +207,7 @@ export function Payroll() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base">Payroll Details — {selectedMonth} {selectedYear}</CardTitle>
+              <CardTitle className="text-base">Payroll Details — {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}</CardTitle>
               <CardDescription>Individual employee payroll breakdown</CardDescription>
             </div>
             <Button variant="outline" size="sm">
@@ -162,15 +230,15 @@ export function Payroll() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MOCK_PAYROLL.map(record => (
+                {payrollData.map(record => (
                   <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.employee}</TableCell>
-                    <TableCell>${record.basicPay.toLocaleString()}</TableCell>
-                    <TableCell>${record.grossSalary.toLocaleString()}</TableCell>
-                    <TableCell className="text-red-600">-${record.totalDeductions.toLocaleString()}</TableCell>
-                    <TableCell className="font-semibold">${record.netSalary.toLocaleString()}</TableCell>
+                    <TableCell className="font-medium">{getEmployeeName(record)}</TableCell>
+                    <TableCell>${(record.basicPay || 0).toLocaleString()}</TableCell>
+                    <TableCell>${(record.grossSalary || 0).toLocaleString()}</TableCell>
+                    <TableCell className="text-red-600">-${(record.totalDeductions || 0).toLocaleString()}</TableCell>
+                    <TableCell className="font-semibold">${(record.netSalary || 0).toLocaleString()}</TableCell>
                     <TableCell>
-                      <Badge className={`text-[10px] ${PAYROLL_STATUS_COLORS[record.status]}`}>
+                      <Badge className={`text-[10px] ${PAYROLL_STATUS_COLORS[record.status] || ''}`}>
                         {record.status === 'paid' && <CheckCircle2 className="h-3 w-3 mr-1" />}
                         {record.status === 'processed' && <Clock className="h-3 w-3 mr-1" />}
                         {record.status === 'draft' && <FileText className="h-3 w-3 mr-1" />}

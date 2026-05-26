@@ -1,16 +1,16 @@
 'use client';
 
-import React from 'react';
-import { MOCK_CLIENTS, MOCK_JOBS, MOCK_CANDIDATES } from '@/lib/mock-data';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getClients, getJobs, getCandidates } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
 import {
   Building2, Briefcase, Users, Star, Clock, CheckCircle2,
-  MessageSquare, Brain, TrendingUp, Eye
+  MessageSquare, Brain, TrendingUp, Eye, Loader2
 } from 'lucide-react';
 
 const SLA_DATA = [
@@ -21,7 +21,58 @@ const SLA_DATA = [
   { metric: 'Replacement Guarantee', target: '30 days', actual: '22 days', status: 'exceeded' },
 ];
 
+interface ClientData {
+  id: string; name: string; email: string; clientCompany: string; industry: string;
+  contractStart: string; contractEnd: string; status: string; activeJobs: number; totalHires: number;
+}
+
+interface JobData {
+  id: string; title: string; department: string | null; location: string | null; status: string;
+  _count: { candidates: number }; priority: string;
+}
+
+interface CandidateData {
+  id: string; firstName: string; lastName: string; currentTitle?: string;
+  currentCompany?: string; aiScore?: number; status: string;
+}
+
 export function ClientPortal() {
+  const { currentCompany } = useAppStore();
+  const [clients, setClients] = useState<ClientData[]>([]);
+  const [jobs, setJobs] = useState<JobData[]>([]);
+  const [candidates, setCandidates] = useState<CandidateData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params: Record<string, string> = {};
+      if (currentCompany?.id) params.companyId = currentCompany.id;
+      const [clientsRes, jobsRes, candidatesRes] = await Promise.all([
+        getClients(params),
+        getJobs(params),
+        getCandidates({}),
+      ]);
+      setClients((clientsRes as { data: ClientData[] }).data || []);
+      setJobs((jobsRes as { data: JobData[] }).data || []);
+      setCandidates((candidatesRes as { data: CandidateData[] }).data || []);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, [currentCompany?.id]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -34,21 +85,21 @@ export function ClientPortal() {
         <Card>
           <CardContent className="p-4 text-center">
             <Building2 className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_CLIENTS.length}</p>
+            <p className="text-2xl font-bold">{clients.length}</p>
             <p className="text-xs text-muted-foreground">Active Clients</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Briefcase className="h-5 w-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_CLIENTS.reduce((s, c) => s + c.activeJobs, 0)}</p>
+            <p className="text-2xl font-bold">{clients.reduce((s, c) => s + (c.activeJobs || 0), 0)}</p>
             <p className="text-xs text-muted-foreground">Active Jobs</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Users className="h-5 w-5 mx-auto text-amber-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_CLIENTS.reduce((s, c) => s + c.totalHires, 0)}</p>
+            <p className="text-2xl font-bold">{clients.reduce((s, c) => s + (c.totalHires || 0), 0)}</p>
             <p className="text-xs text-muted-foreground">Total Hires</p>
           </CardContent>
         </Card>
@@ -70,7 +121,7 @@ export function ClientPortal() {
         </TabsList>
 
         <TabsContent value="requisitions" className="space-y-3">
-          {MOCK_JOBS.filter(j => j.status === 'open' || j.status === 'interviewing').map(job => (
+          {jobs.filter(j => j.status === 'open' || j.status === 'interviewing').map(job => (
             <Card key={job.id}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -79,7 +130,7 @@ export function ClientPortal() {
                       <h3 className="font-semibold text-sm">{job.title}</h3>
                       <Badge className={`text-[10px] ${job.status === 'open' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{job.status}</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">{job.department} · {job.location} · {job.applicants} applicants</p>
+                    <p className="text-xs text-muted-foreground">{job.department || 'N/A'} · {job.location || 'Remote'} · {job._count?.candidates || 0} applicants</p>
                   </div>
                   <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5 mr-1" /> View Details</Button>
                 </div>
@@ -89,7 +140,7 @@ export function ClientPortal() {
         </TabsContent>
 
         <TabsContent value="candidates" className="space-y-3">
-          {MOCK_CANDIDATES.map(candidate => (
+          {candidates.map(candidate => (
             <Card key={candidate.id}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -99,12 +150,12 @@ export function ClientPortal() {
                     </div>
                     <div>
                       <p className="font-semibold text-sm">{candidate.firstName} {candidate.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{candidate.currentTitle} at {candidate.currentCompany}</p>
+                      <p className="text-xs text-muted-foreground">{candidate.currentTitle || 'N/A'} at {candidate.currentCompany || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-center">
-                      <p className="text-sm font-bold text-emerald-600">{candidate.aiScore}</p>
+                      <p className="text-sm font-bold text-emerald-600">{candidate.aiScore || 0}</p>
                       <p className="text-[10px] text-muted-foreground">AI Score</p>
                     </div>
                     <Badge className="text-[10px] bg-amber-100 text-amber-800">{candidate.status}</Badge>
@@ -163,15 +214,15 @@ export function ClientPortal() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="p-3 rounded-lg border bg-emerald-50/50 dark:bg-emerald-950/20">
-                <p className="text-sm font-medium">🎯 Optimal Hiring Channel</p>
+                <p className="text-sm font-medium">Optimal Hiring Channel</p>
                 <p className="text-xs text-muted-foreground mt-1">LinkedIn sourcing yields 35% higher quality candidates for technical roles compared to job boards.</p>
               </div>
               <div className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20">
-                <p className="text-sm font-medium">⏱️ Time-to-Hire Optimization</p>
+                <p className="text-sm font-medium">Time-to-Hire Optimization</p>
                 <p className="text-xs text-muted-foreground mt-1">Reducing interview rounds from 4 to 3 could decrease time-to-hire by 20% without impacting quality.</p>
               </div>
               <div className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20">
-                <p className="text-sm font-medium">📊 Vendor Performance</p>
+                <p className="text-sm font-medium">Vendor Performance</p>
                 <p className="text-xs text-muted-foreground mt-1">TalentHunt Agency has the highest conversion rate at 78%. Recommend increasing allocation.</p>
               </div>
             </CardContent>

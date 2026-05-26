@@ -1,19 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
-import { MOCK_JOBS, MOCK_CANDIDATES } from '@/lib/mock-data';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getJobs, getCandidates, createJob, updateCandidate } from '@/lib/api';
+import { useAppStore } from '@/store/app-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   Briefcase, Users, Search, Filter, Plus, MapPin, DollarSign,
   Clock, Star, Brain, ChevronRight, Eye, MessageSquare, CheckCircle2,
-  UserPlus, XCircle, Send, Award
+  UserPlus, XCircle, Send, Award, Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400',
@@ -39,19 +43,99 @@ const PIPELINE_COLUMNS = [
   { key: 'hired', label: 'Hired', icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: 'border-t-green-600' },
 ];
 
+interface JobData {
+  id: string; title: string; department: string | null; location: string | null; employmentType: string | null;
+  status: string; priority: string; positions: number; filledPositions: number; _count: { candidates: number };
+  postedDate: string | null; closingDate: string | null;
+}
+
+interface CandidateData {
+  id: string; firstName: string; lastName: string; email: string; status: string;
+  currentTitle?: string; currentCompany?: string; aiScore?: number; skillMatch?: number; cultureFit?: number;
+  experience?: number; source?: string; jobId?: string;
+}
+
 export function Recruitment() {
+  const { currentCompany } = useAppStore();
+  const [jobs, setJobs] = useState<JobData[]>([]);
+  const [candidates, setCandidates] = useState<CandidateData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
+  const [showAddJob, setShowAddJob] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [jobForm, setJobForm] = useState({
+    title: '', department: '', location: '', employmentType: 'full_time',
+    priority: 'medium', positions: '1',
+  });
 
-  const filteredJobs = MOCK_JOBS.filter(job => {
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params: Record<string, string> = {};
+      if (currentCompany?.id) params.companyId = currentCompany.id;
+      const [jobsRes, candidatesRes] = await Promise.all([
+        getJobs(params),
+        getCandidates({}),
+      ]);
+      setJobs((jobsRes as { data: JobData[] }).data || []);
+      setCandidates((candidatesRes as { data: CandidateData[] }).data || []);
+    } catch {
+      toast.error('Failed to load recruitment data');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentCompany?.id]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
     const matchesDept = deptFilter === 'all' || job.department === deptFilter;
     return matchesSearch && matchesStatus && matchesDept;
   });
 
-  const departments = [...new Set(MOCK_JOBS.map(j => j.department))];
+  const departments = [...new Set(jobs.map(j => j.department).filter(Boolean) as string[])];
+
+  const handleCreateJob = async () => {
+    try {
+      setSubmitting(true);
+      await createJob({
+        ...jobForm,
+        companyId: currentCompany?.id,
+        positions: parseInt(jobForm.positions) || 1,
+        status: 'draft',
+      });
+      toast.success('Job posting created');
+      setShowAddJob(false);
+      setJobForm({ title: '', department: '', location: '', employmentType: 'full_time', priority: 'medium', positions: '1' });
+      fetchData();
+    } catch {
+      toast.error('Failed to create job posting');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (candidateId: string, newStatus: string) => {
+    try {
+      await updateCandidate(candidateId, { status: newStatus });
+      toast.success(`Candidate moved to ${newStatus}`);
+      fetchData();
+    } catch {
+      toast.error('Failed to update candidate status');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -60,7 +144,7 @@ export function Recruitment() {
           <h1 className="text-2xl font-bold tracking-tight">Recruitment (ATS)</h1>
           <p className="text-muted-foreground text-sm">Manage job openings and candidate pipeline</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowAddJob(true)}>
           <Plus className="h-4 w-4 mr-2" /> New Job Posting
         </Button>
       </div>
@@ -70,28 +154,28 @@ export function Recruitment() {
         <Card>
           <CardContent className="p-4 text-center">
             <Briefcase className="h-5 w-5 mx-auto text-emerald-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_JOBS.filter(j => j.status === 'open').length}</p>
+            <p className="text-2xl font-bold">{jobs.filter(j => j.status === 'open').length}</p>
             <p className="text-xs text-muted-foreground">Open Positions</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Users className="h-5 w-5 mx-auto text-blue-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_CANDIDATES.length}</p>
+            <p className="text-2xl font-bold">{candidates.length}</p>
             <p className="text-xs text-muted-foreground">Active Candidates</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Clock className="h-5 w-5 mx-auto text-amber-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_CANDIDATES.filter(c => c.status === 'interviewing').length}</p>
+            <p className="text-2xl font-bold">{candidates.filter(c => c.status === 'interviewing').length}</p>
             <p className="text-xs text-muted-foreground">In Interview</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <CheckCircle2 className="h-5 w-5 mx-auto text-teal-600 mb-1" />
-            <p className="text-2xl font-bold">{MOCK_CANDIDATES.filter(c => c.status === 'offered').length}</p>
+            <p className="text-2xl font-bold">{candidates.filter(c => c.status === 'offered').length}</p>
             <p className="text-xs text-muted-foreground">Offers Extended</p>
           </CardContent>
         </Card>
@@ -153,10 +237,9 @@ export function Recruitment() {
                         <Badge className={`text-[10px] ${PRIORITY_COLORS[job.priority] || ''}`}>{job.priority}</Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{job.department}</span>
-                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{job.location}</span>
-                        <span className="flex items-center gap-1"><DollarSign className="h-3 w-3" />{job.salary}</span>
-                        <span className="flex items-center gap-1"><Users className="h-3 w-3" />{job.applicants} applicants</span>
+                        <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{job.department || 'N/A'}</span>
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{job.location || 'Remote'}</span>
+                        <span className="flex items-center gap-1"><Users className="h-3 w-3" />{job._count?.candidates || 0} applicants</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -179,7 +262,7 @@ export function Recruitment() {
           <div className="overflow-x-auto">
             <div className="flex gap-4 min-w-[900px] pb-4">
               {PIPELINE_COLUMNS.map(column => {
-                const candidates = MOCK_CANDIDATES.filter(c => c.status === column.key);
+                const columnCandidates = candidates.filter(c => c.status === column.key);
                 return (
                   <div key={column.key} className="flex-1 min-w-[200px]">
                     <div className={`border-t-4 ${column.color} rounded-t-lg`}>
@@ -189,10 +272,10 @@ export function Recruitment() {
                             {column.icon}
                             <span className="text-sm font-medium">{column.label}</span>
                           </div>
-                          <Badge variant="secondary" className="text-xs h-5">{candidates.length}</Badge>
+                          <Badge variant="secondary" className="text-xs h-5">{columnCandidates.length}</Badge>
                         </div>
                         <div className="p-2 space-y-2 max-h-96 overflow-y-auto">
-                          {candidates.map(candidate => (
+                          {columnCandidates.map(candidate => (
                             <Card key={candidate.id} className="hover:shadow-md transition-shadow cursor-pointer">
                               <CardContent className="p-3">
                                 <div className="flex items-center gap-2 mb-1">
@@ -201,19 +284,19 @@ export function Recruitment() {
                                   </div>
                                   <div>
                                     <p className="text-sm font-medium">{candidate.firstName} {candidate.lastName}</p>
-                                    <p className="text-[10px] text-muted-foreground">{candidate.currentTitle}</p>
+                                    <p className="text-[10px] text-muted-foreground">{candidate.currentTitle || 'N/A'}</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
-                                  <span className="text-[10px] text-muted-foreground">{candidate.currentCompany}</span>
+                                  <span className="text-[10px] text-muted-foreground">{candidate.currentCompany || 'N/A'}</span>
                                   <Badge variant="secondary" className="text-[10px] h-5">
-                                    Score: {candidate.aiScore}
+                                    Score: {candidate.aiScore || 0}
                                   </Badge>
                                 </div>
                               </CardContent>
                             </Card>
                           ))}
-                          {candidates.length === 0 && (
+                          {columnCandidates.length === 0 && (
                             <div className="text-center py-6 text-muted-foreground text-xs">
                               No candidates
                             </div>
@@ -230,7 +313,7 @@ export function Recruitment() {
 
         {/* AI Scores Tab */}
         <TabsContent value="ai_scores" className="space-y-4">
-          {MOCK_CANDIDATES.map(candidate => (
+          {candidates.map(candidate => (
             <Card key={candidate.id}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -240,35 +323,35 @@ export function Recruitment() {
                     </div>
                     <div>
                       <p className="font-semibold text-sm">{candidate.firstName} {candidate.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{candidate.currentTitle} at {candidate.currentCompany}</p>
+                      <p className="text-xs text-muted-foreground">{candidate.currentTitle || 'N/A'} at {candidate.currentCompany || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex-1 grid grid-cols-3 gap-4">
                     <div>
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span>Skill Match</span>
-                        <span className="font-medium">{candidate.skillMatch}%</span>
+                        <span className="font-medium">{candidate.skillMatch || 0}%</span>
                       </div>
-                      <Progress value={candidate.skillMatch} className="h-2" />
+                      <Progress value={candidate.skillMatch || 0} className="h-2" />
                     </div>
                     <div>
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span>Culture Fit</span>
-                        <span className="font-medium">{candidate.cultureFit}%</span>
+                        <span className="font-medium">{candidate.cultureFit || 0}%</span>
                       </div>
-                      <Progress value={candidate.cultureFit} className="h-2" />
+                      <Progress value={candidate.cultureFit || 0} className="h-2" />
                     </div>
                     <div>
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span>AI Score</span>
-                        <span className="font-medium">{candidate.aiScore}%</span>
+                        <span className="font-medium">{candidate.aiScore || 0}%</span>
                       </div>
-                      <Progress value={candidate.aiScore} className="h-2" />
+                      <Progress value={candidate.aiScore || 0} className="h-2" />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={`${candidate.aiScore >= 90 ? 'bg-emerald-100 text-emerald-800' : candidate.aiScore >= 80 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'}`}>
-                      <Brain className="h-3 w-3 mr-1" /> {candidate.aiScore >= 90 ? 'Strong Match' : candidate.aiScore >= 80 ? 'Good Match' : 'Fair Match'}
+                    <Badge className={`${(candidate.aiScore || 0) >= 90 ? 'bg-emerald-100 text-emerald-800' : (candidate.aiScore || 0) >= 80 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'}`}>
+                      <Brain className="h-3 w-3 mr-1" /> {(candidate.aiScore || 0) >= 90 ? 'Strong Match' : (candidate.aiScore || 0) >= 80 ? 'Good Match' : 'Fair Match'}
                     </Badge>
                   </div>
                 </div>
@@ -277,6 +360,65 @@ export function Recruitment() {
           ))}
         </TabsContent>
       </Tabs>
+
+      {/* Add Job Dialog */}
+      <Dialog open={showAddJob} onOpenChange={setShowAddJob}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Job Posting</DialogTitle>
+            <DialogDescription>Add a new job opening to the recruitment pipeline</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Job Title</Label>
+              <Input placeholder="e.g. Senior Developer" value={jobForm.title} onChange={(e) => setJobForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Department</Label>
+                <Input placeholder="Department" value={jobForm.department} onChange={(e) => setJobForm(f => ({ ...f, department: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Location</Label>
+                <Input placeholder="Location" value={jobForm.location} onChange={(e) => setJobForm(f => ({ ...f, location: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Type</Label>
+                <Select value={jobForm.employmentType} onValueChange={(v) => setJobForm(f => ({ ...f, employmentType: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full_time">Full-time</SelectItem>
+                    <SelectItem value="part_time">Part-time</SelectItem>
+                    <SelectItem value="contract">Contract</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Priority</Label>
+                <Select value={jobForm.priority} onValueChange={(v) => setJobForm(f => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Positions</Label>
+                <Input type="number" value={jobForm.positions} onChange={(e) => setJobForm(f => ({ ...f, positions: e.target.value }))} />
+              </div>
+            </div>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateJob} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Create Job Posting
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

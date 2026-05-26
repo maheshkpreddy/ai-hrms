@@ -10,39 +10,35 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Users, UserCheck, Building2, Truck, Hexagon, ArrowRight, Sparkles } from 'lucide-react';
+import { Shield, Users, UserCheck, Building2, Truck, Hexagon, ArrowRight, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 
-const DEMO_LOGINS: { role: UserRole; name: string; email: string; icon: React.ReactNode; color: string }[] = [
-  { role: 'super_admin', name: 'Admin Nexus', email: 'admin@nexushrms.com', icon: <Shield className="h-4 w-4" />, color: 'bg-red-500 hover:bg-red-600' },
-  { role: 'company_hr_admin', name: 'Sarah Johnson', email: 'sarah.j@techcorp.com', icon: <Users className="h-4 w-4" />, color: 'bg-purple-500 hover:bg-purple-600' },
-  { role: 'employee', name: 'Raj Patel', email: 'raj.p@techcorp.com', icon: <UserCheck className="h-4 w-4" />, color: 'bg-emerald-500 hover:bg-emerald-600' },
-  { role: 'client', name: 'Acme Corp', email: 'hr@acme.com', icon: <Building2 className="h-4 w-4" />, color: 'bg-amber-500 hover:bg-amber-600' },
-  { role: 'vendor', name: 'TalentHunt', email: 'info@talenthunt.com', icon: <Truck className="h-4 w-4" />, color: 'bg-teal-500 hover:bg-teal-600' },
+const DEMO_LOGINS: { role: UserRole; name: string; email: string; password: string; icon: React.ReactNode; color: string }[] = [
+  { role: 'super_admin', name: 'Admin Nexus', email: 'admin@nexushrms.com', password: 'admin123', icon: <Shield className="h-4 w-4" />, color: 'bg-red-500 hover:bg-red-600' },
+  { role: 'company_hr_admin', name: 'Sarah Johnson', email: 'sarah.j@techcorp.com', password: 'sarah123', icon: <Users className="h-4 w-4" />, color: 'bg-purple-500 hover:bg-purple-600' },
+  { role: 'employee', name: 'Raj Patel', email: 'raj.p@techcorp.com', password: 'raj123', icon: <UserCheck className="h-4 w-4" />, color: 'bg-emerald-500 hover:bg-emerald-600' },
+  { role: 'client', name: 'Acme Corp', email: 'hr@acme.com', password: 'acme123', icon: <Building2 className="h-4 w-4" />, color: 'bg-amber-500 hover:bg-amber-600' },
+  { role: 'vendor', name: 'TalentHunt', email: 'info@talenthunt.com', password: 'thunt123', icon: <Truck className="h-4 w-4" />, color: 'bg-teal-500 hover:bg-teal-600' },
 ];
 
 export function LoginScreen() {
-  const { login } = useAppStore();
-  const [selectedRole, setSelectedRole] = useState<UserRole>('employee');
-  const [name, setName] = useState('Raj Patel');
+  const { login, demoLogin, isLoading, authError } = useAppStore();
   const [email, setEmail] = useState('raj.p@techcorp.com');
+  const [password, setPassword] = useState('raj123');
 
-  const handleRoleChange = (role: UserRole) => {
-    setSelectedRole(role);
-    const demo = DEMO_LOGINS.find(d => d.role === role);
-    if (demo) {
-      setName(demo.name);
-      setEmail(demo.email);
+  const handleLogin = async () => {
+    if (email && password) {
+      await login(email, password);
     }
   };
 
-  const handleLogin = () => {
-    if (name && email) {
-      login(selectedRole, name, email);
-    }
+  const handleQuickLogin = async (role: UserRole, name: string, email: string, password: string) => {
+    setEmail(email);
+    setPassword(password);
+    await login(email, password);
   };
 
-  const handleQuickLogin = (role: UserRole, name: string, email: string) => {
-    login(role, name, email);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleLogin();
   };
 
   return (
@@ -99,53 +95,51 @@ export function LoginScreen() {
                 Sign In to NEXUS HRMS
               </CardTitle>
               <CardDescription className="text-emerald-200/70">
-                Select your role and enter your credentials
+                Enter your credentials to access the platform
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-emerald-100 text-sm font-medium">Role</Label>
-                <Select value={selectedRole} onValueChange={(v) => handleRoleChange(v as UserRole)}>
-                  <SelectTrigger className="bg-white/10 border-white/20 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-900 border-slate-700">
-                    {Object.entries(ROLE_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key} className="text-white focus:bg-emerald-600 focus:text-white">
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-emerald-100 text-sm font-medium">Name</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="bg-white/10 border-white/20 text-white placeholder:text-emerald-200/50 focus:border-emerald-400"
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label className="text-emerald-100 text-sm font-medium">Email</Label>
                 <Input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="Enter your email"
                   type="email"
                   className="bg-white/10 border-white/20 text-white placeholder:text-emerald-200/50 focus:border-emerald-400"
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-emerald-100 text-sm font-medium">Password</Label>
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter your password"
+                  type="password"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-emerald-200/50 focus:border-emerald-400"
+                />
+              </div>
+
+              {authError && (
+                <div className="flex items-center gap-2 text-red-300 text-sm bg-red-500/10 rounded-md p-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {authError}
+                </div>
+              )}
+
               <Button
                 onClick={handleLogin}
                 className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold h-11 shadow-lg shadow-emerald-500/30"
-                disabled={!name || !email}
+                disabled={(!email || !password) || isLoading}
               >
-                Sign In <ArrowRight className="ml-2 h-4 w-4" />
+                {isLoading ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</>
+                ) : (
+                  <>Sign In <ArrowRight className="ml-2 h-4 w-4" /></>
+                )}
               </Button>
 
               <div className="relative">
@@ -161,19 +155,20 @@ export function LoginScreen() {
                 {DEMO_LOGINS.map((demo) => (
                   <motion.button
                     key={demo.role}
-                    onClick={() => handleQuickLogin(demo.role, demo.name, demo.email)}
-                    className={`${demo.color} text-white rounded-lg px-3 py-2.5 text-xs font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg`}
+                    onClick={() => handleQuickLogin(demo.role, demo.name, demo.email, demo.password)}
+                    className={`${demo.color} text-white rounded-lg px-3 py-2.5 text-xs font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50`}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
+                    disabled={isLoading}
                   >
-                    {demo.icon}
+                    {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : demo.icon}
                     {ROLE_LABELS[demo.role]}
                   </motion.button>
                 ))}
               </div>
 
               <p className="text-center text-emerald-200/50 text-xs mt-2">
-                Demo mode — No real authentication required
+                Database-backed authentication with real data
               </p>
             </CardContent>
           </Card>
@@ -186,7 +181,7 @@ export function LoginScreen() {
           transition={{ delay: 1 }}
           className="text-center text-emerald-200/40 text-xs mt-6"
         >
-          © 2025 NEXUS HRMS. AI-Powered Enterprise HR Platform.
+          &copy; 2025 NEXUS HRMS. AI-Powered Enterprise HR Platform.
         </motion.p>
       </div>
     </div>

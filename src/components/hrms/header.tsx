@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/app-store';
+import { getNotifications, markNotificationRead } from '@/lib/api';
 import { ROLE_LABELS } from '@/lib/types';
 import type { CompanyInfo } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -18,16 +19,47 @@ import {
 import {
   Menu, Search, Bell, Moon, Sun, LogOut, User, Settings, ChevronDown
 } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface NotificationData {
+  id: string; title: string; message: string; type: string; category: string;
+  isRead: boolean; createdAt: string; actionUrl: string | null;
+}
 
 export function Header() {
   const {
-    userRole, userName, userEmail, currentCompany, companies,
-    setCurrentCompany, toggleDarkMode, darkMode, notificationCount,
-    sidebarOpen, setSidebarOpen, logout, setActiveModule
+    userRole, userName, userEmail, currentCompany, companies, user,
+    setCurrentCompany, toggleDarkMode, darkMode,
+    sidebarOpen, setSidebarOpen, logout, setActiveModule, setNotificationCount,
   } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
 
   const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    getNotifications(user.id)
+      .then((res) => {
+        if (cancelled) return;
+        const data = res as { notifications: NotificationData[]; unreadCount: number };
+        setNotifications(data.notifications || []);
+        setNotificationCount(data.unreadCount || 0);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      setNotificationCount(Math.max(0, (notifications.filter(n => !n.isRead).length) - 1));
+    } catch {
+      // silently fail
+    }
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30 flex items-center px-4 gap-3">
@@ -119,9 +151,9 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-9 w-9 relative">
               <Bell className="h-4 w-4" />
-              {notificationCount > 0 && (
+              {notifications.filter(n => !n.isRead).length > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {notificationCount > 9 ? '9+' : notificationCount}
+                  {notifications.filter(n => !n.isRead).length > 9 ? '9+' : notifications.filter(n => !n.isRead).length}
                 </span>
               )}
             </Button>
@@ -129,26 +161,24 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel className="flex items-center justify-between">
               Notifications
-              <Badge variant="secondary" className="text-xs">{notificationCount} new</Badge>
+              <Badge variant="secondary" className="text-xs">{notifications.filter(n => !n.isRead).length} new</Badge>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <div className="max-h-64 overflow-y-auto">
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <span className="text-sm font-medium">Leave request from Raj Patel</span>
-                <span className="text-xs text-muted-foreground">2 minutes ago</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <span className="text-sm font-medium">Payroll processing completed</span>
-                <span className="text-xs text-muted-foreground">15 minutes ago</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <span className="text-sm font-medium">New candidate applied for Senior Developer</span>
-                <span className="text-xs text-muted-foreground">1 hour ago</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
-                <span className="text-sm font-medium">Attendance anomaly detected</span>
-                <span className="text-xs text-muted-foreground">2 hours ago</span>
-              </DropdownMenuItem>
+              {notifications.length > 0 ? notifications.slice(0, 10).map(n => (
+                <DropdownMenuItem
+                  key={n.id}
+                  className={`flex flex-col items-start gap-1 p-3 ${!n.isRead ? 'bg-accent/50' : ''}`}
+                  onClick={() => handleMarkRead(n.id)}
+                >
+                  <span className="text-sm font-medium">{n.title}</span>
+                  <span className="text-xs text-muted-foreground">{n.message || new Date(n.createdAt).toLocaleString()}</span>
+                </DropdownMenuItem>
+              )) : (
+                <div className="p-4 text-center text-muted-foreground text-xs">
+                  No notifications
+                </div>
+              )}
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-center text-emerald-600 font-medium justify-center">

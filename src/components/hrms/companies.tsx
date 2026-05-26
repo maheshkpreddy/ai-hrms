@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getCompanies, createCompany } from '@/lib/api';
 import { useAppStore } from '@/store/app-store';
 import type { CompanyInfo } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,32 +13,68 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Building, Plus, Building2, Users, MapPin, Globe,
-  Pencil, Eye, ChevronRight
+  Pencil, Eye, ChevronRight, Loader2
 } from 'lucide-react';
-
-const BRANCHES: Record<string, { name: string; location: string; employees: number }[]> = {
-  'c1': [
-    { name: 'San Francisco HQ', location: 'San Francisco, CA', employees: 1200 },
-    { name: 'New York Office', location: 'New York, NY', employees: 600 },
-    { name: 'Austin Tech Hub', location: 'Austin, TX', employees: 400 },
-    { name: 'London Office', location: 'London, UK', employees: 250 },
-  ],
-  'c2': [
-    { name: 'Mumbai HQ', location: 'Mumbai, India', employees: 3200 },
-    { name: 'Pune Factory', location: 'Pune, India', employees: 1800 },
-    { name: 'Chennai Plant', location: 'Chennai, India', employees: 800 },
-  ],
-  'c3': [
-    { name: 'London HQ', location: 'London, UK', employees: 600 },
-    { name: 'Manchester Clinic', location: 'Manchester, UK', employees: 400 },
-    { name: 'Birmingham Center', location: 'Birmingham, UK', employees: 200 },
-  ],
-};
+import { toast } from 'sonner';
 
 export function Companies() {
-  const { companies } = useAppStore();
+  const { companies, setCompanies, setCurrentCompany } = useAppStore();
+  const [loading, setLoading] = useState(true);
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    name: '', code: '', industry: 'IT Services', country: '', currency: 'USD',
+  });
+
+  const fetchCompanies = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await getCompanies();
+      const companyList = Array.isArray(res) ? res : [];
+      // Map to CompanyInfo format
+      const mapped: CompanyInfo[] = companyList.map((c: { id: string; name: string; code: string; industry: string | null; country: string | null; currency: string; isActive: boolean; _count: { employees: number } }) => ({
+        id: c.id,
+        name: c.name,
+        code: c.code,
+        industry: c.industry || '',
+        country: c.country || '',
+        currency: c.currency,
+        employeeCount: c._count?.employees || 0,
+        isActive: c.isActive,
+      }));
+      setCompanies(mapped);
+    } catch {
+      toast.error('Failed to load companies');
+    } finally {
+      setLoading(false);
+    }
+  }, [setCompanies]);
+
+  useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
+
+  const handleCreateCompany = async () => {
+    try {
+      setSubmitting(true);
+      await createCompany(form);
+      toast.success('Company created successfully');
+      setShowAddCompany(false);
+      setForm({ name: '', code: '', industry: 'IT Services', country: '', currency: 'USD' });
+      fetchCompanies();
+    } catch {
+      toast.error('Failed to create company');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -91,33 +128,42 @@ export function Companies() {
         ))}
       </div>
 
-      {/* Branch Management */}
-      {selectedCompany && BRANCHES[selectedCompany] && (
+      {/* Selected Company Branches */}
+      {selectedCompany && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-emerald-600" /> Branch Management
+              <Building2 className="h-4 w-4 text-emerald-600" /> Company Details
             </CardTitle>
             <CardDescription>
-              {companies.find(c => c.id === selectedCompany)?.name} branches
+              {companies.find(c => c.id === selectedCompany)?.name}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {BRANCHES[selectedCompany].map(branch => (
-              <div key={branch.name} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/30 transition-colors">
-                <div>
-                  <p className="text-sm font-medium">{branch.name}</p>
-                  <p className="text-xs text-muted-foreground">{branch.location}</p>
+            {(() => {
+              const comp = companies.find(c => c.id === selectedCompany);
+              if (!comp) return null;
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <span className="text-sm">Code</span>
+                    <Badge variant="secondary">{comp.code}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <span className="text-sm">Industry</span>
+                    <span className="text-sm text-muted-foreground">{comp.industry}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <span className="text-sm">Country / Currency</span>
+                    <span className="text-sm text-muted-foreground">{comp.country} · {comp.currency}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <span className="text-sm">Employees</span>
+                    <span className="text-sm text-muted-foreground">{comp.employeeCount.toLocaleString()}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary" className="text-[10px]">
-                    <Users className="h-3 w-3 mr-1" />{branch.employees}
-                  </Badge>
-                  <Button variant="ghost" size="sm"><Pencil className="h-3.5 w-3.5" /></Button>
-                </div>
-              </div>
-            ))}
-            <Button variant="outline" className="w-full mt-2"><Plus className="h-3.5 w-3.5 mr-1" /> Add Branch</Button>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
@@ -132,23 +178,23 @@ export function Companies() {
           <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-sm">Company Name</Label>
-              <Input placeholder="Enter company name" />
+              <Input placeholder="Enter company name" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-sm">Company Code</Label>
-                <Input placeholder="e.g. TCG" />
+                <Input placeholder="e.g. TCG" value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label className="text-sm">Industry</Label>
-                <Select>
+                <Select value={form.industry} onValueChange={(v) => setForm(f => ({ ...f, industry: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="it">IT Services</SelectItem>
-                    <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                    <SelectItem value="healthcare">Healthcare</SelectItem>
-                    <SelectItem value="retail">Retail</SelectItem>
-                    <SelectItem value="logistics">Logistics</SelectItem>
+                    <SelectItem value="IT Services">IT Services</SelectItem>
+                    <SelectItem value="Manufacturing">Manufacturing</SelectItem>
+                    <SelectItem value="Healthcare">Healthcare</SelectItem>
+                    <SelectItem value="Retail">Retail</SelectItem>
+                    <SelectItem value="Logistics">Logistics</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -156,11 +202,11 @@ export function Companies() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-sm">Country</Label>
-                <Input placeholder="Country" />
+                <Input placeholder="Country" value={form.country} onChange={(e) => setForm(f => ({ ...f, country: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label className="text-sm">Currency</Label>
-                <Select>
+                <Select value={form.currency} onValueChange={(v) => setForm(f => ({ ...f, currency: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="USD">USD</SelectItem>
@@ -172,7 +218,10 @@ export function Companies() {
                 </Select>
               </div>
             </div>
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-700">Add Company</Button>
+            <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleCreateCompany} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Add Company
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
