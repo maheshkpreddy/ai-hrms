@@ -36,7 +36,7 @@ export function Employees() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
-    designation: '', department: '', employmentType: 'full_time',
+    designation: '', departmentId: '', employmentType: 'full-time',
   });
 
   const fetchEmployees = useCallback(async () => {
@@ -70,15 +70,18 @@ export function Employees() {
   const handleAddEmployee = async () => {
     try {
       setSubmitting(true);
+      const empId = `EMP${String(Date.now()).slice(-6)}`;
       await createEmployee({
         ...form,
+        employeeId: empId,
         companyId: currentCompany?.id,
         joiningDate: new Date().toISOString().split('T')[0],
         status: 'active',
+        departmentId: form.departmentId || undefined,
       });
       toast.success('Employee created successfully');
       setShowAddDialog(false);
-      setForm({ firstName: '', lastName: '', email: '', phone: '', designation: '', department: '', employmentType: 'full_time' });
+      setForm({ firstName: '', lastName: '', email: '', phone: '', designation: '', departmentId: '', employmentType: 'full-time' });
       fetchEmployees();
     } catch {
       toast.error('Failed to create employee');
@@ -297,15 +300,15 @@ export function Employees() {
             </div>
             <div className="space-y-1">
               <Label className="text-sm">Department</Label>
-              <Input placeholder="Department name" value={form.department} onChange={(e) => setForm(f => ({ ...f, department: e.target.value }))} />
+              <Input placeholder="Department ID (e.g. dept_xxx)" value={form.departmentId} onChange={(e) => setForm(f => ({ ...f, departmentId: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label className="text-sm">Employment Type</Label>
               <Select value={form.employmentType} onValueChange={(v) => setForm(f => ({ ...f, employmentType: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="full_time">Full-time</SelectItem>
-                  <SelectItem value="part_time">Part-time</SelectItem>
+                  <SelectItem value="full-time">Full-time</SelectItem>
+                  <SelectItem value="part-time">Part-time</SelectItem>
                   <SelectItem value="contract">Contract</SelectItem>
                   <SelectItem value="intern">Intern</SelectItem>
                 </SelectContent>

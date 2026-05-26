@@ -73,8 +73,10 @@ export function Performance() {
         ...form,
         progress: 0,
         status: 'active',
-        employeeId: user?.employeeId || user?.id || 'demo',
+        employeeId: user?.employeeId || user?.id || 'emp_default',
         companyId: currentCompany?.id,
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 90 * 24 * 3600000).toISOString(),
       });
       toast.success('Goal created successfully');
       setShowCreateDialog(false);

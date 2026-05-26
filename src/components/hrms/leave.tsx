@@ -91,7 +91,8 @@ export function Leave() {
       await applyLeave({
         ...form,
         totalDays,
-        employeeId: user?.employeeId || user?.id || 'demo',
+        employeeId: user?.employeeId || user?.id || 'emp_default',
+        createWorkflow: true,
         status: 'pending',
       });
       toast.success('Leave application submitted');

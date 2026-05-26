@@ -83,7 +83,7 @@ export function Attendance() {
   const handleCheckIn = async () => {
     try {
       setCheckingIn(true);
-      await checkIn(user?.employeeId || user?.id || 'demo');
+      await checkIn(user?.employeeId || user?.id || 'emp_default');
       toast.success('Checked in successfully');
       fetchAttendance();
     } catch {
