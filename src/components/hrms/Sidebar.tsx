@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
   Users,
@@ -817,22 +817,52 @@ function SidebarContent({
             collapsed && 'justify-center px-0'
           )}
         >
-          <Avatar className="size-8 ring-2 ring-emerald-500/30">
-            <AvatarImage src={(session?.user as any)?.avatar || ''} alt={userName} />
-            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
+          {collapsed ? (
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={async () => {
+                      await signOut({ callbackUrl: '/login' });
+                    }}
+                    className="flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                  >
+                    <LogOut className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={12} className="bg-slate-800 text-white border-slate-700">
+                  Sign Out
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <>
+              <Avatar className="size-8 ring-2 ring-emerald-500/30">
+                <AvatarImage src={(session?.user as any)?.avatar || ''} alt={userName} />
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
 
-          {!collapsed && (
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <span className="truncate text-sm font-medium text-white">
-                {userName}
-              </span>
-              <span className="truncate text-[11px] text-slate-400">
-                {userRole}
-              </span>
-            </div>
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <span className="truncate text-sm font-medium text-white">
+                  {userName}
+                </span>
+                <span className="truncate text-[11px] text-slate-400">
+                  {userRole}
+                </span>
+              </div>
+
+              <button
+                onClick={async () => {
+                  await signOut({ callbackUrl: '/login' });
+                }}
+                className="ml-auto flex size-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                title="Sign Out"
+              >
+                <LogOut className="size-3.5" />
+              </button>
+            </>
           )}
         </div>
       </div>

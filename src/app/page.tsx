@@ -3,11 +3,13 @@
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useAppStore } from '@/store/app-store';
+import { useHRMSStore, getDashboardModule } from '@/lib/store';
 import { LoginScreen } from '@/components/hrms/login-screen';
 import { HRMSLayout } from '@/components/hrms/hrms-layout';
 
 export default function Home() {
   const { isAuthenticated, setUserFromSession } = useAppStore();
+  const { setActiveModule, setUserRole, setUserDashboard } = useHRMSStore();
   const { data: session, status } = useSession();
 
   // Sync NextAuth session with Zustand store
@@ -25,8 +27,15 @@ export default function Home() {
         companyCode: sessionUser.companyCode || undefined,
         companyName: sessionUser.companyName || undefined,
       });
+
+      // Sync user role and dashboard to HRMS navigation store
+      const role = sessionUser.role || 'employee';
+      const dashboard = sessionUser.dashboard || 'admin';
+      setUserRole(role);
+      setUserDashboard(dashboard);
+      setActiveModule(getDashboardModule(dashboard));
     }
-  }, [session, isAuthenticated, setUserFromSession]);
+  }, [session, isAuthenticated, setUserFromSession, setActiveModule, setUserRole, setUserDashboard]);
 
   // Show loading while session is being fetched
   if (status === 'loading') {

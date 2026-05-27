@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { signOut } from 'next-auth/react';
 import { useAppStore } from '@/store/app-store';
+import { useHRMSStore } from '@/lib/store';
+import { useTheme } from '@/components/ThemeProvider';
 import { getNotifications, markNotificationRead } from '@/lib/api';
 import { ROLE_LABELS } from '@/lib/types';
 import type { CompanyInfo } from '@/lib/types';
@@ -29,9 +32,11 @@ interface NotificationData {
 export function Header() {
   const {
     userRole, userName, userEmail, currentCompany, companies, user,
-    setCurrentCompany, toggleDarkMode, darkMode,
-    sidebarOpen, setSidebarOpen, logout, setActiveModule, setNotificationCount,
+    setCurrentCompany,
+    sidebarOpen, setSidebarOpen, logout, setNotificationCount,
   } = useAppStore();
+  const { selectModule } = useHRMSStore();
+  const { theme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
 
@@ -142,8 +147,8 @@ export function Header() {
         </div>
 
         {/* Dark Mode Toggle */}
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleDarkMode}>
-          {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleTheme}>
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
         {/* Notifications */}
@@ -209,14 +214,17 @@ export function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setActiveModule('settings')}>
+            <DropdownMenuItem onClick={() => selectModule('profile')}>
               <User className="mr-2 h-4 w-4" /> Profile
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setActiveModule('settings')}>
+            <DropdownMenuItem onClick={() => selectModule('settings')}>
               <Settings className="mr-2 h-4 w-4" /> Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-red-600">
+            <DropdownMenuItem onClick={async () => {
+              logout();
+              await signOut({ callbackUrl: '/login' });
+            }} className="text-red-600">
               <LogOut className="mr-2 h-4 w-4" /> Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>

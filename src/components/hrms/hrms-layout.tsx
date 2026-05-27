@@ -101,7 +101,7 @@ export function HRMSLayout() {
   const ActiveComponent = MODULE_COMPONENTS[activeModule] || Dashboard;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <div className="md:ml-64 transition-all duration-300">
         <Header />

@@ -170,6 +170,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   logout: () => {
     // Sign out from NextAuth on the server side
     fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
+    // Reset the HRMS navigation store as well
+    try {
+      const { useHRMSStore } = require('@/lib/store');
+      useHRMSStore.getState().setActiveModule('dashboard');
+      useHRMSStore.getState().setActiveSubItem(null);
+      useHRMSStore.getState().setHomeView(true);
+    } catch {}
     set({
       isAuthenticated: false,
       isLoading: false,

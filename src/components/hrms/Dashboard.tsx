@@ -299,7 +299,7 @@ export default function Dashboard() {
   // ─── Loading state ───────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
           <p className="text-muted-foreground text-sm">Loading dashboard data…</p>
@@ -311,7 +311,7 @@ export default function Dashboard() {
   // ─── Error state ─────────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-4 max-w-md text-center px-4">
           <AlertCircle className="h-10 w-10 text-red-500" />
           <p className="text-lg font-semibold">Failed to load dashboard</p>
@@ -322,8 +322,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div>
+      <div className="mx-auto max-w-7xl sm:px-0">
         {/* Header */}
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
