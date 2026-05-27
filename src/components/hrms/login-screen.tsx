@@ -1,16 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/store/app-store';
 import { ROLE_LABELS, type UserRole } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Shield, Users, UserCheck, Building2, Truck, Hexagon, ArrowRight, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { Shield, Users, UserCheck, Building2, Truck, Sparkles, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 const DEMO_LOGINS: { role: UserRole; name: string; email: string; password: string; icon: React.ReactNode; color: string }[] = [
   { role: 'super_admin', name: 'Admin Nexus', email: 'admin@nexushrms.com', password: 'admin123', icon: <Shield className="h-4 w-4" />, color: 'bg-red-500 hover:bg-red-600' },
@@ -21,25 +21,102 @@ const DEMO_LOGINS: { role: UserRole; name: string; email: string; password: stri
 ];
 
 export function LoginScreen() {
-  const { login, demoLogin, isLoading, authError } = useAppStore();
+  const router = useRouter();
+  const { isLoading, authError, login } = useAppStore();
   const [email, setEmail] = useState('raj.p@techcorp.com');
   const [password, setPassword] = useState('raj123');
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   const handleLogin = async () => {
-    if (email && password) {
+    if (!email || !password) return;
+    setLocalLoading(true);
+    setLocalError('');
+
+    try {
+      // First try the custom auth API to validate credentials
+      const authRes = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!authRes.ok) {
+        const data = await authRes.json();
+        setLocalError(data.error || 'Invalid email or password');
+        setLocalLoading(false);
+        return;
+      }
+
+      // Credentials are valid — now sign in via NextAuth to create a server session
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setLocalError(result.error);
+        setLocalLoading(false);
+        return;
+      }
+
+      // Also update the Zustand store
+      const authData = await authRes.json();
       await login(email, password);
+
+      // Navigate to dashboard
+      router.push('/');
+      router.refresh();
+    } catch {
+      setLocalError('Network error. Please try again.');
+    } finally {
+      setLocalLoading(false);
     }
   };
 
   const handleQuickLogin = async (role: UserRole, name: string, email: string, password: string) => {
     setEmail(email);
     setPassword(password);
-    await login(email, password);
+
+    setLocalLoading(true);
+    setLocalError('');
+
+    try {
+      // Validate via custom auth API
+      const authRes = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!authRes.ok) {
+        setLocalError('Invalid credentials');
+        setLocalLoading(false);
+        return;
+      }
+
+      // Sign in via NextAuth
+      await signIn('credentials', { email, password, redirect: false });
+
+      // Update Zustand store
+      await login(email, password);
+
+      router.push('/');
+      router.refresh();
+    } catch {
+      setLocalError('Network error. Please try again.');
+    } finally {
+      setLocalLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleLogin();
   };
+
+  const loading = isLoading || localLoading;
+  const error = authError || localError;
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
@@ -76,10 +153,10 @@ export function LoginScreen() {
             animate={{ rotateY: [0, 360] }}
             transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
           >
-            <Hexagon className="h-10 w-10 text-white" />
+            <Sparkles className="h-10 w-10 text-white" />
           </motion.div>
-          <h1 className="text-4xl font-bold text-white tracking-tight">NEXUS HRMS</h1>
-          <p className="text-emerald-200/80 mt-2 text-sm">AI-Powered Enterprise Human Resource Management</p>
+          <h1 className="text-4xl font-bold text-white tracking-tight">eh2r AI</h1>
+          <p className="text-emerald-200/80 mt-2 text-sm font-medium uppercase tracking-[0.2em]">An AI Product of MARQ AI</p>
         </motion.div>
 
         {/* Login Card */}
@@ -92,7 +169,7 @@ export function LoginScreen() {
             <CardHeader className="pb-4">
               <CardTitle className="text-white text-xl flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-emerald-400" />
-                Sign In to NEXUS HRMS
+                Sign In to eh2r AI
               </CardTitle>
               <CardDescription className="text-emerald-200/70">
                 Enter your credentials to access the platform
@@ -123,19 +200,19 @@ export function LoginScreen() {
                 />
               </div>
 
-              {authError && (
+              {error && (
                 <div className="flex items-center gap-2 text-red-300 text-sm bg-red-500/10 rounded-md p-2">
                   <AlertCircle className="h-4 w-4 shrink-0" />
-                  {authError}
+                  {error}
                 </div>
               )}
 
               <Button
                 onClick={handleLogin}
                 className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold h-11 shadow-lg shadow-emerald-500/30"
-                disabled={(!email || !password) || isLoading}
+                disabled={(!email || !password) || loading}
               >
-                {isLoading ? (
+                {loading ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</>
                 ) : (
                   <>Sign In <ArrowRight className="ml-2 h-4 w-4" /></>
@@ -159,9 +236,9 @@ export function LoginScreen() {
                     className={`${demo.color} text-white rounded-lg px-3 py-2.5 text-xs font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50`}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    disabled={isLoading}
+                    disabled={loading}
                   >
-                    {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : demo.icon}
+                    {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : demo.icon}
                     {ROLE_LABELS[demo.role]}
                   </motion.button>
                 ))}
@@ -181,7 +258,7 @@ export function LoginScreen() {
           transition={{ delay: 1 }}
           className="text-center text-emerald-200/40 text-xs mt-6"
         >
-          &copy; 2025 NEXUS HRMS. AI-Powered Enterprise HR Platform.
+          &copy; {new Date().getFullYear()} MARQ AI. All rights reserved.
         </motion.p>
       </div>
     </div>
