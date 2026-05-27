@@ -78,7 +78,7 @@ async function main() {
   const recruitHash = await hashPassword('recruit123');
 
   const users = await Promise.all([
-    prisma.user.upsert({ where: { email: 'admin@nexushrms.com' }, update: { password: adminHash }, create: { email: 'admin@nexushrms.com', password: adminHash, name: 'Admin Nexus', role: 'super_admin', isActive: true } }),
+    prisma.user.upsert({ where: { email: 'admin@nexushrms.com' }, update: { password: adminHash }, create: { email: 'admin@nexushrms.com', password: adminHash, name: 'Admin eh2r', role: 'super_admin', isActive: true } }),
     prisma.user.upsert({ where: { email: 'sarah.j@techcorp.com' }, update: { password: sarahHash }, create: { email: 'sarah.j@techcorp.com', password: sarahHash, name: 'Sarah Johnson', role: 'company_hr_admin', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'raj.p@techcorp.com' }, update: { password: rajHash }, create: { email: 'raj.p@techcorp.com', password: rajHash, name: 'Raj Patel', role: 'reporting_manager', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'emily.c@techcorp.com' }, update: { password: emilyHash }, create: { email: 'emily.c@techcorp.com', password: emilyHash, name: 'Emily Chen', role: 'employee', companyId: tcg.id, isActive: true } }),

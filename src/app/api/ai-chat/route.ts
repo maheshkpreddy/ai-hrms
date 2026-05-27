@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const ZAI = (await import('z-ai-web-dev-sdk')).default;
     const zai = await ZAI.create();
 
-    const systemPrompt = `You are an AI-powered HR assistant for an enterprise HRMS platform called "NEXUS HRMS". 
+    const systemPrompt = `You are an AI-powered HR assistant for an enterprise HRMS platform called "eh2r AI" by MARQ AI. 
 You help with HR-related queries including:
 - Employee management and policies
 - Leave and attendance queries

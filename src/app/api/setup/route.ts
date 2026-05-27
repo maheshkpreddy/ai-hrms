@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 // GET: Check database status
 export async function GET() {
@@ -120,20 +121,36 @@ export async function POST(req: NextRequest) {
     const anaDept = await db.department.create({ data: { name: 'Analytics', code: 'ANA', companyId: tcg.id } });
 
     // ==================== USERS ====================
-    const adminUser = await db.user.create({ data: { email: 'admin@nexushrms.com', password: 'admin123', name: 'Admin Nexus', role: 'super_admin', isActive: true } });
-    const sarahUser = await db.user.create({ data: { email: 'sarah.j@techcorp.com', password: 'sarah123', name: 'Sarah Johnson', role: 'company_hr_admin', companyId: tcg.id, isActive: true } });
-    const rajUser = await db.user.create({ data: { email: 'raj.p@techcorp.com', password: 'raj123', name: 'Raj Patel', role: 'reporting_manager', companyId: tcg.id, isActive: true } });
-    const emilyUser = await db.user.create({ data: { email: 'emily.c@techcorp.com', password: 'emily123', name: 'Emily Chen', role: 'employee', companyId: tcg.id, isActive: true } });
-    const michaelUser = await db.user.create({ data: { email: 'michael.b@techcorp.com', password: 'michael123', name: 'Michael Brown', role: 'employee', companyId: tcg.id, isActive: true } });
-    const priyaUser = await db.user.create({ data: { email: 'priya.s@manufactpro.com', password: 'priya123', name: 'Priya Sharma', role: 'reporting_manager', companyId: mpi.id, isActive: true } });
-    const davidUser = await db.user.create({ data: { email: 'david.w@healthfirst.com', password: 'david123', name: 'David Wilson', role: 'employee', companyId: hfs.id, isActive: true } });
-    const aikoUser = await db.user.create({ data: { email: 'aiko.t@logitrans.com', password: 'aiko123', name: 'Aiko Tanaka', role: 'employee', companyId: ltw.id, isActive: true } });
-    const carlosUser = await db.user.create({ data: { email: 'carlos.r@retailmax.com', password: 'carlos123', name: 'Carlos Rodriguez', role: 'employee', companyId: rmg.id, isActive: true } });
-    const lisaUser = await db.user.create({ data: { email: 'lisa.a@techcorp.com', password: 'lisa123', name: 'Lisa Anderson', role: 'finance', companyId: tcg.id, isActive: true } });
-    const arjunUser = await db.user.create({ data: { email: 'arjun.k@manufactpro.com', password: 'arjun123', name: 'Arjun Kumar', role: 'employee', companyId: mpi.id, isActive: true } });
-    const recruiterUser = await db.user.create({ data: { email: 'recruiter@techcorp.com', password: 'recruit123', name: 'Recruiter Kim', role: 'recruiter', companyId: tcg.id, isActive: true } });
-    const clientUser = await db.user.create({ data: { email: 'hr@acme.com', password: 'acme123', name: 'Acme Corp', role: 'client', companyId: tcg.id, isActive: true } });
-    const vendorUser = await db.user.create({ data: { email: 'info@talenthunt.com', password: 'thunt123', name: 'TalentHunt Agency', role: 'vendor', companyId: tcg.id, isActive: true } });
+    // Hash passwords with bcrypt before storing
+    const adminHash = await bcrypt.hash('admin123', 10);
+    const sarahHash = await bcrypt.hash('sarah123', 10);
+    const rajHash = await bcrypt.hash('raj123', 10);
+    const emilyHash = await bcrypt.hash('emily123', 10);
+    const michaelHash = await bcrypt.hash('michael123', 10);
+    const priyaHash = await bcrypt.hash('priya123', 10);
+    const davidHash = await bcrypt.hash('david123', 10);
+    const aikoHash = await bcrypt.hash('aiko123', 10);
+    const carlosHash = await bcrypt.hash('carlos123', 10);
+    const lisaHash = await bcrypt.hash('lisa123', 10);
+    const arjunHash = await bcrypt.hash('arjun123', 10);
+    const recruiterHash = await bcrypt.hash('recruit123', 10);
+    const clientHash = await bcrypt.hash('acme123', 10);
+    const vendorHash = await bcrypt.hash('thunt123', 10);
+
+    const adminUser = await db.user.create({ data: { email: 'admin@eh2r.ai', password: adminHash, name: 'Admin eh2r', role: 'super_admin', isActive: true } });
+    const sarahUser = await db.user.create({ data: { email: 'sarah.j@techcorp.com', password: sarahHash, name: 'Sarah Johnson', role: 'company_hr_admin', companyId: tcg.id, isActive: true } });
+    const rajUser = await db.user.create({ data: { email: 'raj.p@techcorp.com', password: rajHash, name: 'Raj Patel', role: 'reporting_manager', companyId: tcg.id, isActive: true } });
+    const emilyUser = await db.user.create({ data: { email: 'emily.c@techcorp.com', password: emilyHash, name: 'Emily Chen', role: 'employee', companyId: tcg.id, isActive: true } });
+    const michaelUser = await db.user.create({ data: { email: 'michael.b@techcorp.com', password: michaelHash, name: 'Michael Brown', role: 'employee', companyId: tcg.id, isActive: true } });
+    const priyaUser = await db.user.create({ data: { email: 'priya.s@manufactpro.com', password: priyaHash, name: 'Priya Sharma', role: 'reporting_manager', companyId: mpi.id, isActive: true } });
+    const davidUser = await db.user.create({ data: { email: 'david.w@healthfirst.com', password: davidHash, name: 'David Wilson', role: 'employee', companyId: hfs.id, isActive: true } });
+    const aikoUser = await db.user.create({ data: { email: 'aiko.t@logitrans.com', password: aikoHash, name: 'Aiko Tanaka', role: 'employee', companyId: ltw.id, isActive: true } });
+    const carlosUser = await db.user.create({ data: { email: 'carlos.r@retailmax.com', password: carlosHash, name: 'Carlos Rodriguez', role: 'employee', companyId: rmg.id, isActive: true } });
+    const lisaUser = await db.user.create({ data: { email: 'lisa.a@techcorp.com', password: lisaHash, name: 'Lisa Anderson', role: 'finance', companyId: tcg.id, isActive: true } });
+    const arjunUser = await db.user.create({ data: { email: 'arjun.k@manufactpro.com', password: arjunHash, name: 'Arjun Kumar', role: 'employee', companyId: mpi.id, isActive: true } });
+    const recruiterUser = await db.user.create({ data: { email: 'recruiter@techcorp.com', password: recruiterHash, name: 'Recruiter Kim', role: 'recruiter', companyId: tcg.id, isActive: true } });
+    const clientUser = await db.user.create({ data: { email: 'hr@acme.com', password: clientHash, name: 'Acme Corp', role: 'client', companyId: tcg.id, isActive: true } });
+    const vendorUser = await db.user.create({ data: { email: 'info@talenthunt.com', password: vendorHash, name: 'TalentHunt Agency', role: 'vendor', companyId: tcg.id, isActive: true } });
 
     // ==================== EMPLOYEES ====================
     const emp1 = await db.employee.create({ data: { employeeId: 'EMP001', firstName: 'Sarah', lastName: 'Johnson', email: 'sarah.j@techcorp.com', designation: 'Senior Software Engineer', jobTitle: 'Senior Developer', employmentType: 'full-time', status: 'active', joiningDate: new Date('2022-03-15'), companyId: tcg.id, branchId: branchSF.id, departmentId: engDept.id, userId: sarahUser.id } });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 // ==================== HELPER: Idempotent find-or-create ====================
 
@@ -402,76 +403,81 @@ export async function POST() {
 
     // ==================== USERS (upsert by unique `email`) ====================
     log.push('--- Seeding Users ---');
+    // Hash passwords with bcrypt
+    const pwdHashes: Record<string, string> = {};
+    for (const pwd of ['admin123','sarah123','raj123','emily123','michael123','priya123','david123','aiko123','carlos123','lisa123','arjun123','acme123','thunt123','recruit123']) {
+      pwdHashes[pwd] = await bcrypt.hash(pwd, 10);
+    }
     const users = await Promise.all([
       db.user.upsert({
         where: { email: 'admin@nexushrms.com' },
-        update: {},
-        create: { email: 'admin@nexushrms.com', password: 'admin123', name: 'Admin Nexus', role: 'super_admin', isActive: true },
+        update: { password: pwdHashes['admin123'] },
+        create: { email: 'admin@nexushrms.com', password: pwdHashes['admin123'], name: 'Admin eh2r', role: 'super_admin', isActive: true },
       }),
       db.user.upsert({
         where: { email: 'sarah.j@techcorp.com' },
-        update: {},
-        create: { email: 'sarah.j@techcorp.com', password: 'sarah123', name: 'Sarah Johnson', role: 'company_hr_admin', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['sarah123'] },
+        create: { email: 'sarah.j@techcorp.com', password: pwdHashes['sarah123'], name: 'Sarah Johnson', role: 'company_hr_admin', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'raj.p@techcorp.com' },
-        update: {},
-        create: { email: 'raj.p@techcorp.com', password: 'raj123', name: 'Raj Patel', role: 'employee', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['raj123'] },
+        create: { email: 'raj.p@techcorp.com', password: pwdHashes['raj123'], name: 'Raj Patel', role: 'employee', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'emily.c@techcorp.com' },
-        update: {},
-        create: { email: 'emily.c@techcorp.com', password: 'emily123', name: 'Emily Chen', role: 'employee', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['emily123'] },
+        create: { email: 'emily.c@techcorp.com', password: pwdHashes['emily123'], name: 'Emily Chen', role: 'employee', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'michael.b@techcorp.com' },
-        update: {},
-        create: { email: 'michael.b@techcorp.com', password: 'michael123', name: 'Michael Brown', role: 'employee', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['michael123'] },
+        create: { email: 'michael.b@techcorp.com', password: pwdHashes['michael123'], name: 'Michael Brown', role: 'employee', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'priya.s@manufactpro.com' },
-        update: {},
-        create: { email: 'priya.s@manufactpro.com', password: 'priya123', name: 'Priya Sharma', role: 'reporting_manager', companyId: mpi.id, isActive: true },
+        update: { password: pwdHashes['priya123'] },
+        create: { email: 'priya.s@manufactpro.com', password: pwdHashes['priya123'], name: 'Priya Sharma', role: 'reporting_manager', companyId: mpi.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'david.w@healthfirst.com' },
-        update: {},
-        create: { email: 'david.w@healthfirst.com', password: 'david123', name: 'David Wilson', role: 'employee', companyId: hfs.id, isActive: true },
+        update: { password: pwdHashes['david123'] },
+        create: { email: 'david.w@healthfirst.com', password: pwdHashes['david123'], name: 'David Wilson', role: 'employee', companyId: hfs.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'aiko.t@logitrans.com' },
-        update: {},
-        create: { email: 'aiko.t@logitrans.com', password: 'aiko123', name: 'Aiko Tanaka', role: 'employee', companyId: ltw.id, isActive: true },
+        update: { password: pwdHashes['aiko123'] },
+        create: { email: 'aiko.t@logitrans.com', password: pwdHashes['aiko123'], name: 'Aiko Tanaka', role: 'employee', companyId: ltw.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'carlos.r@retailmax.com' },
-        update: {},
-        create: { email: 'carlos.r@retailmax.com', password: 'carlos123', name: 'Carlos Rodriguez', role: 'employee', companyId: rmg.id, isActive: true },
+        update: { password: pwdHashes['carlos123'] },
+        create: { email: 'carlos.r@retailmax.com', password: pwdHashes['carlos123'], name: 'Carlos Rodriguez', role: 'employee', companyId: rmg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'lisa.a@techcorp.com' },
-        update: {},
-        create: { email: 'lisa.a@techcorp.com', password: 'lisa123', name: 'Lisa Anderson', role: 'finance', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['lisa123'] },
+        create: { email: 'lisa.a@techcorp.com', password: pwdHashes['lisa123'], name: 'Lisa Anderson', role: 'finance', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'arjun.k@manufactpro.com' },
-        update: {},
-        create: { email: 'arjun.k@manufactpro.com', password: 'arjun123', name: 'Arjun Kumar', role: 'employee', companyId: mpi.id, isActive: true },
+        update: { password: pwdHashes['arjun123'] },
+        create: { email: 'arjun.k@manufactpro.com', password: pwdHashes['arjun123'], name: 'Arjun Kumar', role: 'employee', companyId: mpi.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'hr@acme.com' },
-        update: {},
-        create: { email: 'hr@acme.com', password: 'acme123', name: 'Acme Corp', role: 'client', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['acme123'] },
+        create: { email: 'hr@acme.com', password: pwdHashes['acme123'], name: 'Acme Corp', role: 'client', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'info@talenthunt.com' },
-        update: {},
-        create: { email: 'info@talenthunt.com', password: 'thunt123', name: 'TalentHunt Agency', role: 'vendor', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['thunt123'] },
+        create: { email: 'info@talenthunt.com', password: pwdHashes['thunt123'], name: 'TalentHunt Agency', role: 'vendor', companyId: tcg.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'recruiter@techcorp.com' },
-        update: {},
-        create: { email: 'recruiter@techcorp.com', password: 'recruit123', name: 'Recruiter Kim', role: 'recruiter', companyId: tcg.id, isActive: true },
+        update: { password: pwdHashes['recruit123'] },
+        create: { email: 'recruiter@techcorp.com', password: pwdHashes['recruit123'], name: 'Recruiter Kim', role: 'recruiter', companyId: tcg.id, isActive: true },
       }),
     ]);
     created.users = users.length;
