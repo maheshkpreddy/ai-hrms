@@ -118,7 +118,8 @@ const moduleIconMap: Record<string, { icon: typeof UserPlus; iconColor: string }
   expense: { icon: Receipt, iconColor: 'text-orange-500' },
 }
 
-function getActivityIcon(module: string) {
+function getActivityIcon(module: string | undefined | null) {
+  if (!module) return { icon: Activity, iconColor: 'text-gray-500' }
   return moduleIconMap[module.toLowerCase()] || { icon: Activity, iconColor: 'text-gray-500' }
 }
 
