@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,8 +41,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Simple password comparison (in production, use bcrypt)
-    if (user.password !== password) {
+    // Compare password with bcrypt hash
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -49,21 +52,31 @@ export async function POST(req: NextRequest) {
     }
 
     // Update last login
-    await db.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
+    try {
+      await db.user.update({
+        where: { id: user.id },
+        data: { lastLogin: new Date() },
+      });
+    } catch (e) {
+      // Non-critical, continue even if update fails
+      console.error('Failed to update lastLogin:', e);
+    }
 
     // Create audit log
-    await db.auditLog.create({
-      data: {
-        action: 'LOGIN',
-        entity: 'User',
-        entityId: user.id,
-        userId: user.id,
-        details: `User ${user.email} logged in`,
-      },
-    });
+    try {
+      await db.auditLog.create({
+        data: {
+          action: 'LOGIN',
+          entity: 'User',
+          entityId: user.id,
+          userId: user.id,
+          details: `User ${user.email} logged in`,
+        },
+      });
+    } catch (e) {
+      // Non-critical, continue even if audit log fails
+      console.error('Failed to create audit log:', e);
+    }
 
     const { password: _, ...userWithoutPassword } = user;
 
