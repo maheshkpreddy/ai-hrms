@@ -309,6 +309,11 @@ export async function POST() {
     log.push('--- Seeding Companies ---');
     const companies = await Promise.all([
       db.company.upsert({
+        where: { code: 'MARQ' },
+        update: {},
+        create: { name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', isActive: true },
+      }),
+      db.company.upsert({
         where: { code: 'TCG' },
         update: {},
         create: { name: 'TechCorp Global', code: 'TCG', industry: 'IT Services', country: 'US', currency: 'USD', timezone: 'America/New_York', isActive: true },
@@ -335,13 +340,14 @@ export async function POST() {
       }),
     ]);
     created.companies = companies.length;
-    log.push(`Companies: ${companies.length} ensured`);
+    log.push(`Companies: ${companies.length} ensured (MARQ, TCG, MPI, HFS, RMG, LTW)`);
 
-    const tcg = companies[0];
-    const mpi = companies[1];
-    const hfs = companies[2];
-    const rmg = companies[3];
-    const ltw = companies[4];
+    const marq = companies[0];
+    const tcg = companies[1];
+    const mpi = companies[2];
+    const hfs = companies[3];
+    const rmg = companies[4];
+    const ltw = companies[5];
 
     // ==================== BRANCHES (find by code+companyId) ====================
     log.push('--- Seeding Branches ---');
@@ -410,9 +416,9 @@ export async function POST() {
     }
     const users = await Promise.all([
       db.user.upsert({
-        where: { email: 'admin@nexushrms.com' },
+        where: { email: 'admin@marqai.com' },
         update: { password: pwdHashes['admin123'] },
-        create: { email: 'admin@nexushrms.com', password: pwdHashes['admin123'], name: 'Admin eh2r', role: 'super_admin', isActive: true },
+        create: { email: 'admin@marqai.com', password: pwdHashes['admin123'], name: 'MARQ Admin', role: 'super_admin', companyId: marq.id, isActive: true },
       }),
       db.user.upsert({
         where: { email: 'sarah.j@techcorp.com' },

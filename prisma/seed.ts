@@ -338,7 +338,7 @@ async function main() {
 
   console.log('\n✅ Database seeding completed successfully with bcrypt-hashed passwords!');
   console.log('\n🔑 Demo Login Credentials:');
-  console.log('  Super Admin:  admin@nexushrms.com / admin123');
+  console.log('  Super Admin:  admin@marqai.com / admin123');
   console.log('  HR Admin:     sarah.j@techcorp.com / sarah123');
   console.log('  Manager:      raj.p@techcorp.com / raj123');
   console.log('  Employee:     emily.c@techcorp.com / emily123');
