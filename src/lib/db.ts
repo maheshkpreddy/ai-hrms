@@ -4,9 +4,9 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// On Vercel, Neon integration sets POSTGRES_PRISMA_URL at runtime.
-// Locally, DATABASE_URL is used from .env.
-const datasourceUrl = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL
+// Priority: DATABASE_URL (our configured Neon DB) > POSTGRES_PRISMA_URL (Vercel Neon integration)
+// This ensures our seeded database is always used
+const datasourceUrl = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL
 
 export const db =
   globalForPrisma.prisma ??
