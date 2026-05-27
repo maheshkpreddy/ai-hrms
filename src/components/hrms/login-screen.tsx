@@ -12,19 +12,20 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Users, UserCheck, Building2, Truck, Sparkles, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
-const DEMO_LOGINS: { role: UserRole; name: string; email: string; password: string; icon: React.ReactNode; color: string }[] = [
-  { role: 'super_admin', name: 'Admin eh2r', email: 'admin@nexushrms.com', password: 'admin123', icon: <Shield className="h-4 w-4" />, color: 'bg-red-500 hover:bg-red-600' },
-  { role: 'company_hr_admin', name: 'Sarah Johnson', email: 'sarah.j@techcorp.com', password: 'sarah123', icon: <Users className="h-4 w-4" />, color: 'bg-purple-500 hover:bg-purple-600' },
-  { role: 'employee', name: 'Raj Patel', email: 'raj.p@techcorp.com', password: 'raj123', icon: <UserCheck className="h-4 w-4" />, color: 'bg-emerald-500 hover:bg-emerald-600' },
-  { role: 'client', name: 'Acme Corp', email: 'hr@acme.com', password: 'acme123', icon: <Building2 className="h-4 w-4" />, color: 'bg-amber-500 hover:bg-amber-600' },
-  { role: 'vendor', name: 'TalentHunt', email: 'info@talenthunt.com', password: 'thunt123', icon: <Truck className="h-4 w-4" />, color: 'bg-teal-500 hover:bg-teal-600' },
+const DEMO_LOGINS: { role: UserRole; name: string; email: string; password: string; companyCode: string; icon: React.ReactNode; color: string }[] = [
+  { role: 'super_admin', name: 'MARQ Admin', email: 'admin@marqai.com', password: 'admin123', companyCode: 'MARQ', icon: <Shield className="h-4 w-4" />, color: 'bg-red-500 hover:bg-red-600' },
+  { role: 'company_hr_admin', name: 'Sarah Johnson', email: 'sarah.j@techcorp.com', password: 'sarah123', companyCode: 'TCG', icon: <Users className="h-4 w-4" />, color: 'bg-purple-500 hover:bg-purple-600' },
+  { role: 'employee', name: 'Raj Patel', email: 'raj.p@techcorp.com', password: 'raj123', companyCode: 'TCG', icon: <UserCheck className="h-4 w-4" />, color: 'bg-emerald-500 hover:bg-emerald-600' },
+  { role: 'client', name: 'Acme Corp', email: 'hr@acme.com', password: 'acme123', companyCode: 'ACME', icon: <Building2 className="h-4 w-4" />, color: 'bg-amber-500 hover:bg-amber-600' },
+  { role: 'vendor', name: 'TalentHunt', email: 'info@talenthunt.com', password: 'thunt123', companyCode: 'TCG', icon: <Truck className="h-4 w-4" />, color: 'bg-teal-500 hover:bg-teal-600' },
 ];
 
 export function LoginScreen() {
   const router = useRouter();
   const { isLoading, authError, login } = useAppStore();
-  const [email, setEmail] = useState('raj.p@techcorp.com');
-  const [password, setPassword] = useState('raj123');
+  const [email, setEmail] = useState('admin@marqai.com');
+  const [password, setPassword] = useState('admin123');
+  const [companyCode, setCompanyCode] = useState('MARQ');
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState('');
 
@@ -34,35 +35,21 @@ export function LoginScreen() {
     setLocalError('');
 
     try {
-      // First try the custom auth API to validate credentials
-      const authRes = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!authRes.ok) {
-        const data = await authRes.json();
-        setLocalError(data.error || 'Invalid email or password');
-        setLocalLoading(false);
-        return;
-      }
-
-      // Credentials are valid — now sign in via NextAuth to create a server session
+      // Sign in via NextAuth to create a server session
       const result = await signIn('credentials', {
         email,
         password,
+        companyCode: companyCode.toUpperCase(),
         redirect: false,
       });
 
       if (result?.error) {
-        setLocalError(result.error);
+        setLocalError('Invalid email, password, or company code');
         setLocalLoading(false);
         return;
       }
 
       // Also update the Zustand store
-      const authData = await authRes.json();
       await login(email, password);
 
       // Navigate to dashboard
@@ -75,29 +62,23 @@ export function LoginScreen() {
     }
   };
 
-  const handleQuickLogin = async (role: UserRole, name: string, email: string, password: string) => {
+  const handleQuickLogin = async (role: UserRole, name: string, email: string, password: string, code: string) => {
     setEmail(email);
     setPassword(password);
+    setCompanyCode(code);
 
     setLocalLoading(true);
     setLocalError('');
 
     try {
-      // Validate via custom auth API
-      const authRes = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      // Sign in via NextAuth with companyCode
+      const result = await signIn('credentials', { email, password, companyCode: code.toUpperCase(), redirect: false });
 
-      if (!authRes.ok) {
+      if (result?.error) {
         setLocalError('Invalid credentials');
         setLocalLoading(false);
         return;
       }
-
-      // Sign in via NextAuth
-      await signIn('credentials', { email, password, redirect: false });
 
       // Update Zustand store
       await login(email, password);
@@ -177,6 +158,17 @@ export function LoginScreen() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
+                <Label className="text-emerald-100 text-sm font-medium">Company Code</Label>
+                <Input
+                  value={companyCode}
+                  onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter your company code"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-emerald-200/50 focus:border-emerald-400 uppercase"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label className="text-emerald-100 text-sm font-medium">Email</Label>
                 <Input
                   value={email}
@@ -232,7 +224,7 @@ export function LoginScreen() {
                 {DEMO_LOGINS.map((demo) => (
                   <motion.button
                     key={demo.role}
-                    onClick={() => handleQuickLogin(demo.role, demo.name, demo.email, demo.password)}
+                    onClick={() => handleQuickLogin(demo.role, demo.name, demo.email, demo.password, demo.companyCode)}
                     className={`${demo.color} text-white rounded-lg px-3 py-2.5 text-xs font-medium flex items-center gap-2 transition-all shadow-md hover:shadow-lg disabled:opacity-50`}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}

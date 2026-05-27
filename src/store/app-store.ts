@@ -56,6 +56,7 @@ interface AppState {
 }
 
 const DEMO_COMPANIES: CompanyInfo[] = [
+  { id: 'c0', name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology', country: 'IN', currency: 'INR', employeeCount: 500, isActive: true },
   { id: 'c1', name: 'TechCorp Global', code: 'TCG', industry: 'IT Services', country: 'US', currency: 'USD', employeeCount: 2450, isActive: true },
   { id: 'c2', name: 'ManufactPro Industries', code: 'MPI', industry: 'Manufacturing', country: 'IN', currency: 'INR', employeeCount: 5800, isActive: true },
   { id: 'c3', name: 'HealthFirst Solutions', code: 'HFS', industry: 'Healthcare', country: 'GB', currency: 'GBP', employeeCount: 1200, isActive: true },

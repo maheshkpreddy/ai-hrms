@@ -23,9 +23,9 @@ export default function LoginPage() {
   const [view, setView] = useState<LoginView>('login')
 
   // Login form state
-  const [companyCode, setCompanyCode] = useState('ACME')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [companyCode, setCompanyCode] = useState('MARQ')
+  const [email, setEmail] = useState('admin@marqai.com')
+  const [password, setPassword] = useState('admin123')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

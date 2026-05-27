@@ -12,6 +12,7 @@ async function main() {
 
   // ==================== COMPANIES ====================
   const companies = await Promise.all([
+    prisma.company.upsert({ where: { code: 'MARQ' }, update: {}, create: { name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', isActive: true } }),
     prisma.company.upsert({ where: { code: 'ACME' }, update: {}, create: { name: 'ACME Corporation', code: 'ACME', industry: 'Technology', country: 'US', currency: 'USD', timezone: 'America/New_York', isActive: true } }),
     prisma.company.upsert({ where: { code: 'TCG' }, update: {}, create: { name: 'TechCorp Global', code: 'TCG', industry: 'IT Services', country: 'US', currency: 'USD', timezone: 'America/New_York', isActive: true } }),
     prisma.company.upsert({ where: { code: 'MPI' }, update: {}, create: { name: 'ManufactPro Industries', code: 'MPI', industry: 'Manufacturing', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', isActive: true } }),
@@ -21,10 +22,11 @@ async function main() {
   ]);
   console.log(`Created ${companies.length} companies`);
 
-  const acme = companies[0];
-  const tcg = companies[1];
-  const mpi = companies[2];
-  const hfs = companies[3];
+  const marq = companies[0];
+  const acme = companies[1];
+  const tcg = companies[2];
+  const mpi = companies[3];
+  const hfs = companies[4];
 
   // ==================== BRANCHES ====================
   const branches = await Promise.all([
@@ -78,15 +80,15 @@ async function main() {
   const recruitHash = await hashPassword('recruit123');
 
   const users = await Promise.all([
-    prisma.user.upsert({ where: { email: 'admin@nexushrms.com' }, update: { password: adminHash }, create: { email: 'admin@nexushrms.com', password: adminHash, name: 'Admin eh2r', role: 'super_admin', isActive: true } }),
+    prisma.user.upsert({ where: { email: 'admin@marqai.com' }, update: { password: adminHash }, create: { email: 'admin@marqai.com', password: adminHash, name: 'MARQ Admin', role: 'super_admin', companyId: marq.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'sarah.j@techcorp.com' }, update: { password: sarahHash }, create: { email: 'sarah.j@techcorp.com', password: sarahHash, name: 'Sarah Johnson', role: 'company_hr_admin', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'raj.p@techcorp.com' }, update: { password: rajHash }, create: { email: 'raj.p@techcorp.com', password: rajHash, name: 'Raj Patel', role: 'reporting_manager', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'emily.c@techcorp.com' }, update: { password: emilyHash }, create: { email: 'emily.c@techcorp.com', password: emilyHash, name: 'Emily Chen', role: 'employee', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'michael.b@techcorp.com' }, update: { password: michaelHash }, create: { email: 'michael.b@techcorp.com', password: michaelHash, name: 'Michael Brown', role: 'employee', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'priya.s@manufactpro.com' }, update: { password: priyaHash }, create: { email: 'priya.s@manufactpro.com', password: priyaHash, name: 'Priya Sharma', role: 'reporting_manager', companyId: mpi.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'david.w@healthfirst.com' }, update: { password: davidHash }, create: { email: 'david.w@healthfirst.com', password: davidHash, name: 'David Wilson', role: 'employee', companyId: hfs.id, isActive: true } }),
-    prisma.user.upsert({ where: { email: 'aiko.t@logitrans.com' }, update: { password: aikoHash }, create: { email: 'aiko.t@logitrans.com', password: aikoHash, name: 'Aiko Tanaka', role: 'employee', companyId: companies[5].id, isActive: true } }),
-    prisma.user.upsert({ where: { email: 'carlos.r@retailmax.com' }, update: { password: carlosHash }, create: { email: 'carlos.r@retailmax.com', password: carlosHash, name: 'Carlos Rodriguez', role: 'employee', companyId: companies[4].id, isActive: true } }),
+    prisma.user.upsert({ where: { email: 'aiko.t@logitrans.com' }, update: { password: aikoHash }, create: { email: 'aiko.t@logitrans.com', password: aikoHash, name: 'Aiko Tanaka', role: 'employee', companyId: companies[6].id, isActive: true } }),
+    prisma.user.upsert({ where: { email: 'carlos.r@retailmax.com' }, update: { password: carlosHash }, create: { email: 'carlos.r@retailmax.com', password: carlosHash, name: 'Carlos Rodriguez', role: 'employee', companyId: companies[5].id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'lisa.a@techcorp.com' }, update: { password: lisaHash }, create: { email: 'lisa.a@techcorp.com', password: lisaHash, name: 'Lisa Anderson', role: 'finance', companyId: tcg.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'arjun.k@manufactpro.com' }, update: { password: arjunHash }, create: { email: 'arjun.k@manufactpro.com', password: arjunHash, name: 'Arjun Kumar', role: 'employee', companyId: mpi.id, isActive: true } }),
     prisma.user.upsert({ where: { email: 'hr@acme.com' }, update: { password: acmeHash }, create: { email: 'hr@acme.com', password: acmeHash, name: 'Acme Corp', role: 'client', companyId: acme.id, isActive: true } }),
@@ -103,8 +105,8 @@ async function main() {
     prisma.employee.upsert({ where: { employeeId: 'EMP004' }, update: {}, create: { employeeId: 'EMP004', firstName: 'Michael', lastName: 'Brown', email: 'michael.b@techcorp.com', designation: 'DevOps Lead', employmentType: 'full-time', status: 'probation', joiningDate: new Date('2024-09-01'), probationEnd: new Date('2025-03-01'), companyId: tcg.id, branchId: branches[0].id, departmentId: engDept.id, userId: users[4].id } }),
     prisma.employee.upsert({ where: { employeeId: 'EMP005' }, update: {}, create: { employeeId: 'EMP005', firstName: 'Priya', lastName: 'Sharma', email: 'priya.s@manufactpro.com', designation: 'Production Manager', employmentType: 'full-time', status: 'active', joiningDate: new Date('2020-11-20'), companyId: mpi.id, branchId: branches[2].id, departmentId: prodDept.id, userId: users[5].id } }),
     prisma.employee.upsert({ where: { employeeId: 'EMP006' }, update: {}, create: { employeeId: 'EMP006', firstName: 'David', lastName: 'Wilson', email: 'david.w@healthfirst.com', designation: 'Nurse Practitioner', employmentType: 'full-time', status: 'on_leave', joiningDate: new Date('2019-05-15'), companyId: hfs.id, branchId: branches[3].id, departmentId: clinDept.id, userId: users[6].id } }),
-    prisma.employee.upsert({ where: { employeeId: 'EMP007' }, update: {}, create: { employeeId: 'EMP007', firstName: 'Aiko', lastName: 'Tanaka', email: 'aiko.t@logitrans.com', designation: 'Fleet Coordinator', employmentType: 'full-time', status: 'active', joiningDate: new Date('2023-06-01'), companyId: companies[5].id, departmentId: opsDept.id, userId: users[7].id } }),
-    prisma.employee.upsert({ where: { employeeId: 'EMP008' }, update: {}, create: { employeeId: 'EMP008', firstName: 'Carlos', lastName: 'Rodriguez', email: 'carlos.r@retailmax.com', designation: 'Store Manager', employmentType: 'full-time', status: 'notice_period', joiningDate: new Date('2021-02-10'), companyId: companies[4].id, departmentId: salesDept.id, userId: users[8].id } }),
+    prisma.employee.upsert({ where: { employeeId: 'EMP007' }, update: {}, create: { employeeId: 'EMP007', firstName: 'Aiko', lastName: 'Tanaka', email: 'aiko.t@logitrans.com', designation: 'Fleet Coordinator', employmentType: 'full-time', status: 'active', joiningDate: new Date('2023-06-01'), companyId: companies[6].id, departmentId: opsDept.id, userId: users[7].id } }),
+    prisma.employee.upsert({ where: { employeeId: 'EMP008' }, update: {}, create: { employeeId: 'EMP008', firstName: 'Carlos', lastName: 'Rodriguez', email: 'carlos.r@retailmax.com', designation: 'Store Manager', employmentType: 'full-time', status: 'notice_period', joiningDate: new Date('2021-02-10'), companyId: companies[5].id, departmentId: salesDept.id, userId: users[8].id } }),
     prisma.employee.upsert({ where: { employeeId: 'EMP009' }, update: {}, create: { employeeId: 'EMP009', firstName: 'Lisa', lastName: 'Anderson', email: 'lisa.a@techcorp.com', designation: 'Finance Analyst', employmentType: 'full-time', status: 'active', joiningDate: new Date('2022-08-22'), companyId: tcg.id, branchId: branches[1].id, departmentId: finDept.id, userId: users[9].id } }),
     prisma.employee.upsert({ where: { employeeId: 'EMP010' }, update: {}, create: { employeeId: 'EMP010', firstName: 'Arjun', lastName: 'Kumar', email: 'arjun.k@manufactpro.com', designation: 'Quality Inspector', employmentType: 'full-time', status: 'active', joiningDate: new Date('2023-04-01'), companyId: mpi.id, branchId: branches[2].id, departmentId: qualDept.id, userId: users[10].id } }),
   ]);
@@ -125,7 +127,7 @@ async function main() {
     prisma.job.upsert({ where: { id: 'job-prod-1' }, update: {}, create: { id: 'job-prod-1', title: 'Production Supervisor', description: 'Oversee daily production operations.', requirements: '8+ years in manufacturing, Six Sigma preferred', department: 'Operations', location: 'Mumbai, India', employmentType: 'Full-time', experienceMin: 8, experienceMax: 12, salaryMin: 1500000, salaryMax: 2200000, status: 'open', priority: 'urgent', positions: 3, postedDate: new Date('2024-12-05'), companyId: mpi.id } }),
     prisma.job.upsert({ where: { id: 'job-ds-1' }, update: {}, create: { id: 'job-ds-1', title: 'Data Scientist', description: 'Build ML models for business insights.', requirements: 'Python, TensorFlow, 3+ years experience', department: 'Analytics', location: 'Austin, TX', employmentType: 'Full-time', experienceMin: 3, experienceMax: 5, salaryMin: 110000, salaryMax: 145000, status: 'draft', priority: 'medium', positions: 1, companyId: tcg.id } }),
     prisma.job.upsert({ where: { id: 'job-nurse-1' }, update: {}, create: { id: 'job-nurse-1', title: 'Registered Nurse', description: 'Join our clinical team.', requirements: 'RN license, BLS/ACLS certified, 2+ years', department: 'Clinical', location: 'London, UK', employmentType: 'Full-time', experienceMin: 2, experienceMax: 5, salaryMin: 35000, salaryMax: 45000, status: 'open', priority: 'high', positions: 5, postedDate: new Date('2024-12-03'), companyId: hfs.id } }),
-    prisma.job.upsert({ where: { id: 'job-cloud-1' }, update: {}, create: { id: 'job-cloud-1', title: 'Cloud Infrastructure Engineer', description: 'Design and maintain cloud infrastructure.', requirements: 'AWS/Azure, Terraform, Kubernetes, 4+ years', department: 'Engineering', location: 'Singapore', employmentType: 'Full-time', experienceMin: 4, experienceMax: 7, salaryMin: 8000, salaryMax: 12000, status: 'on_hold', priority: 'low', positions: 1, postedDate: new Date('2024-11-20'), companyId: companies[5].id } }),
+    prisma.job.upsert({ where: { id: 'job-cloud-1' }, update: {}, create: { id: 'job-cloud-1', title: 'Cloud Infrastructure Engineer', description: 'Design and maintain cloud infrastructure.', requirements: 'AWS/Azure, Terraform, Kubernetes, 4+ years', department: 'Engineering', location: 'Singapore', employmentType: 'Full-time', experienceMin: 4, experienceMax: 7, salaryMin: 8000, salaryMax: 12000, status: 'on_hold', priority: 'low', positions: 1, postedDate: new Date('2024-11-20'), companyId: companies[6].id } }),
   ]);
   console.log(`Created ${jobs.length} jobs`);
 
