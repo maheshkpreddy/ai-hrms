@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ApiProvider } from "@/lib/api-provider";
+import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,13 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NEXUS HRMS - AI-Powered Enterprise HR Platform",
-  description: "Enterprise Multi-Company AI-Driven Human Resource Management System with intelligent workflows, predictive analytics, and comprehensive HR automation.",
-  keywords: ["HRMS", "HR", "Enterprise", "AI", "Human Resources", "Payroll", "Recruitment"],
-  authors: [{ name: "NEXUS HRMS" }],
+  title: "eh2r AI - AI-Powered HR Platform",
+  description: "An AI Product of MARQ AI - Enterprise Multi-Company AI-Driven Human Resource Management System with intelligent workflows, predictive analytics, and comprehensive HR automation.",
+  keywords: ["HRMS", "HR", "Enterprise", "AI", "Human Resources", "Payroll", "Recruitment", "eh2r"],
+  authors: [{ name: "MARQ AI" }],
   openGraph: {
-    title: "NEXUS HRMS",
-    description: "AI-Powered Enterprise HR Platform",
+    title: "eh2r AI",
+    description: "AI-Powered Human Resource Management System - An AI Product of MARQ AI",
     type: "website",
   },
 };
@@ -36,9 +37,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <ApiProvider>
-          {children}
-        </ApiProvider>
+        <Providers>
+          <ApiProvider>
+            {children}
+          </ApiProvider>
+        </Providers>
         <Toaster />
       </body>
     </html>

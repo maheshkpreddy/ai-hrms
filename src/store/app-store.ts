@@ -45,6 +45,7 @@ interface AppState {
   login: (email: string, password: string) => Promise<void>;
   demoLogin: (role: UserRole, name: string, email: string) => void;
   logout: () => void;
+  setUserFromSession: (user: AuthUser) => void;
   setActiveModule: (module: ModuleKey) => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -165,16 +166,47 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
   
-  logout: () => set({
-    isAuthenticated: false,
-    isLoading: false,
-    authError: null,
-    user: null,
-    userRole: 'employee',
-    userName: '',
-    userEmail: '',
-    activeModule: 'dashboard',
-  }),
+  logout: () => {
+    // Sign out from NextAuth on the server side
+    fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
+    set({
+      isAuthenticated: false,
+      isLoading: false,
+      authError: null,
+      user: null,
+      userRole: 'employee',
+      userName: '',
+      userEmail: '',
+      activeModule: 'dashboard',
+    });
+  },
+
+  setUserFromSession: (user: AuthUser) => {
+    // Find matching demo company or create from user data
+    const matchingCompany = DEMO_COMPANIES.find(c => c.code === user.companyCode);
+    const company = matchingCompany || (user.companyCode ? {
+      id: user.companyId || 'unknown',
+      name: user.companyName || 'Unknown',
+      code: user.companyCode,
+      industry: '',
+      country: '',
+      currency: 'USD',
+      employeeCount: 0,
+      isActive: true,
+    } : DEMO_COMPANIES[0]);
+
+    set({
+      isAuthenticated: true,
+      isLoading: false,
+      authError: null,
+      user,
+      userRole: user.role,
+      userName: user.employeeName || user.name,
+      userEmail: user.email,
+      currentCompany: company,
+      activeModule: 'dashboard',
+    });
+  },
   
   setActiveModule: (module) => set({ activeModule: module }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
