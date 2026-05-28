@@ -16,6 +16,7 @@ export type ModuleKey =
   | 'timesheet'
   | 'performance'
   | 'training'
+  | 'learning'
   | 'projects'
   | 'clients'
   | 'vendors'

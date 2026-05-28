@@ -103,7 +103,8 @@ export const authOptions: NextAuthOptions = {
             role: user.role,
             companyId: user.companyId,
             avatar: user.avatar || user.employee?.avatar || null,
-            employeeId: user.employee?.employeeId || null,
+            employeeId: user.employee?.id || null,  // Database UUID for API lookups
+            employeeCode: user.employee?.employeeId || null,  // Human-readable code like EMP001
             companyCode: user.company?.code || credentials.companyCode?.toUpperCase() || null,
             companyName: user.company?.name || null,
             dashboard: roleToDashboard[user.role] || 'employee',
@@ -123,6 +124,7 @@ export const authOptions: NextAuthOptions = {
         token.companyId = (user as any).companyId
         token.avatar = (user as any).avatar
         token.employeeId = (user as any).employeeId
+        token.employeeCode = (user as any).employeeCode
         token.companyCode = (user as any).companyCode
         token.companyName = (user as any).companyName
         token.dashboard = (user as any).dashboard
@@ -136,6 +138,7 @@ export const authOptions: NextAuthOptions = {
         ;(session.user as any).companyId = token.companyId
         ;(session.user as any).avatar = token.avatar
         ;(session.user as any).employeeId = token.employeeId
+        ;(session.user as any).employeeCode = token.employeeCode
         ;(session.user as any).companyCode = token.companyCode
         ;(session.user as any).companyName = token.companyName
         ;(session.user as any).dashboard = token.dashboard

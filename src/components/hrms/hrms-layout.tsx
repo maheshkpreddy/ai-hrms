@@ -44,6 +44,7 @@ import { Engagement } from './engagement';
 import { VendorPortal } from './vendor-portal';
 import TimesheetModule from './TimesheetModule';
 import { TravelExpense } from './travel-expense';
+import ModuleHome from './ModuleHome';
 
 // Module component mapping - keys MUST match the ModuleKey type in store.ts
 const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
@@ -96,7 +97,7 @@ const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
 };
 
 export function HRMSLayout() {
-  const { activeModule } = useHRMSStore();
+  const { activeModule, homeView } = useHRMSStore();
 
   const ActiveComponent = MODULE_COMPONENTS[activeModule] || Dashboard;
 
@@ -106,7 +107,7 @@ export function HRMSLayout() {
       <div className="md:ml-64 transition-all duration-300">
         <Header />
         <main className="p-4 md:p-6">
-          <ActiveComponent />
+          {homeView ? <ModuleHome /> : <ActiveComponent />}
         </main>
       </div>
     </div>

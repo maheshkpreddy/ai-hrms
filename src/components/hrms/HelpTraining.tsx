@@ -723,7 +723,7 @@ export function TutorialPlayerDialog({
   onClose: () => void
 }) {
   const [currentStep, setCurrentStep] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(true)
 
   const colors = video
     ? trainingCategoryColors[video.category] || trainingCategoryColors['Dashboard & Navigation']
@@ -801,8 +801,8 @@ export function TutorialPlayerDialog({
                 <Play className="h-10 w-10 text-white ml-1" />
               </div>
               <div className="text-center">
-                <p className="text-white font-semibold text-base">Video Tutorial</p>
-                <p className="text-white/80 text-xs mt-0.5">Click to start step-by-step walkthrough</p>
+                <p className="text-white font-semibold text-base">Interactive Tutorial</p>
+                <p className="text-white/80 text-xs mt-0.5">Click to start the step-by-step walkthrough</p>
               </div>
             </div>
             {/* Info badges */}

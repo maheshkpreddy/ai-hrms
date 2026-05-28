@@ -5,50 +5,101 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employeeId');
+    const userId = searchParams.get('userId');
 
-    if (!employeeId) {
+    if (!employeeId && !userId) {
       return NextResponse.json(
-        { error: 'employeeId query parameter is required' },
+        { error: 'employeeId or userId query parameter is required' },
         { status: 400 }
       );
     }
 
-    const employee = await db.employee.findUnique({
-      where: { id: employeeId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
-            roleId: true,
-            isActive: true,
-            role: {
-              select: {
-                id: true,
-                name: true,
-                permissions: true,
-              },
+    // Try to find employee - support both database UUID (id) and human-readable employeeId
+    let employee = null;
+
+    if (employeeId) {
+      // First try lookup by database UUID (id field)
+      employee = await db.employee.findUnique({
+        where: { id: employeeId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              avatar: true,
+              isActive: true,
+              role: true,
             },
           },
+          department: {
+            select: { id: true, name: true, code: true },
+          },
+          branch: {
+            select: { id: true, name: true, code: true },
+          },
+          company: {
+            select: { id: true, name: true, code: true, logo: true, industry: true },
+          },
         },
-        companyMembers: {
+      });
+
+      // If not found by UUID, try by human-readable employeeId code
+      if (!employee) {
+        employee = await db.employee.findUnique({
+          where: { employeeId: employeeId },
           include: {
-            company: {
+            user: {
               select: {
                 id: true,
+                email: true,
                 name: true,
-                code: true,
-                logo: true,
-                industry: true,
+                avatar: true,
+                isActive: true,
+                role: true,
               },
             },
+            department: {
+              select: { id: true, name: true, code: true },
+            },
+            branch: {
+              select: { id: true, name: true, code: true },
+            },
+            company: {
+              select: { id: true, name: true, code: true, logo: true, industry: true },
+            },
           },
-          where: { status: 'approved' },
+        });
+      }
+    }
+
+    // Fallback: try lookup by userId (for users without direct employeeId link)
+    if (!employee && userId) {
+      employee = await db.employee.findFirst({
+        where: { userId: userId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              avatar: true,
+              isActive: true,
+              role: true,
+            },
+          },
+          department: {
+            select: { id: true, name: true, code: true },
+          },
+          branch: {
+            select: { id: true, name: true, code: true },
+          },
+          company: {
+            select: { id: true, name: true, code: true, logo: true, industry: true },
+          },
         },
-      },
-    });
+      });
+    }
 
     if (!employee) {
       return NextResponse.json(
@@ -57,7 +108,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(employee);
+    // Transform the data to include department name and company info
+    const profileData = {
+      ...employee,
+      department: employee.department?.name || null,
+      branchName: employee.branch?.name || null,
+      companyName: employee.company?.name || null,
+      companyCode: employee.company?.code || null,
+    };
+
+    return NextResponse.json(profileData);
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json(
@@ -92,8 +152,9 @@ export async function PATCH(request: NextRequest) {
     const updateData: Record<string, unknown> = {};
     const allowedFields = [
       'firstName', 'lastName', 'phone', 'avatar', 'dateOfBirth',
-      'gender', 'address', 'designation', 'jobTitle', 'department',
-      'emergencyContact', 'bankAccount', 'panNumber', 'pfNumber', 'esiNumber',
+      'gender', 'address', 'designation', 'jobTitle',
+      'emergencyContact', 'maritalStatus', 'nationality',
+      'city', 'state', 'country', 'zipCode', 'emergencyPhone',
     ];
 
     for (const field of allowedFields) {
@@ -112,9 +173,7 @@ export async function PATCH(request: NextRequest) {
             email: true,
             name: true,
             avatar: true,
-            role: {
-              select: { id: true, name: true },
-            },
+            role: true,
           },
         },
       },
@@ -141,9 +200,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await db.employee.findUnique({
-      where: { id: body.employeeId },
-    });
+    // Try both UUID and employeeId code lookups
+    let existing = await db.employee.findUnique({ where: { id: body.employeeId } });
+    if (!existing) {
+      existing = await db.employee.findUnique({ where: { employeeId: body.employeeId } });
+    }
 
     if (!existing) {
       return NextResponse.json(
@@ -154,11 +215,7 @@ export async function POST(request: NextRequest) {
 
     let avatarUrl = body.avatarUrl || body.avatar;
 
-    // If base64 image is provided, save the avatar URL
-    // In a production app, you would upload to cloud storage
     if (body.base64Image) {
-      // For now, store the base64 as the avatar
-      // In production, upload to S3/Cloudflare R2 and store the URL
       avatarUrl = body.base64Image;
     }
 
@@ -170,7 +227,7 @@ export async function POST(request: NextRequest) {
     }
 
     const employee = await db.employee.update({
-      where: { id: body.employeeId },
+      where: { id: existing.id },
       data: { avatar: avatarUrl },
       include: {
         user: {
@@ -179,9 +236,7 @@ export async function POST(request: NextRequest) {
             email: true,
             name: true,
             avatar: true,
-            role: {
-              select: { id: true, name: true },
-            },
+            role: true,
           },
         },
       },
