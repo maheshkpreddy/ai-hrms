@@ -983,7 +983,7 @@ export default function Sidebar() {
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
-      <div className="hidden md:flex h-screen w-64 shrink-0 flex-col bg-slate-900" />
+      <div className="fixed left-0 top-0 hidden md:flex h-screen w-64 shrink-0 flex-col bg-slate-900 z-40" />
     )
   }
 
@@ -1017,7 +1017,7 @@ export default function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'relative hidden md:flex h-screen shrink-0 flex-col transition-all duration-300 ease-in-out',
+          'fixed left-0 top-0 hidden md:flex h-screen shrink-0 flex-col transition-all duration-300 ease-in-out z-40',
           'border-r border-slate-700/50'
         )}
         style={{ width: sidebarOpen ? '16rem' : '4.5rem' }}

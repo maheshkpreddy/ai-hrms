@@ -33,9 +33,9 @@ export function Header() {
   const {
     userRole, userName, userEmail, currentCompany, companies, user,
     setCurrentCompany,
-    sidebarOpen, setSidebarOpen, logout, setNotificationCount,
+    logout, setNotificationCount,
   } = useAppStore();
-  const { selectModule } = useHRMSStore();
+  const { selectModule, sidebarOpen, setSidebarOpen } = useHRMSStore();
   const { theme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<NotificationData[]>([]);

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHRMSStore } from '@/lib/store';
 import Sidebar from './Sidebar';
 import { Header } from './header';
@@ -97,14 +97,29 @@ const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
 };
 
 export function HRMSLayout() {
-  const { activeModule, homeView } = useHRMSStore();
+  const { activeModule, homeView, sidebarOpen } = useHRMSStore();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const ActiveComponent = MODULE_COMPONENTS[activeModule] || Dashboard;
+
+  // On mobile: sidebar is an overlay (Sheet), so no margin needed
+  // On desktop: sidebar is inline, so margin must match sidebar width
+  const contentMarginLeft = isMobile ? 0 : (sidebarOpen ? '16rem' : '4.5rem');
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
-      <div className="md:ml-64 transition-all duration-300">
+      <div
+        className="min-h-screen transition-all duration-300 ease-in-out"
+        style={{ marginLeft: contentMarginLeft }}
+      >
         <Header />
         <main className="p-4 md:p-6">
           {homeView ? <ModuleHome /> : <ActiveComponent />}
