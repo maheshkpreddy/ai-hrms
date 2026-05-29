@@ -84,6 +84,7 @@ import { useApi, apiPost, apiPut, apiDelete } from '@/lib/useApi'
 import { exportEmployeeReport } from '@/lib/excelExport'
 import { useToast } from '@/hooks/use-toast'
 import { useHRMSStore } from '@/lib/store'
+import { useAppStore } from '@/store/app-store'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,26 +98,33 @@ interface Employee {
   dateOfBirth: string
   gender: string
   address: string
-  department: string
+  department: { id: string; name: string } | string  // API returns object, fallback to string
   designation: string
-  jobTitle: string
-  contractType: string
+  jobTitle: string | null
+  contractType: string  // employmentType from API
   status: string
-  joinDate: string
+  joinDate: string  // joiningDate from API
   salary: number
   reportingTo: string | null
   bankAccount: string
   panNumber: string
   pfNumber: string
   avatar: string
+  employmentType: string  // Raw API field
+  joiningDate: string     // Raw API field
+  company?: { id: string; name: string } | null
+  branch?: { id: string; name: string } | null
 }
 
 interface Department {
   id: string
   name: string
-  head: string
-  budget: number
-  count: number
+  code: string
+  description?: string | null
+  isActive?: boolean
+  head?: string
+  budget?: number
+  count?: number
 }
 
 interface Asset {
@@ -139,24 +147,22 @@ interface EmployeeDocument {
   status: string
 }
 
+// API returns { data: [...], pagination: {...} } — map to the shape we use
 interface EmployeesResponse {
-  employees: Employee[]
+  data: Employee[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
 interface DepartmentsResponse {
-  departments: Department[]
-  pagination: { page: number; limit: number; total: number; totalPages: number }
+  data: Department[]
 }
 
 interface AssetsResponse {
-  assets: Asset[]
-  pagination: { page: number; limit: number; total: number; totalPages: number }
+  data: Asset[]
 }
 
 interface DocumentsResponse {
-  documents: EmployeeDocument[]
-  pagination: { page: number; limit: number; total: number; totalPages: number }
+  data: EmployeeDocument[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -282,6 +288,7 @@ function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
 export default function EmployeeManagement() {
   const { toast } = useToast()
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
+  const { currentCompany } = useAppStore()
 
   // State
   const [searchQuery, setSearchQuery] = useState('')
@@ -355,6 +362,7 @@ export default function EmployeeManagement() {
     params: {
       page: 1,
       limit: 100,
+      companyId: currentCompany?.id || undefined,
       department: filterDept !== 'all' ? filterDept : undefined,
       status: filterStatus !== 'all' ? filterStatus : undefined,
       search: searchQuery || undefined,
@@ -367,7 +375,7 @@ export default function EmployeeManagement() {
     loading: departmentsLoading,
   } = useApi<DepartmentsResponse>({
     baseUrl: '/api/departments',
-    params: { limit: 100 },
+    params: { limit: 100, companyId: currentCompany?.id || undefined },
   })
 
   // Assets for selected employee
@@ -390,11 +398,21 @@ export default function EmployeeManagement() {
     enabled: !!selectedEmployee,
   })
 
-  // Derived data from API responses
-  const employees = employeesData?.employees ?? []
-  const departments = departmentsData?.departments ?? []
-  const selectedAssets = assetsData?.assets ?? []
-  const selectedDocs = documentsData?.documents ?? []
+  // Derived data from API responses — normalize field names to match our interface
+  const employees = useMemo(() => (employeesData?.data ?? []).map((emp: any) => ({
+    ...emp,
+    department: typeof emp.department === 'object' && emp.department ? emp.department.name : emp.department || 'N/A',
+    contractType: emp.employmentType || emp.contractType || 'full-time',
+    joinDate: emp.joiningDate || emp.joinDate || '',
+    salary: emp.salary || 0,
+    reportingTo: emp.reportingManagerId || emp.reportingTo || null,
+    bankAccount: emp.bankAccount || '',
+    panNumber: emp.panNumber || '',
+    pfNumber: emp.pfNumber || '',
+  })), [employeesData])
+  const departments = departmentsData?.data ?? []
+  const selectedAssets = assetsData?.data ?? []
+  const selectedDocs = documentsData?.data ?? []
 
   // Client-side contract type filter (API doesn't support it)
   const filteredEmployees = useMemo(() => {
@@ -418,7 +436,7 @@ export default function EmployeeManagement() {
     return departments
       .map((dept) => ({
         name: dept.name,
-        head: dept.head,
+        head: dept.head || dept.name,
         employees: deptGroups[dept.name] || [],
       }))
       .filter((d) => d.employees.length > 0)
