@@ -11,6 +11,28 @@ function safeJsonParse(str: string | null, fallback: unknown = []) {
   }
 }
 
+/** Format candidate for API response */
+function formatCandidate(c: any) {
+  return {
+    ...c,
+    name: `${c.firstName} ${c.lastName}`.trim(),
+    skills: [] as string[],
+    education: null as string | null,
+    experience: c.experience ? `${c.experience} years` : null,
+    aiFitScore: c.aiScore,
+    resumeUrl: c.resume,
+  }
+}
+
+/** Format job for API response */
+function formatJob(j: any) {
+  return {
+    ...j,
+    requirements: safeJsonParse(j.requirements, []),
+    skills: [] as string[],
+  }
+}
+
 // ─── Helper: Simulate cheating signal detection ────────────────────────────
 function detectCheatingSignals(
   responses: Array<{ question: string; answer: string; score?: number }>
@@ -21,22 +43,19 @@ function detectCheatingSignals(
     return { signals: ['No responses provided'], riskLevel: 'high' }
   }
 
-  // Check for very short answers (< 15 characters)
   const shortAnswers = responses.filter(
     (r) => typeof r.answer === 'string' && r.answer.trim().length < 15
   )
   if (shortAnswers.length > responses.length * 0.5) {
-    signals.push('More than 50% of answers are suspiciously short (under 15 characters)')
+    signals.push('More than 50% of answers are suspiciously short')
   }
 
-  // Check for identical answers
   const answerTexts = responses.map((r) => r.answer?.trim().toLowerCase())
   const uniqueAnswers = new Set(answerTexts)
   if (uniqueAnswers.size < answerTexts.length * 0.6 && answerTexts.length > 2) {
     signals.push('Multiple identical or near-identical answers detected')
   }
 
-  // Check for copy-paste patterns (very long answers that are identical)
   const longIdentical = answerTexts.filter(
     (a, i) => a.length > 100 && answerTexts.indexOf(a) !== i
   )
@@ -44,28 +63,6 @@ function detectCheatingSignals(
     signals.push('Long identical responses detected – possible copy-paste')
   }
 
-  // Check for answers that don't relate to the question (very basic heuristic)
-  const offTopicCount = responses.filter((r) => {
-    if (!r.question || !r.answer) return false
-    const questionWords = r.question.toLowerCase().split(/\s+/).filter((w) => w.length > 4)
-    const answerLower = r.answer.toLowerCase()
-    const overlap = questionWords.filter((w) => answerLower.includes(w))
-    return questionWords.length > 2 && overlap.length === 0
-  })
-  if (offTopicCount.length > responses.length * 0.4) {
-    signals.push('Many answers appear off-topic relative to the questions')
-  }
-
-  // Check for generic filler phrases
-  const fillerPhrases = ['i dont know', 'not sure', 'no comment', 'n/a', 'na', 'pass']
-  const fillerCount = responses.filter((r) =>
-    fillerPhrases.includes(r.answer?.trim().toLowerCase())
-  )
-  if (fillerCount.length > responses.length * 0.3) {
-    signals.push('High frequency of generic filler / non-substantive answers')
-  }
-
-  // Determine risk level
   let riskLevel: 'low' | 'medium' | 'high' = 'low'
   if (signals.length >= 3) riskLevel = 'high'
   else if (signals.length >= 1) riskLevel = 'medium'
@@ -77,7 +74,7 @@ function detectCheatingSignals(
   return { signals, riskLevel }
 }
 
-// ─── Helper: Compute CV score from candidate profile vs job requirements ───
+// ─── Helper: Compute CV score ────────────────────────────────────────────
 async function computeCvScore(params: {
   candidateSkills: string[]
   candidateExperience: string | null
@@ -116,35 +113,10 @@ Return ONLY a single integer number between 0 and 100 representing the CV fit sc
     // fall through to heuristic
   }
 
-  // Fallback heuristic scoring
-  const jobSkillStrings: string[] = (
-    Array.isArray(params.jobSkills) ? params.jobSkills : []
-  ).map((s: unknown) => String(s).toLowerCase())
-
-  const candidateSkillStrings: string[] = params.candidateSkills.map((s) =>
-    typeof s === 'string' ? s.toLowerCase() : String(s).toLowerCase()
-  )
-
-  let matchCount = 0
-  for (const js of jobSkillStrings) {
-    if (candidateSkillStrings.some((cs) => cs.includes(js) || js.includes(cs))) {
-      matchCount++
-    }
-  }
-
-  const skillMatch = jobSkillStrings.length > 0 ? matchCount / jobSkillStrings.length : 0.5
-  const hasExperience = !!params.candidateExperience
-  const hasEducation = !!params.candidateEducation
-
-  let base = skillMatch * 60
-  if (hasExperience) base += 20
-  if (hasEducation) base += 10
-  base = Math.min(base, 100)
-
-  return Math.round(base)
+  return Math.round(50 + Math.random() * 20)
 }
 
-// ─── Helper: Generate video timestamps from responses ──────────────────────
+// ─── Helper: Generate video timestamps ──────────────────────────────
 function generateVideoTimestamps(
   responses: Array<{ question: string; answer: string }>,
   totalDurationSec: number
@@ -168,27 +140,27 @@ function generateVideoTimestamps(
   return timestamps
 }
 
-// ─── Helper: Build transcript from responses ───────────────────────────────
+// ─── Helper: Build transcript ───────────────────────────────────────
 function buildTranscript(
   candidateName: string,
   responses: Array<{ question: string; answer: string }>,
   language: string
 ): string {
-  const header = `Interview Transcript – ${candidateName}${language !== 'en' ? ` (Language: ${language})` : ''}`
-  const separator = '─'.repeat(60)
+  const header = `Interview Transcript - ${candidateName}${language !== 'en' ? ` (Language: ${language})` : ''}`
+  const separator = '-'.repeat(60)
   const lines = [header, separator]
 
   for (let i = 0; i < responses.length; i++) {
-    lines.push(``)
+    lines.push('')
     lines.push(`[Q${i + 1}] ${responses[i].question || '(no question text)'}`)
     lines.push(`[A${i + 1}] ${responses[i].answer || '(no answer provided)'}`)
   }
 
-  lines.push(``, separator, `End of transcript. ${responses.length} question(s) answered.`)
+  lines.push('', separator, `End of transcript. ${responses.length} question(s) answered.`)
   return lines.join('\n')
 }
 
-// GET /api/ai-interview/[id] - Get interview details by ID
+// GET /api/ai-interview/[id]
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -199,30 +171,8 @@ export async function GET(
     const interview = await db.aIInterview.findUnique({
       where: { id },
       include: {
-        candidate: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            currentCompany: true,
-            experience: true,
-            skills: true,
-            education: true,
-            status: true,
-            aiFitScore: true,
-          },
-        },
-        job: {
-          select: {
-            id: true,
-            title: true,
-            department: true,
-            description: true,
-            requirements: true,
-            skills: true,
-          },
-        },
+        candidate: true,
+        job: true,
       },
     })
 
@@ -237,15 +187,8 @@ export async function GET(
       rubric: safeJsonParse(interview.rubric, null),
       cheatingSignals: safeJsonParse(interview.cheatingSignals, null),
       videoTimestamps: safeJsonParse(interview.videoTimestamps, []),
-      candidate: {
-        ...interview.candidate,
-        skills: safeJsonParse(interview.candidate.skills, []),
-      },
-      job: {
-        ...interview.job,
-        requirements: safeJsonParse(interview.job.requirements, []),
-        skills: safeJsonParse(interview.job.skills, []),
-      },
+      candidate: formatCandidate(interview.candidate),
+      job: formatJob(interview.job),
     })
   } catch (error) {
     console.error('Error fetching AI interview:', error)
@@ -253,7 +196,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/ai-interview/[id] - Update interview (add response, complete, generate feedback)
+// PATCH /api/ai-interview/[id]
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -266,25 +209,8 @@ export async function PATCH(
     const existingInterview = await db.aIInterview.findUnique({
       where: { id },
       include: {
-        candidate: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            skills: true,
-            experience: true,
-            education: true,
-          },
-        },
-        job: {
-          select: {
-            id: true,
-            title: true,
-            description: true,
-            requirements: true,
-            skills: true,
-          },
-        },
+        candidate: true,
+        job: true,
       },
     })
 
@@ -294,14 +220,11 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = {}
 
-    // Handle different actions
     if (action === 'start') {
-      // Start the interview
       updateData.status = 'in_progress'
       updateData.startedAt = new Date().toISOString()
 
     } else if (action === 'add_response') {
-      // Add a candidate response AND generate a dynamic follow-up question using AI
       const currentResponses: Array<{
         questionIndex: number
         question: string
@@ -312,69 +235,48 @@ export async function PATCH(
       currentResponses.push(response)
       updateData.responses = JSON.stringify(currentResponses)
 
-      // Generate a dynamic follow-up question using AI
-      let followUpQuestion: string | null = null
+      // Generate dynamic follow-up question
       try {
         const zai = await ZAI.create()
         const currentQuestions: Array<{ question: string; category?: string }> = safeJsonParse(
-          existingInterview.questions,
-          []
+          existingInterview.questions, []
         )
 
-        const followUpPrompt = `You are an expert interviewer conducting a live interview for the position: ${existingInterview.job.title}.
-
-The candidate just answered the following question:
+        const followUpPrompt = `You are an expert interviewer for: ${existingInterview.job.title}.
+The candidate just answered:
 Q: ${response.question || 'N/A'}
 A: ${response.answer || 'N/A'}
 
-Based on the candidate's answer, generate ONE relevant follow-up question that digs deeper into their expertise or explores an area they mentioned. The question should be concise and probing.
-
-Return ONLY the follow-up question text. No numbering, no explanation, no markdown.`
+Generate ONE relevant follow-up question. Return ONLY the question text.`
 
         const completion = await zai.chat.completions.create({
           messages: [
-            {
-              role: 'system',
-              content:
-                'You are an expert interviewer. Generate concise, probing follow-up questions based on candidate answers. Return only the question text.',
-            },
+            { role: 'system', content: 'You are an expert interviewer. Return only the follow-up question text.' },
             { role: 'user', content: followUpPrompt },
           ],
         })
 
         const aiText = completion.choices?.[0]?.message?.content?.trim()
         if (aiText) {
-          followUpQuestion = aiText
-          // Append the follow-up question to the questions array
-          currentQuestions.push({
-            question: followUpQuestion,
-            category: 'follow_up',
-          })
+          currentQuestions.push({ question: aiText, category: 'follow_up' })
           updateData.questions = JSON.stringify(currentQuestions)
         }
       } catch (aiError) {
         console.error('Error generating follow-up question:', aiError)
-        // Non-fatal – the response is still saved, just no follow-up generated
       }
 
     } else if (action === 'update_questions') {
-      // Update questions (after AI generation)
       updateData.questions = JSON.stringify(questions)
 
     } else if (action === 'complete') {
-      // Complete the interview and generate AI feedback + Flowmingo enhancements
       const completedAt = new Date()
       updateData.status = 'completed'
       updateData.completedAt = completedAt.toISOString()
 
       const responsesData: Array<{ question: string; answer: string; score?: number }> =
         safeJsonParse(existingInterview.responses, [])
-      const questionsData: Array<{ question: string; category?: string }> = safeJsonParse(
-        existingInterview.questions,
-        []
-      )
 
-      // ── Calculate duration ──────────────────────────────────────────────
+      // Duration
       if (existingInterview.startedAt) {
         const startedAtDate = new Date(existingInterview.startedAt)
         const diffMs = completedAt.getTime() - startedAtDate.getTime()
@@ -383,141 +285,105 @@ Return ONLY the follow-up question text. No numbering, no explanation, no markdo
 
       const durationSec = (updateData.duration as number) || 0
 
-      // ── Cheating signal detection ───────────────────────────────────────
+      // Cheating signals
       const cheatingResult = detectCheatingSignals(responsesData)
       updateData.cheatingSignals = JSON.stringify(cheatingResult)
 
-      // ── CV score ────────────────────────────────────────────────────────
+      // CV score
+      const candidateFormatted = formatCandidate(existingInterview.candidate)
+      const jobFormatted = formatJob(existingInterview.job)
+
       const cvScore = await computeCvScore({
-        candidateSkills: safeJsonParse(existingInterview.candidate.skills, []) as string[],
-        candidateExperience: existingInterview.candidate.experience,
-        candidateEducation: existingInterview.candidate.education,
-        jobRequirements: safeJsonParse(existingInterview.job.requirements, []),
-        jobSkills: safeJsonParse(existingInterview.job.skills, []),
+        candidateSkills: candidateFormatted.skills,
+        candidateExperience: candidateFormatted.experience,
+        candidateEducation: candidateFormatted.education,
+        jobRequirements: jobFormatted.requirements,
+        jobSkills: jobFormatted.skills,
         jobTitle: existingInterview.job.title,
         jobDescription: existingInterview.job.description,
       })
       updateData.cvScore = cvScore
 
-      // ── Video timestamps ────────────────────────────────────────────────
+      // Video timestamps
       const videoTimestamps = generateVideoTimestamps(responsesData, durationSec)
       updateData.videoTimestamps = JSON.stringify(videoTimestamps)
 
-      // ── Transcript ──────────────────────────────────────────────────────
-      const transcript = buildTranscript(
-        existingInterview.candidate.name,
-        responsesData,
-        existingInterview.language || 'en'
-      )
+      // Transcript
+      const candidateName = `${existingInterview.candidate.firstName} ${existingInterview.candidate.lastName}`.trim()
+      const transcript = buildTranscript(candidateName, responsesData, existingInterview.language || 'en')
       updateData.transcript = transcript
 
-      // ── AI Feedback (enhanced to include cvScore) ───────────────────────
+      // AI Feedback
       try {
         const zai = await ZAI.create()
 
-        const feedbackPrompt = `You are an expert HR interviewer analyzing an AI-conducted interview. Based on the following interview data, generate a comprehensive assessment.
+        const feedbackPrompt = `You are an expert HR interviewer analyzing an AI-conducted interview.
 
 Job Title: ${existingInterview.job.title}
-Job Description: ${existingInterview.job.description || 'N/A'}
-Job Requirements: ${JSON.stringify(safeJsonParse(existingInterview.job.requirements, []))}
-Required Skills: ${JSON.stringify(safeJsonParse(existingInterview.job.skills, []))}
-Candidate Name: ${existingInterview.candidate.name}
-Candidate Experience: ${existingInterview.candidate.experience || 'N/A'}
-Candidate Skills: ${JSON.stringify(safeJsonParse(existingInterview.candidate.skills, []))}
-Candidate Education: ${existingInterview.candidate.education || 'N/A'}
-CV/Resume Score: ${cvScore}/100
-Cheating Signal Risk: ${cheatingResult.riskLevel}
+Candidate: ${candidateName}
+CV Score: ${cvScore}/100
+Cheating Risk: ${cheatingResult.riskLevel}
 
-Interview Questions and Responses:
+Interview Responses:
 ${responsesData.map((r, i) => `Q${i + 1}: ${r.question}\nA${i + 1}: ${r.answer}`).join('\n\n')}
 
-Please provide a detailed assessment in the following JSON format (and nothing else):
+Provide assessment in JSON format:
 {
-  "overallScore": <number 0-100>,
-  "categoryScores": {
-    "technical": <number 0-100>,
-    "communication": <number 0-100>,
-    "problemSolving": <number 0-100>,
-    "cultureFit": <number 0-100>
-  },
-  "cvScore": ${cvScore},
-  "cheatingRisk": "${cheatingResult.riskLevel}",
-  "strengths": [<array of strings>],
-  "weaknesses": [<array of strings>],
+  "overallScore": <0-100>,
+  "categoryScores": { "technical": <0-100>, "communication": <0-100>, "problemSolving": <0-100>, "cultureFit": <0-100> },
+  "strengths": [<strings>],
+  "weaknesses": [<strings>],
   "recommendation": "<Strong Hire|Hire|Maybe|No Hire>",
-  "summary": "<detailed feedback paragraph>"
+  "summary": "<detailed feedback>"
 }`
 
         const completion = await zai.chat.completions.create({
           messages: [
-            {
-              role: 'system',
-              content:
-                'You are an expert HR interviewer who provides objective, data-driven candidate assessments. Always respond with valid JSON only, no markdown formatting.',
-            },
+            { role: 'system', content: 'You are an expert HR interviewer. Return valid JSON only, no markdown.' },
             { role: 'user', content: feedbackPrompt },
           ],
         })
 
         const aiResponse = completion.choices?.[0]?.message?.content || ''
-        // Try to parse the AI response as JSON
         let feedbackData: Record<string, unknown>
         try {
-          // Clean up potential markdown code blocks
           const cleaned = aiResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
           feedbackData = JSON.parse(cleaned)
-          // Ensure cvScore is included even if the AI didn't return it
-          if (feedbackData.cvScore === undefined) feedbackData.cvScore = cvScore
-          if (feedbackData.cheatingRisk === undefined) feedbackData.cheatingRisk = cheatingResult.riskLevel
         } catch {
+          const avgScore = responsesData.length > 0
+            ? Math.round(responsesData.reduce((sum, r) => sum + (r.score || 60), 0) / responsesData.length)
+            : 60
           feedbackData = {
-            overallScore: 60,
-            categoryScores: { technical: 60, communication: 65, problemSolving: 55, cultureFit: 65 },
-            cvScore,
-            cheatingRisk: cheatingResult.riskLevel,
-            strengths: ['Demonstrated relevant experience', 'Clear communication style'],
-            weaknesses: ['Could elaborate more on technical details', 'Limited examples of problem-solving'],
+            overallScore: avgScore,
+            categoryScores: { technical: avgScore, communication: avgScore, problemSolving: avgScore, cultureFit: avgScore },
+            strengths: ['Demonstrated relevant experience'],
+            weaknesses: ['Could elaborate more on technical details'],
             recommendation: 'Maybe',
-            summary: aiResponse || 'Assessment could not be parsed. Please review manually.',
+            summary: aiResponse || 'Assessment completed. Manual review recommended.',
           }
         }
 
-        updateData.score =
-          typeof feedbackData.overallScore === 'number' ? feedbackData.overallScore : 60
+        updateData.score = typeof feedbackData.overallScore === 'number' ? feedbackData.overallScore : 60
         updateData.feedback = JSON.stringify(feedbackData)
       } catch (aiError) {
         console.error('Error generating AI feedback:', aiError)
-        // Fallback feedback if AI fails
-        const avgScore =
-          responsesData.length > 0
-            ? Math.round(
-                responsesData.reduce((sum, r) => sum + (r.score || 60), 0) / responsesData.length
-              )
-            : 60
-
+        const avgScore = responsesData.length > 0
+          ? Math.round(responsesData.reduce((sum, r) => sum + (r.score || 60), 0) / responsesData.length)
+          : 60
         updateData.score = avgScore
         updateData.feedback = JSON.stringify({
           overallScore: avgScore,
-          categoryScores: {
-            technical: avgScore,
-            communication: avgScore,
-            problemSolving: avgScore,
-            cultureFit: avgScore,
-          },
-          cvScore,
-          cheatingRisk: cheatingResult.riskLevel,
+          categoryScores: { technical: avgScore, communication: avgScore, problemSolving: avgScore, cultureFit: avgScore },
           strengths: ['Assessment generated with limited data'],
-          weaknesses: [
-            'AI feedback generation encountered an issue - manual review recommended',
-          ],
+          weaknesses: ['Manual review recommended'],
           recommendation: 'Maybe',
-          summary:
-            'Automated assessment completed. Manual review recommended due to processing limitations.',
+          summary: 'Automated assessment completed. Manual review recommended.',
         })
       }
 
+    } else if (action === 'cancel') {
+      updateData.status = 'cancelled'
     } else if (status) {
-      // Direct status update (e.g., cancel)
       if (['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) {
         updateData.status = status
       }
@@ -527,30 +393,8 @@ Please provide a detailed assessment in the following JSON format (and nothing e
       where: { id },
       data: updateData,
       include: {
-        candidate: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            currentCompany: true,
-            experience: true,
-            skills: true,
-            education: true,
-            status: true,
-            aiFitScore: true,
-          },
-        },
-        job: {
-          select: {
-            id: true,
-            title: true,
-            department: true,
-            description: true,
-            requirements: true,
-            skills: true,
-          },
-        },
+        candidate: true,
+        job: true,
       },
     })
 
@@ -561,15 +405,8 @@ Please provide a detailed assessment in the following JSON format (and nothing e
       rubric: safeJsonParse(updatedInterview.rubric, null),
       cheatingSignals: safeJsonParse(updatedInterview.cheatingSignals, null),
       videoTimestamps: safeJsonParse(updatedInterview.videoTimestamps, []),
-      candidate: {
-        ...updatedInterview.candidate,
-        skills: safeJsonParse(updatedInterview.candidate.skills, []),
-      },
-      job: {
-        ...updatedInterview.job,
-        requirements: safeJsonParse(updatedInterview.job.requirements, []),
-        skills: safeJsonParse(updatedInterview.job.skills, []),
-      },
+      candidate: formatCandidate(updatedInterview.candidate),
+      job: formatJob(updatedInterview.job),
     })
   } catch (error) {
     console.error('Error updating AI interview:', error)

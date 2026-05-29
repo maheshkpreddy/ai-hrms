@@ -13,6 +13,45 @@ function safeJsonParse(str: string | null, fallback: unknown = []) {
   }
 }
 
+/** Format candidate for API response (map firstName/lastName → name, etc.) */
+function formatCandidate(c: {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string | null
+  currentCompany: string | null
+  experience: number | null
+  aiScore: number | null
+  resume: string | null
+  status: string
+}) {
+  return {
+    ...c,
+    name: `${c.firstName} ${c.lastName}`.trim(),
+    skills: [] as string[], // Not in schema, return empty
+    education: null as string | null, // Not in schema
+    experience: c.experience ? `${c.experience} years` : null,
+    aiFitScore: c.aiScore, // Map aiScore → aiFitScore
+    resumeUrl: c.resume, // Map resume → resumeUrl
+  }
+}
+
+/** Format job for API response */
+function formatJob(j: {
+  id: string
+  title: string
+  department: string | null
+  description: string | null
+  requirements: string | null
+}) {
+  return {
+    ...j,
+    requirements: safeJsonParse(j.requirements, []),
+    skills: [] as string[], // Not in schema, return empty
+  }
+}
+
 /** Generate a unique interview link */
 function generateInterviewLink(): string {
   return `/interview/${nanoid()}`
@@ -37,30 +76,8 @@ export async function GET(request: NextRequest) {
       db.aIInterview.findMany({
         where,
         include: {
-          candidate: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-              currentCompany: true,
-              experience: true,
-              skills: true,
-              education: true,
-              status: true,
-              aiFitScore: true,
-            },
-          },
-          job: {
-            select: {
-              id: true,
-              title: true,
-              department: true,
-              description: true,
-              requirements: true,
-              skills: true,
-            },
-          },
+          candidate: true,
+          job: true,
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
@@ -73,15 +90,12 @@ export async function GET(request: NextRequest) {
       ...interview,
       questions: safeJsonParse(interview.questions, []),
       responses: safeJsonParse(interview.responses, []),
-      candidate: {
-        ...interview.candidate,
-        skills: safeJsonParse(interview.candidate.skills, []),
-      },
-      job: {
-        ...interview.job,
-        requirements: safeJsonParse(interview.job.requirements, []),
-        skills: safeJsonParse(interview.job.skills, []),
-      },
+      cheatingSignals: safeJsonParse(interview.cheatingSignals, []),
+      videoTimestamps: safeJsonParse(interview.videoTimestamps, []),
+      rubric: safeJsonParse(interview.rubric, null),
+      feedback: interview.feedback ? safeJsonParse(interview.feedback, null) : null,
+      candidate: formatCandidate(interview.candidate as any),
+      job: formatJob(interview.job as any),
     }))
 
     return NextResponse.json({
@@ -112,9 +126,6 @@ export async function POST(request: NextRequest) {
     // Verify candidate exists
     const candidate = await db.candidate.findUnique({
       where: { id: candidateId },
-      include: {
-        job: { select: { id: true, title: true, description: true, requirements: true, skills: true } },
-      },
     })
     if (!candidate) {
       return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
@@ -129,12 +140,12 @@ export async function POST(request: NextRequest) {
     // Determine interview language (default to "en")
     const interviewLanguage = typeof language === 'string' && language.trim() ? language.trim() : 'en'
 
-    // Validate rubric – if provided it must be a valid JSON string
+    // Validate rubric
     let rubricJson: string | undefined
     if (rubric !== undefined && rubric !== null) {
       if (typeof rubric === 'string') {
         try {
-          JSON.parse(rubric) // validate
+          JSON.parse(rubric)
           rubricJson = rubric
         } catch {
           return NextResponse.json({ error: 'rubric must be a valid JSON string' }, { status: 400 })
@@ -146,13 +157,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate resumeUrl – if provided it must be a string
     const resumeUrlValue = typeof resumeUrl === 'string' && resumeUrl.trim() ? resumeUrl.trim() : undefined
 
     // Generate a unique interview link
     const interviewLink = generateInterviewLink()
 
-    // Create the interview session (questions will be generated separately)
+    // Create the interview session
     const interview = await db.aIInterview.create({
       data: {
         candidateId,
@@ -166,30 +176,8 @@ export async function POST(request: NextRequest) {
         interviewLink,
       },
       include: {
-        candidate: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            currentCompany: true,
-            experience: true,
-            skills: true,
-            education: true,
-            status: true,
-            aiFitScore: true,
-          },
-        },
-        job: {
-          select: {
-            id: true,
-            title: true,
-            department: true,
-            description: true,
-            requirements: true,
-            skills: true,
-          },
-        },
+        candidate: true,
+        job: true,
       },
     })
 
@@ -198,15 +186,8 @@ export async function POST(request: NextRequest) {
       questions: safeJsonParse(interview.questions, []),
       responses: safeJsonParse(interview.responses, []),
       rubric: safeJsonParse(interview.rubric, null),
-      candidate: {
-        ...interview.candidate,
-        skills: safeJsonParse(interview.candidate.skills, []),
-      },
-      job: {
-        ...interview.job,
-        requirements: safeJsonParse(interview.job.requirements, []),
-        skills: safeJsonParse(interview.job.skills, []),
-      },
+      candidate: formatCandidate(interview.candidate as any),
+      job: formatJob(interview.job as any),
     }, { status: 201 })
   } catch (error) {
     console.error('Error creating AI interview:', error)
