@@ -999,5 +999,7 @@ model AuditLog {
   userId      String?
   user        User?    @relation(fields: [userId], references: [id])
   ipAddress   String?
+  module      String?
+  employeeId  String?
   createdAt   DateTime @default(now())
 }
