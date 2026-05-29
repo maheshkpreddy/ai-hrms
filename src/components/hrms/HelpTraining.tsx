@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import {
   Search,
   Play,
@@ -30,6 +30,11 @@ import {
   Star,
   Calendar,
   ChevronLeft,
+  Maximize,
+  Video,
+  List,
+  MonitorPlay,
+  RotateCcw,
 } from 'lucide-react'
 import {
   Card,
@@ -61,7 +66,13 @@ export interface VideoTutorial {
   duration: string
   steps: string[] // Step-by-step tutorial instructions
   thumbnail: string
+  videoUrl?: string // URL to actual video file
+  thumbnailUrl?: string // URL to thumbnail image
 }
+
+// ─── Video URL Base ───────────────────────────────────────────────────────────
+
+const VIDEO_BASE_URL = 'https://raw.githubusercontent.com/maheshkpreddy/ai-hrms/main/docs/training/videos'
 
 // ─── Video Data ───────────────────────────────────────────────────────────────
 
@@ -83,6 +94,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Check the notification bell for pending approvals and system alerts',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/dashboard/dash-1.mp4`,
   },
   {
     id: 'dash-2',
@@ -101,6 +113,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Set up data backup schedules and review storage usage from System Settings',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/dashboard/dash-2.mp4`,
   },
   {
     id: 'dash-3',
@@ -118,6 +131,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Reset to default layout anytime from the Customize panel',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/dashboard/dash-3.mp4`,
   },
 
   // Employee Management (3 videos)
@@ -139,6 +153,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Track onboarding progress from the Employee Detail page → Onboarding tab',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/employees/emp-1.mp4`,
   },
   {
     id: 'emp-2',
@@ -157,6 +172,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Use bulk actions to update multiple employee records simultaneously',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/employees/emp-2.mp4`,
   },
   {
     id: 'emp-3',
@@ -174,6 +190,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Review the org chart from the Organization module to visualize hierarchy',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/employees/emp-3.mp4`,
   },
 
   // Time & Attendance (3 videos)
@@ -194,6 +211,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Test the shift configuration by checking in from the employee portal',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/attendance/att-1.mp4`,
   },
   {
     id: 'att-2',
@@ -211,6 +229,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Handle exceptions — approve late check-ins, regularize missed punches',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/attendance/att-2.mp4`,
   },
   {
     id: 'att-3',
@@ -229,6 +248,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Preview the holiday calendar and share with employees',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/attendance/att-3.mp4`,
   },
 
   // Leave Management (2 videos)
@@ -248,6 +268,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Track your leave application status from the "My Leaves" dashboard',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/leave/leave-1.mp4`,
   },
   {
     id: 'leave-2',
@@ -266,6 +287,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Run leave reports to analyze patterns and plan workforce coverage',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/leave/leave-2.mp4`,
   },
 
   // Payroll & Expenses (3 videos)
@@ -287,6 +309,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Lock and disburse payroll — generate payslips and send via email',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/payroll/pay-1.mp4`,
   },
   {
     id: 'pay-2',
@@ -305,6 +328,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Approved expenses are automatically included in the next payroll cycle',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/payroll/pay-2.mp4`,
   },
   {
     id: 'pay-3',
@@ -323,6 +347,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Download reports in the required format for government portal uploads',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/payroll/pay-3.mp4`,
   },
 
   // Recruitment & Talent (3 videos)
@@ -343,6 +368,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Track application sources to measure channel effectiveness',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/recruitment/rec-1.mp4`,
   },
   {
     id: 'rec-2',
@@ -361,6 +387,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Collaborate with panel members — all scores are aggregated for a final decision',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/recruitment/rec-2.mp4`,
   },
   {
     id: 'rec-3',
@@ -379,6 +406,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Shortlist or reject candidates based on AI insights and human judgment',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/recruitment/rec-3.mp4`,
   },
 
   // Performance Management (2 videos)
@@ -399,6 +427,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Launch the review cycle — employees and managers receive notifications',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/performance/perf-1.mp4`,
   },
   {
     id: 'perf-2',
@@ -417,6 +446,7 @@ export const videoTutorials: VideoTutorial[] = [
       'At review time, goals and feedback are auto-aggregated into the review form',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/performance/perf-2.mp4`,
   },
 
   // Learning & Development (2 videos)
@@ -436,6 +466,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Set deadlines and track completion rates from the Learning dashboard',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/learning/ld-1.mp4`,
   },
   {
     id: 'ld-2',
@@ -454,6 +485,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Managers validate and approve skill updates for their team members',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/learning/ld-2.mp4`,
   },
 
   // Self-Service Portal (2 videos)
@@ -473,6 +505,7 @@ export const videoTutorials: VideoTutorial[] = [
       'View company policies, announcements, and directory',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/self-service/ss-1.mp4`,
   },
   {
     id: 'ss-2',
@@ -490,6 +523,7 @@ export const videoTutorials: VideoTutorial[] = [
       'The AI can also help you navigate — "Take me to my payslips"',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/self-service/ss-2.mp4`,
   },
 
   // AI Features (3 videos)
@@ -510,6 +544,7 @@ export const videoTutorials: VideoTutorial[] = [
       'AI Document Generation — auto-creates offer letters, contracts, and policies',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/ai/ai-1.mp4`,
   },
   {
     id: 'ai-2',
@@ -528,6 +563,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Export data to CSV or PDF for board presentations and strategic planning',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/ai/ai-2.mp4`,
   },
   {
     id: 'ai-3',
@@ -547,6 +583,7 @@ export const videoTutorials: VideoTutorial[] = [
       'Monitor workflow performance from the Analytics → Workflow Dashboard',
     ],
     thumbnail: '',
+    videoUrl: `${VIDEO_BASE_URL}/ai/ai-3.mp4`,
   },
 ]
 
@@ -645,6 +682,7 @@ const faqItems = [
 export function VideoCard({ video, onClick }: { video: VideoTutorial; onClick: () => void }) {
   const colors = trainingCategoryColors[video.category] || trainingCategoryColors['Dashboard & Navigation']
   const CategoryIcon = trainingCategoryIcons[video.category] || BookOpen
+  const hasVideo = !!video.videoUrl
 
   return (
     <Card
@@ -653,7 +691,14 @@ export function VideoCard({ video, onClick }: { video: VideoTutorial; onClick: (
     >
       {/* Thumbnail Area */}
       <div className={cn('relative h-36 rounded-t-lg bg-gradient-to-br overflow-hidden', colors.gradient)}>
-        <div className="absolute inset-0 flex items-center justify-center">
+        {video.thumbnailUrl ? (
+          <img
+            src={video.thumbnailUrl}
+            alt={video.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : null}
+        <div className={cn('absolute inset-0 flex items-center justify-center', !video.thumbnailUrl && 'bg-gradient-to-br', colors.gradient)}>
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm transition-transform duration-200 group-hover:scale-110">
             <Play className="h-7 w-7 text-white ml-0.5" />
           </div>
@@ -665,8 +710,8 @@ export function VideoCard({ video, onClick }: { video: VideoTutorial; onClick: (
         </div>
         {/* Steps Badge */}
         <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-          <BookOpen className="h-3 w-3" />
-          {video.steps.length} steps
+          {hasVideo ? <Video className="h-3 w-3" /> : <BookOpen className="h-3 w-3" />}
+          {hasVideo ? 'Video' : `${video.steps.length} steps`}
         </div>
         {/* Category Badge */}
         <div className="absolute top-2 left-2">
@@ -675,6 +720,15 @@ export function VideoCard({ video, onClick }: { video: VideoTutorial; onClick: (
             {video.category}
           </Badge>
         </div>
+        {/* Video available indicator */}
+        {hasVideo && (
+          <div className="absolute top-2 right-2">
+            <Badge className="gap-1 text-[10px] font-medium bg-emerald-500/80 text-white border-0 backdrop-blur-sm">
+              <Video className="h-3 w-3" />
+              HD
+            </Badge>
+          </div>
+        )}
       </div>
 
       <CardContent className="p-4">
@@ -713,6 +767,8 @@ export function VideoCard({ video, onClick }: { video: VideoTutorial; onClick: (
 
 // ─── Tutorial Player Dialog ───────────────────────────────────────────────────
 
+type PlayerMode = 'video' | 'tutorial'
+
 export function TutorialPlayerDialog({
   video,
   open,
@@ -722,13 +778,24 @@ export function TutorialPlayerDialog({
   open: boolean
   onClose: () => void
 }) {
+  // Compute initial mode based on videoUrl availability
+  // Since Dialog has key={dialogKey}, it remounts on video change, resetting all state
+  const hasVideo = !!video?.videoUrl
+  const initialMode: PlayerMode = hasVideo ? 'video' : 'tutorial'
+
   const [currentStep, setCurrentStep] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [mode, setMode] = useState<PlayerMode>(initialMode)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoError, setVideoError] = useState(false)
 
   const colors = video
     ? trainingCategoryColors[video.category] || trainingCategoryColors['Dashboard & Navigation']
     : trainingCategoryColors['Dashboard & Navigation']
   const CategoryIcon = video ? trainingCategoryIcons[video.category] || BookOpen : BookOpen
+
+  // Reset state when video changes - dialogKey on Dialog forces remount
+  const dialogKey = video?.id ?? 'no-video'
 
   const handleOpen = useCallback((isOpen: boolean) => {
     if (!isOpen) {
@@ -736,12 +803,25 @@ export function TutorialPlayerDialog({
       setTimeout(() => {
         setCurrentStep(0)
         setIsPlaying(false)
+        setVideoError(false)
       }, 200)
     }
   }, [onClose])
 
-  // Use key based on video id to reset state when video changes
-  const dialogKey = video?.id ?? 'no-video'
+  // Handle fullscreen
+  const handleFullscreen = useCallback(() => {
+    if (videoRef.current) {
+      if (videoRef.current.requestFullscreen) {
+        videoRef.current.requestFullscreen()
+      }
+    }
+  }, [])
+
+  // Handle video chapter click
+  const handleChapterClick = useCallback((index: number) => {
+    setCurrentStep(index)
+    // Could seek video to a timestamp based on chapter index in future
+  }, [])
 
   if (!video) return null
 
@@ -753,10 +833,14 @@ export function TutorialPlayerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpen} key={dialogKey}>
-      <DialogContent className="sm:max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
+      <DialogContent className={cn(
+        'p-0 gap-0 overflow-hidden',
+        mode === 'video' ? 'sm:max-w-4xl' : 'sm:max-w-2xl'
+      )} showCloseButton={false}>
         {/* Accessible title/description (visually hidden) */}
         <DialogTitle className="sr-only">{video.title}</DialogTitle>
         <DialogDescription className="sr-only">{video.description}</DialogDescription>
+
         {/* Title Bar */}
         <div className={cn('bg-gradient-to-r px-5 py-3 text-white', colors.gradient)}>
           <div className="flex items-center justify-between">
@@ -770,10 +854,39 @@ export function TutorialPlayerDialog({
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              {/* Mode Toggle */}
+              {hasVideo && (
+                <div className="flex items-center rounded-lg bg-white/10 p-0.5 backdrop-blur-sm">
+                  <button
+                    onClick={() => setMode('video')}
+                    className={cn(
+                      'flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all',
+                      mode === 'video'
+                        ? 'bg-white/25 text-white shadow-sm'
+                        : 'text-white/70 hover:text-white'
+                    )}
+                  >
+                    <Video className="h-3 w-3" />
+                    Video
+                  </button>
+                  <button
+                    onClick={() => setMode('tutorial')}
+                    className={cn(
+                      'flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all',
+                      mode === 'tutorial'
+                        ? 'bg-white/25 text-white shadow-sm'
+                        : 'text-white/70 hover:text-white'
+                    )}
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    Tutorial
+                  </button>
+                </div>
+              )}
               {video.role.map((role) => (
                 <Badge
                   key={role}
-                  className="text-[9px] px-1.5 py-0 bg-white/20 text-white border-0 backdrop-blur-sm"
+                  className="text-[9px] px-1.5 py-0 bg-white/20 text-white border-0 backdrop-blur-sm hidden sm:inline-flex"
                 >
                   {role === 'all' ? 'Everyone' : role.charAt(0).toUpperCase() + role.slice(1)}
                 </Badge>
@@ -782,157 +895,287 @@ export function TutorialPlayerDialog({
           </div>
         </div>
 
-        {/* Video Tutorial Area */}
-        {!isPlaying ? (
-          <div
-            className={cn('relative w-full aspect-video bg-gradient-to-br cursor-pointer flex items-center justify-center', colors.gradient)}
-            onClick={() => setIsPlaying(true)}
-          >
-            <div className="absolute inset-0 bg-black/10" />
-            {/* Decorative elements */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute top-6 left-8 h-16 w-24 rounded bg-white/30" />
-              <div className="absolute top-6 left-36 h-16 w-40 rounded bg-white/20" />
-              <div className="absolute bottom-12 left-8 right-8 h-24 rounded bg-white/10" />
-            </div>
-            {/* Play button */}
-            <div className="relative z-10 flex flex-col items-center gap-3">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/25 backdrop-blur-sm transition-transform hover:scale-105 shadow-xl">
-                <Play className="h-10 w-10 text-white ml-1" />
-              </div>
-              <div className="text-center">
-                <p className="text-white font-semibold text-base">Interactive Tutorial</p>
-                <p className="text-white/80 text-xs mt-0.5">Click to start the step-by-step walkthrough</p>
-              </div>
-            </div>
-            {/* Info badges */}
-            <div className="absolute bottom-3 left-3 flex items-center gap-2">
-              <div className="flex items-center gap-1 rounded-md bg-black/50 px-2 py-1 text-[10px] text-white backdrop-blur-sm">
-                <BookOpen className="h-3 w-3" />
-                {totalSteps} Steps
-              </div>
-              <div className="flex items-center gap-1 rounded-md bg-black/50 px-2 py-1 text-[10px] text-white backdrop-blur-sm">
-                <Clock className="h-3 w-3" />
-                {video.duration}
-              </div>
-            </div>
-          </div>
-        ) : (
+        {/* ─── Video Mode ─── */}
+        {mode === 'video' && hasVideo ? (
           <div className="w-full">
-            {/* Progress Bar */}
-            <div className="h-1 bg-gray-200 dark:bg-gray-700">
-              <div
-                className={cn('h-full bg-gradient-to-r transition-all duration-300', colors.gradient)}
-                style={{ width: `${progressPercent}%` }}
-              />
+            {/* Video Player Container */}
+            <div className="relative bg-black">
+              {!videoError ? (
+                <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+                  <video
+                    ref={videoRef}
+                    key={video.videoUrl}
+                    className="h-full w-full rounded-none object-contain"
+                    controls
+                    playsInline
+                    poster={video.thumbnailUrl || undefined}
+                    preload="metadata"
+                    onError={() => setVideoError(true)}
+                  >
+                    <source src={video.videoUrl} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                  {/* Fullscreen button overlay */}
+                  <button
+                    onClick={handleFullscreen}
+                    className="absolute bottom-14 right-3 flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
+                    style={{ opacity: 1 }}
+                    title="Fullscreen"
+                  >
+                    <Maximize className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                /* Video Error Fallback */
+                <div className="flex aspect-video w-full flex-col items-center justify-center bg-gray-900 text-white">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-800 mb-3">
+                    <Video className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium mb-1">Video not available yet</p>
+                  <p className="text-xs text-gray-400 mb-4 text-center px-8">
+                    The training video for this tutorial hasn&apos;t been uploaded yet. Switch to Tutorial mode for the step-by-step guide.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMode('tutorial')}
+                    className="gap-1.5 border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Switch to Tutorial Mode
+                  </Button>
+                </div>
+              )}
             </div>
 
-            {/* Current Step Display */}
-            <div className="px-6 py-5">
-              <div className="flex items-center gap-2 mb-4">
-                <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white bg-gradient-to-br', colors.gradient)}>
-                  {currentStep + 1}
-                </span>
-                <div className="flex-1">
-                  <p className="text-[11px] text-muted-foreground">Step {currentStep + 1} of {totalSteps}</p>
+            {/* Chapters Section Below Video */}
+            <div className="border-t border-gray-200 dark:border-gray-800">
+              <div className="px-5 py-3">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <List className="h-4 w-4 text-muted-foreground" />
+                    <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Chapters</h4>
+                    <Badge variant="secondary" className="text-[10px]">{totalSteps} steps</Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMode('tutorial')}
+                    className="gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                  >
+                    <MonitorPlay className="h-3.5 w-3.5" />
+                    Interactive Tutorial
+                  </Button>
                 </div>
-                <Badge variant="outline" className="text-[10px] gap-1">
-                  <Sparkles className="h-3 w-3" />
-                  Tutorial
-                </Badge>
-              </div>
 
-              {/* Step Content Card */}
-              <div className={cn('rounded-xl border-2 p-5 mb-5', colors.border, colors.bg)}>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-relaxed">
-                  {video.steps[currentStep]}
-                </p>
-              </div>
-
-              {/* Steps Overview */}
-              <div className="mb-5">
-                <p className="text-[11px] font-medium text-muted-foreground mb-2">All Steps</p>
-                <div className="flex gap-1.5 flex-wrap">
+                {/* Chapters List */}
+                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                   {video.steps.map((step, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setCurrentStep(idx)}
+                      onClick={() => handleChapterClick(idx)}
                       className={cn(
-                        'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-all duration-150',
+                        'flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-all duration-150',
                         idx === currentStep
-                          ? cn('bg-gradient-to-br text-white shadow-md', colors.gradient)
-                          : idx < currentStep
-                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                          ? cn('bg-gradient-to-r text-white', colors.gradient)
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                       )}
-                      title={step}
                     >
-                      {idx < currentStep ? <CheckCircle2 className="h-3.5 w-3.5" /> : idx + 1}
+                      <span className={cn(
+                        'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5',
+                        idx === currentStep
+                          ? 'bg-white/20 text-white'
+                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      )}>
+                        {idx + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          'text-xs font-medium line-clamp-2',
+                          idx === currentStep
+                            ? 'text-white'
+                            : 'text-gray-700 dark:text-gray-300'
+                        )}>
+                          {step}
+                        </p>
+                      </div>
+                      {idx === currentStep && (
+                        <Play className="h-3 w-3 shrink-0 mt-1 text-white" />
+                      )}
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Navigation */}
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={goPrev}
-                  disabled={currentStep === 0}
-                  className="gap-1.5"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <div className="text-xs text-muted-foreground">
-                  {currentStep + 1} / {totalSteps}
+            </div>
+          </div>
+        ) : (
+          /* ─── Tutorial Mode (existing step-by-step) ─── */
+          <>
+            {/* Video Tutorial Area */}
+            {!isPlaying ? (
+              <div
+                className={cn('relative w-full aspect-video bg-gradient-to-br cursor-pointer flex items-center justify-center', colors.gradient)}
+                onClick={() => setIsPlaying(true)}
+              >
+                <div className="absolute inset-0 bg-black/10" />
+                {/* Decorative elements */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-6 left-8 h-16 w-24 rounded bg-white/30" />
+                  <div className="absolute top-6 left-36 h-16 w-40 rounded bg-white/20" />
+                  <div className="absolute bottom-12 left-8 right-8 h-24 rounded bg-white/10" />
                 </div>
-                {currentStep < totalSteps - 1 ? (
-                  <Button
-                    size="sm"
-                    onClick={goNext}
-                    className={cn('gap-1.5 bg-gradient-to-r text-white border-0', colors.gradient)}
-                  >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={onClose}
-                    className={cn('gap-1.5 bg-gradient-to-r text-white border-0', colors.gradient)}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Done
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Description (shown when not playing) */}
-        {!isPlaying && (
-          <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-800">
-            <p className="text-sm text-muted-foreground">{video.description}</p>
-            <div className="mt-3">
-              <p className="text-[11px] font-medium text-muted-foreground mb-1.5">What you&apos;ll learn:</p>
-              <div className="space-y-1">
-                {video.steps.slice(0, 3).map((step, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                    <span className="line-clamp-1">{step}</span>
+                {/* Play button */}
+                <div className="relative z-10 flex flex-col items-center gap-3">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/25 backdrop-blur-sm transition-transform hover:scale-105 shadow-xl">
+                    <Play className="h-10 w-10 text-white ml-1" />
                   </div>
-                ))}
-                {video.steps.length > 3 && (
-                  <p className="text-[10px] text-muted-foreground pl-5.5">
-                    + {video.steps.length - 3} more steps
-                  </p>
+                  <div className="text-center">
+                    <p className="text-white font-semibold text-base">Interactive Tutorial</p>
+                    <p className="text-white/80 text-xs mt-0.5">Click to start the step-by-step walkthrough</p>
+                  </div>
+                </div>
+                {/* Info badges */}
+                <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-md bg-black/50 px-2 py-1 text-[10px] text-white backdrop-blur-sm">
+                    <BookOpen className="h-3 w-3" />
+                    {totalSteps} Steps
+                  </div>
+                  <div className="flex items-center gap-1 rounded-md bg-black/50 px-2 py-1 text-[10px] text-white backdrop-blur-sm">
+                    <Clock className="h-3 w-3" />
+                    {video.duration}
+                  </div>
+                </div>
+                {/* Switch to video if available */}
+                {hasVideo && (
+                  <div className="absolute bottom-3 right-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMode('video') }}
+                      className="flex items-center gap-1 rounded-md bg-black/50 px-2 py-1 text-[10px] text-white backdrop-blur-sm hover:bg-black/70 transition-colors"
+                    >
+                      <Video className="h-3 w-3" />
+                      Watch Video Instead
+                    </button>
+                  </div>
                 )}
               </div>
-            </div>
-          </div>
+            ) : (
+              <div className="w-full">
+                {/* Progress Bar */}
+                <div className="h-1 bg-gray-200 dark:bg-gray-700">
+                  <div
+                    className={cn('h-full bg-gradient-to-r transition-all duration-300', colors.gradient)}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+
+                {/* Current Step Display */}
+                <div className="px-6 py-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white bg-gradient-to-br', colors.gradient)}>
+                      {currentStep + 1}
+                    </span>
+                    <div className="flex-1">
+                      <p className="text-[11px] text-muted-foreground">Step {currentStep + 1} of {totalSteps}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Tutorial
+                    </Badge>
+                  </div>
+
+                  {/* Step Content Card */}
+                  <div className={cn('rounded-xl border-2 p-5 mb-5', colors.border, colors.bg)}>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-relaxed">
+                      {video.steps[currentStep]}
+                    </p>
+                  </div>
+
+                  {/* Steps Overview */}
+                  <div className="mb-5">
+                    <p className="text-[11px] font-medium text-muted-foreground mb-2">All Steps</p>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {video.steps.map((step, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentStep(idx)}
+                          className={cn(
+                            'flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold transition-all duration-150',
+                            idx === currentStep
+                              ? cn('bg-gradient-to-br text-white shadow-md', colors.gradient)
+                              : idx < currentStep
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                              : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                          )}
+                          title={step}
+                        >
+                          {idx < currentStep ? <CheckCircle2 className="h-3.5 w-3.5" /> : idx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goPrev}
+                      disabled={currentStep === 0}
+                      className="gap-1.5"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="text-xs text-muted-foreground">
+                      {currentStep + 1} / {totalSteps}
+                    </div>
+                    {currentStep < totalSteps - 1 ? (
+                      <Button
+                        size="sm"
+                        onClick={goNext}
+                        className={cn('gap-1.5 bg-gradient-to-r text-white border-0', colors.gradient)}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={onClose}
+                        className={cn('gap-1.5 bg-gradient-to-r text-white border-0', colors.gradient)}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Done
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Description (shown when not playing) */}
+            {!isPlaying && (
+              <div className="px-5 py-4 border-t border-gray-100 dark:border-gray-800">
+                <p className="text-sm text-muted-foreground">{video.description}</p>
+                <div className="mt-3">
+                  <p className="text-[11px] font-medium text-muted-foreground mb-1.5">What you&apos;ll learn:</p>
+                  <div className="space-y-1">
+                    {video.steps.slice(0, 3).map((step, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                        <span className="line-clamp-1">{step}</span>
+                      </div>
+                    ))}
+                    {video.steps.length > 3 && (
+                      <p className="text-[10px] text-muted-foreground pl-5.5">
+                        + {video.steps.length - 3} more steps
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>
@@ -1315,6 +1558,10 @@ export default function HelpTraining() {
                   <span className="text-muted-foreground">Categories</span>
                   <span className="font-semibold">{trainingCategories.length - 1}</span>
                 </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Video Tutorials</span>
+                  <span className="font-semibold">{videoTutorials.filter(v => v.videoUrl).length}</span>
+                </div>
                 <Separator />
                 <div className="space-y-2">
                   {trainingCategories.filter(c => c !== 'All').map(cat => {
@@ -1343,6 +1590,10 @@ export default function HelpTraining() {
               <CardContent className="space-y-3">
                 <div className="flex gap-2.5">
                   <ArrowRight className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">Click the Video/Tutorial toggle to switch between watching and reading</p>
+                </div>
+                <div className="flex gap-2.5">
+                  <ArrowRight className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
                   <p className="text-xs text-muted-foreground">Use the AI Assistant for instant answers to any HR question</p>
                 </div>
                 <div className="flex gap-2.5">
@@ -1352,10 +1603,6 @@ export default function HelpTraining() {
                 <div className="flex gap-2.5">
                   <ArrowRight className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
                   <p className="text-xs text-muted-foreground">Follow tutorials step-by-step in a separate browser tab for best results</p>
-                </div>
-                <div className="flex gap-2.5">
-                  <ArrowRight className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-muted-foreground">Check back regularly — new tutorials are added with every update</p>
                 </div>
               </CardContent>
             </Card>
