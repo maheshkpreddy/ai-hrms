@@ -36,6 +36,11 @@ model Company {
   surveys     Survey[]
   workflowDefs WorkflowDefinition[]
   shifts      Shift[]
+  projects    Project[]
+  tasks       Task[]
+  helpdeskTickets HelpdeskTicket[]
+  companyPolicies CompanyPolicy[]
+  requisitions ManpowerRequisition[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -149,6 +154,12 @@ model Employee {
   reviewsReceived PerformanceReview[] @relation("Reviewee")
   alumniRecord    AlumniRecord?
   shiftMembers    ShiftMember[]
+  projectMembers  ProjectMember[]
+  taskAssignments TaskAssignment[]
+  taskComments    TaskComment[]
+  performances    Performance[]
+  employeeSkills  EmployeeSkill[]
+  timesheets      Timesheet[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
@@ -705,6 +716,276 @@ model ComplianceItem {
   companyId   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ==================== PROJECTS ====================
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  status      String   @default("planning")
+  priority    String   @default("medium")
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  progress    Int      @default(0)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdBy   String?
+  members     ProjectMember[]
+  milestones  ProjectMilestone[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  role      String   @default("member")
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee  Employee @relation(fields: [employeeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, employeeId])
+}
+
+model ProjectMilestone {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  dueDate     DateTime?
+  status      String   @default("pending")
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== TASKS ====================
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  priority    String   @default("medium")
+  status      String   @default("todo")
+  dueDate     DateTime?
+  imageUrl    String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdBy   String?
+  assignments TaskAssignment[]
+  comments    TaskComment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model TaskComment {
+  id         String   @id @default(cuid())
+  content    String
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ==================== HELPDESK (Enhanced) ====================
+
+model HelpdeskTicket {
+  id             String   @id @default(cuid())
+  ticketId       String   @unique
+  requesterId    String?
+  requesterType  String   @default("employee")
+  category       String
+  subCategory    String?
+  priority       String   @default("medium")
+  subject        String
+  description    String?
+  attachmentUrl  String?
+  assignedAgentId String?
+  slaDeadline    DateTime?
+  status         String   @default("open")
+  resolution     String?
+  companyId      String?
+  company        Company? @relation(fields: [companyId], references: [id])
+  comments       HelpdeskTicketComment[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model HelpdeskTicketComment {
+  id        String   @id @default(cuid())
+  content   String
+  ticketId  String
+  ticket    HelpdeskTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  employeeId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== PERFORMANCE (Enhanced) ====================
+
+model Performance {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  reviewPeriod  String
+  reviewerId    String?
+  rating        Int      @default(0)
+  objectives    String?
+  achievements  String?
+  feedback      String?
+  selfReview    String?
+  goals         String?
+  attritionRisk Float    @default(0)
+  status        String   @default("draft")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ==================== RBAC ====================
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  companyId   String?
+  permissions RolePermission[]
+  users       UserRoleAssignment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RolePermission {
+  id       String   @id @default(cuid())
+  roleId   String
+  role     Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module   String
+  canRead  Boolean  @default(false)
+  canWrite Boolean  @default(false)
+  canDelete Boolean @default(false)
+  canExport Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roleId, module])
+}
+
+model UserRoleAssignment {
+  id       String   @id @default(cuid())
+  roleId   String
+  role     Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  userId   String
+  createdAt DateTime @default(now())
+}
+
+// ==================== SKILLS ====================
+
+model Skill {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    String?
+  description String?
+  employeeSkills EmployeeSkill[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model EmployeeSkill {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  skillId    String
+  skill      Skill    @relation(fields: [skillId], references: [id])
+  proficiency String  @default("intermediate")
+  yearsExp   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, skillId])
+}
+
+// ==================== POLICIES ====================
+
+model CompanyPolicy {
+  id          String   @id @default(cuid())
+  title       String
+  content     String?
+  category    String?
+  version     String?
+  effectiveDate DateTime?
+  status      String   @default("active")
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== TIMESHEETS ====================
+
+model Timesheet {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  weekStart   DateTime
+  weekEnd     DateTime
+  totalHours  Float    @default(0)
+  status      String   @default("draft")
+  approvedBy  String?
+  approvedAt  DateTime?
+  entries     TimesheetEntry[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, weekStart])
+}
+
+model TimesheetEntry {
+  id          String   @id @default(cuid())
+  timesheetId String
+  timesheet   Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+  date        DateTime
+  hours       Float    @default(0)
+  project     String?
+  task        String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==================== REQUISITIONS ====================
+
+model ManpowerRequisition {
+  id              String   @id @default(cuid())
+  title           String
+  department      String?
+  position        String?
+  positionsNeeded Int      @default(1)
+  priority        String   @default("medium")
+  justification   String?
+  status          String   @default("draft")
+  requestedBy     String?
+  approvedBy      String?
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ==================== AUDIT ====================
