@@ -190,18 +190,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setUserFromSession: (user: AuthUser) => {
-    // Find matching demo company or create from user data
-    const matchingCompany = DEMO_COMPANIES.find(c => c.code === user.companyCode);
-    const company = matchingCompany || (user.companyCode ? {
-      id: user.companyId || 'unknown',
+    // Use actual companyId from the session user if available
+    const company = user.companyId ? {
+      id: user.companyId,
       name: user.companyName || 'Unknown',
-      code: user.companyCode,
+      code: user.companyCode || '',
       industry: '',
       country: '',
-      currency: 'USD',
+      currency: user.companyCurrency || 'USD',
       employeeCount: 0,
       isActive: true,
-    } : DEMO_COMPANIES[0]);
+    } : DEMO_COMPANIES[0];
 
     set({
       isAuthenticated: true,

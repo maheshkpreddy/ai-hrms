@@ -55,7 +55,9 @@ export function Employees() {
       if (searchQuery) params.search = searchQuery;
       if (deptFilter !== 'all') params.departmentId = deptFilter;
       if (statusFilter !== 'all') params.status = statusFilter;
+      // Always pass companyId for proper filtering; API handles it
       if (currentCompany?.id) params.companyId = currentCompany.id;
+      params.limit = '50';
       const res = await getEmployees(params);
       setEmployees(res.data || []);
     } catch {
