@@ -55,6 +55,8 @@ import {
   Lock,
   Headphones,
   CalendarDays,
+  Layers,
+  Wrench,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { cn } from '@/lib/utils'
