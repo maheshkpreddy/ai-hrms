@@ -3,6 +3,37 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
+// Types for raw query results (only columns that exist in the actual DB)
+interface RawUser {
+  id: string
+  email: string
+  password: string
+  name: string
+  avatar: string | null
+  role: string
+  isActive: boolean
+  companyId: string | null
+  lastLogin: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface RawEmployee {
+  id: string
+  employeeId: string
+  avatar: string | null
+}
+
+interface RawCompany {
+  id: string
+  name: string
+  code: string
+  // Use isActive (boolean) which exists in current DB, fallback to status check
+  isActive: boolean | null
+  // status might or might not exist yet
+  status: string | null
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -20,7 +51,7 @@ export const authOptions: NextAuthOptions = {
           } catch {}
         }
 
-        await logToDb(`Credentials: email=${credentials?.email}, hasPwd=${!!credentials?.password}, companyCode=${credentials?.companyCode}, keys=${credentials ? Object.keys(credentials).join(',') : 'none'}`)
+        await logToDb(`Credentials: email=${credentials?.email}, hasPwd=${!!credentials?.password}, companyCode=${credentials?.companyCode}`)
 
         if (!credentials?.email || !credentials?.password) {
           await logToDb('FAIL: Missing email or password')
@@ -28,10 +59,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const user = await db.user.findUnique({
-            where: { email: credentials.email },
-            include: { company: true, employee: true },
-          })
+          // ─── Use raw SQL to avoid Prisma schema mismatch ───
+          // The Prisma client may reference columns that don't exist in the DB yet.
+          // Raw SQL lets us select only the columns that actually exist.
+
+          // Step 1: Find user by email (selecting only known-existing columns)
+          const users: RawUser[] = await db.$queryRaw`
+            SELECT id, email, password, name, avatar, role, "isActive", "companyId", "lastLogin", "createdAt", "updatedAt"
+            FROM "User" WHERE email = ${credentials.email}
+          `
+
+          const user = users[0]
 
           if (!user) {
             await logToDb(`FAIL: User not found: ${credentials.email}`)
@@ -43,26 +81,35 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          // Verify company code if provided
+          // Step 2: Verify company code if provided
+          let companyData: { id: string; name: string; code: string } | null = null
           if (credentials.companyCode) {
-            const company = await db.company.findUnique({
-              where: { code: credentials.companyCode.toUpperCase() },
-            })
+            // Try to find company using only columns that exist
+            const companies: RawCompany[] = await db.$queryRaw`
+              SELECT id, name, code, "isActive", status FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
+            `
+            const company = companies[0]
             if (!company) {
               await logToDb(`FAIL: Company not found: ${credentials.companyCode}`)
               return null
             }
-            if (company.status !== 'active') {
-              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, status=${company.status}`)
+
+            // Check if company is active - support both isActive (boolean) and status (text)
+            const isActive = company.status === 'active' || company.isActive === true
+            if (!isActive) {
+              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, isActive=${company.isActive}, status=${company.status}`)
               return null
             }
+
             if (user.companyId && user.companyId !== company.id) {
               await logToDb(`FAIL: Company mismatch: userComp=${user.companyId}, expectedComp=${company.id}`)
               return null
             }
+
+            companyData = { id: company.id, name: company.name, code: company.code }
           }
 
-          // Compare password with bcrypt hash
+          // Step 3: Compare password with bcrypt hash
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
           if (!isPasswordValid) {
@@ -72,17 +119,29 @@ export const authOptions: NextAuthOptions = {
 
           await logToDb(`SUCCESS: Login for: ${credentials.email}, role: ${user.role}`)
 
-          // Update last login (non-critical)
+          // Step 4: Get employee info if linked
+          let employeeData: { id: string; employeeId: string } | null = null
           try {
-            await db.user.update({
-              where: { id: user.id },
-              data: { lastLogin: new Date() },
-            })
+            const employees: RawEmployee[] = await db.$queryRaw`
+              SELECT id, "employeeId", avatar FROM "Employee" WHERE "userId" = ${user.id}
+            `
+            if (employees[0]) {
+              employeeData = { id: employees[0].id, employeeId: employees[0].employeeId }
+            }
+          } catch {
+            // Employee lookup is non-critical
+          }
+
+          // Step 5: Update last login (non-critical)
+          try {
+            await db.$executeRaw`
+              UPDATE "User" SET "lastLogin" = NOW() WHERE id = ${user.id}
+            `
           } catch (e) {
             console.error('Failed to update lastLogin:', e)
           }
 
-          // Create audit log (non-critical)
+          // Step 6: Create audit log (non-critical)
           try {
             await db.auditLog.create({
               data: {
@@ -120,11 +179,11 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             role: user.role,
             companyId: user.companyId,
-            avatar: user.avatar || user.employee?.avatar || null,
-            employeeId: user.employee?.id || null,  // Database UUID for API lookups
-            employeeCode: user.employee?.employeeId || null,  // Human-readable code like EMP001
-            companyCode: user.company?.code || credentials.companyCode?.toUpperCase() || null,
-            companyName: user.company?.name || null,
+            avatar: user.avatar || employeeData?.avatar || null,
+            employeeId: employeeData?.id || null,
+            employeeCode: employeeData?.employeeId || null,
+            companyCode: companyData?.code || credentials.companyCode?.toUpperCase() || null,
+            companyName: companyData?.name || null,
             dashboard: roleToDashboard[user.role] || 'employee',
           }
         } catch (error) {

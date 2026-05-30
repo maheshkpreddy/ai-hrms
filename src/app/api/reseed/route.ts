@@ -117,57 +117,19 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await bcrypt.hash('admin123', 12);
 
     // =====================================================================
-    // CRITICAL: COMPANY CREATION using Prisma client (matches current schema)
-    // Schema fields: id, name, legalName, code, gstVat, panTanCin,
-    //   registrationNumber, industry, logo, domain, address, country, state,
-    //   city, currency, timezone, payrollCycle, financialYear, defaultLanguage,
-    //   status, parentId, createdAt, updatedAt
+    // CRITICAL: COMPANY CREATION using raw SQL (only existing DB columns)
+    // Current DB columns: id, name, code, industry, logo, domain, country,
+    //   currency, timezone, isActive, parentId, createdAt, updatedAt
     // =====================================================================
 
-    const marq = await db.company.create({
-      data: {
-        name: 'MARQ AI Technologies',
-        legalName: 'MARQ AI Technologies Pvt. Ltd.',
-        code: 'MARQ',
-        gstVat: '06AABCM1234F1Z5',
-        panTanCin: 'AABCM1234F',
-        industry: 'AI & Technology',
-        domain: 'marqai.com',
-        address: '101, Cyber City, DLF Phase 2',
-        country: 'IN',
-        state: 'Haryana',
-        city: 'Gurugram',
-        currency: 'INR',
-        timezone: 'Asia/Kolkata',
-        payrollCycle: 'monthly',
-        financialYear: 'April-March',
-        defaultLanguage: 'en',
-        status: 'active',
-      }
-    });
+    await db.$executeRawUnsafe(`INSERT INTO "Company" (id, name, code, industry, logo, domain, country, currency, timezone, "isActive", "createdAt", "updatedAt") VALUES (gen_random_uuid()::text, 'MARQ AI Technologies', 'MARQ', 'AI & Technology', NULL, 'marqai.com', 'IN', 'INR', 'Asia/Kolkata', true, NOW(), NOW())`);
+    const marqRows: { id: string }[] = await db.$queryRawUnsafe(`SELECT id FROM "Company" WHERE code = 'MARQ'`);
+    const marq = marqRows[0];
     console.log('Company MARQ created:', marq.id);
 
-    const tcg = await db.company.create({
-      data: {
-        name: 'TechCorp Global',
-        legalName: 'TechCorp Global Inc.',
-        code: 'TCGC',
-        gstVat: null,
-        panTanCin: null,
-        industry: 'IT Services',
-        domain: 'techcorp.com',
-        address: '500 Market Street, Suite 200',
-        country: 'US',
-        state: 'CA',
-        city: 'San Francisco',
-        currency: 'USD',
-        timezone: 'America/Los_Angeles',
-        payrollCycle: 'bi-weekly',
-        financialYear: 'January-December',
-        defaultLanguage: 'en',
-        status: 'active',
-      }
-    });
+    await db.$executeRawUnsafe(`INSERT INTO "Company" (id, name, code, industry, logo, domain, country, currency, timezone, "isActive", "createdAt", "updatedAt") VALUES (gen_random_uuid()::text, 'TechCorp Global', 'TCGC', 'IT Services', NULL, 'techcorp.com', 'US', 'USD', 'America/Los_Angeles', true, NOW(), NOW())`);
+    const tcgRows: { id: string }[] = await db.$queryRawUnsafe(`SELECT id FROM "Company" WHERE code = 'TCGC'`);
+    const tcg = tcgRows[0];
     console.log('Company TCGC created:', tcg.id);
 
     // =====================================================================

@@ -10,31 +10,35 @@ export async function GET() {
     const password = 'admin123';
     const companyCode = 'MARQ';
 
-    // Step 1: Find user
-    const user = await db.user.findUnique({
-      where: { email },
-      include: { company: true, employee: true },
-    });
+    // Step 1: Find user using raw SQL (avoids schema mismatch)
+    const users: any[] = await db.$queryRaw`
+      SELECT id, email, password, name, role, "isActive", "companyId"
+      FROM "User" WHERE email = ${email}
+    `;
 
-    if (!user) {
+    if (!users[0]) {
       return NextResponse.json({ step: 'find_user', error: 'User not found', email });
     }
+
+    const user = users[0];
 
     // Step 2: Check isActive
     if (!user.isActive) {
       return NextResponse.json({ step: 'is_active', error: 'User is not active', userId: user.id });
     }
 
-    // Step 3: Verify company code
+    // Step 3: Verify company code using raw SQL
     if (companyCode) {
-      const company = await db.company.findUnique({
-        where: { code: companyCode.toUpperCase() },
-      });
-      if (!company) {
+      const companies: any[] = await db.$queryRaw`
+        SELECT id, name, code, "isActive", status FROM "Company" WHERE code = ${companyCode.toUpperCase()}
+      `;
+      if (!companies[0]) {
         return NextResponse.json({ step: 'company_code', error: 'Company not found', companyCode, userCompanyId: user.companyId });
       }
-      if (company.status !== 'active') {
-        return NextResponse.json({ step: 'company_active', error: 'Company is not active', companyCode, companyStatus: company.status });
+      const company = companies[0];
+      const isActive = company.status === 'active' || company.isActive === true;
+      if (!isActive) {
+        return NextResponse.json({ step: 'company_active', error: 'Company is not active', companyCode, isActive: company.isActive, status: company.status });
       }
       if (user.companyId && user.companyId !== company.id) {
         return NextResponse.json({ step: 'company_mismatch', error: 'User company does not match', userCompanyId: user.companyId, expectedCompanyId: company.id });
@@ -47,11 +51,22 @@ export async function GET() {
       return NextResponse.json({ step: 'password', error: 'Invalid password', passwordLength: password.length, hashLength: user.password.length, hashPrefix: user.password.substring(0, 10) });
     }
 
+    // Step 5: Get employee info
+    let employeeData = null;
+    try {
+      const employees: any[] = await db.$queryRaw`
+        SELECT id, "employeeId" FROM "Employee" WHERE "userId" = ${user.id}
+      `;
+      if (employees[0]) {
+        employeeData = { id: employees[0].id, employeeId: employees[0].employeeId };
+      }
+    } catch {}
+
     return NextResponse.json({
       step: 'success',
       user: { id: user.id, email: user.email, name: user.name, role: user.role, companyId: user.companyId },
-      company: user.company ? { id: user.company.id, name: user.company.name, code: user.company.code } : null,
-      employee: user.employee ? { id: user.employee.id, employeeId: user.employee.employeeId } : null,
+      company: companyCode ? { code: companyCode } : null,
+      employee: employeeData,
     });
   } catch (error: any) {
     return NextResponse.json({ step: 'exception', error: error.message, stack: error.stack?.substring(0, 500) }, { status: 500 });
