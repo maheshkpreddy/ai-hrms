@@ -4,7 +4,6 @@ export type ModuleKey =
   | 'dashboard'
   | 'masters'
   | 'employees'
-  | 'company'
   | 'rbac'
   | 'talent'
   | 'recruitment'

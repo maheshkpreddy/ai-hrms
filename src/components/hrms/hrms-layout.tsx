@@ -50,7 +50,6 @@ import ModuleHome from './ModuleHome';
 const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
   dashboard: Dashboard,
   employees: EmployeeManagement,
-  company: CompanyManagement,
   masters: MasterManagement,
   attendance: TimeAttendance,
   leave: LeaveManagement,
@@ -93,7 +92,6 @@ const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
   job_portal: JobPortal,
   ai_interview: AIInterviewModule,
   ai_chatbot: AIChatbot,
-  companies: CompanyManagement,
 };
 
 export function HRMSLayout() {

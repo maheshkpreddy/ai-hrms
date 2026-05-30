@@ -262,6 +262,16 @@ interface DocumentTypeMaster {
   status: 'active' | 'inactive'
 }
 
+interface PolicyMaster {
+  id: string
+  title: string
+  company: string
+  category: string
+  version: string
+  effectiveDate: string
+  status: 'active' | 'inactive' | 'draft'
+}
+
 type MasterRecord =
   | CompanyMaster
   | BranchMaster
@@ -272,6 +282,7 @@ type MasterRecord =
   | LeaveTypeMaster
   | SkillMaster
   | DocumentTypeMaster
+  | PolicyMaster
 
 // ─── Tab Configuration ─────────────────────────────────────────────────────────
 
@@ -296,6 +307,7 @@ const TABS: TabConfig[] = [
   { key: 'leave-types', label: 'Leave Type', icon: CalendarDays, subItemKey: 'leave-type-master', apiEndpoint: '/api/masters/leave-types' },
   { key: 'skills', label: 'Skill', icon: Wrench, subItemKey: 'skill-master', apiEndpoint: '/api/masters/skills' },
   { key: 'document-types', label: 'Document Type', icon: FileText, subItemKey: 'document-type-master', apiEndpoint: '/api/masters/document-types' },
+  { key: 'policies', label: 'Policies', icon: FileText, subItemKey: 'policies', apiEndpoint: '/api/masters/companies' },
 ]
 
 // ─── Sample Data ───────────────────────────────────────────────────────────────
@@ -456,19 +468,36 @@ const SAMPLE_DOCUMENT_TYPES: DocumentTypeMaster[] = [
   { id: 'dt-8', name: 'Medical Certificate', mandatoryOptional: 'optional', applicableModule: 'Attendance', expiryRequired: true, verificationRequired: false, status: 'inactive' },
 ]
 
+const SAMPLE_POLICIES: PolicyMaster[] = [
+  { id: 'pol-1', title: 'Leave Policy', company: 'MARQ AI Technologies', category: 'HR', version: '3.0', effectiveDate: '2025-04-01', status: 'active' },
+  { id: 'pol-2', title: 'Attendance Policy', company: 'MARQ AI Technologies', category: 'HR', version: '2.1', effectiveDate: '2025-04-01', status: 'active' },
+  { id: 'pol-3', title: 'Code of Conduct', company: 'MARQ AI Technologies', category: 'Compliance', version: '1.5', effectiveDate: '2025-01-01', status: 'active' },
+  { id: 'pol-4', title: 'Remote Work Policy', company: 'MARQ AI Technologies', category: 'HR', version: '2.0', effectiveDate: '2025-04-01', status: 'active' },
+  { id: 'pol-5', title: 'Data Security Policy', company: 'MARQ AI Technologies', category: 'IT', version: '1.2', effectiveDate: '2025-01-01', status: 'active' },
+  { id: 'pol-6', title: 'Travel & Expense Policy', company: 'MARQ AI Technologies', category: 'Finance', version: '2.0', effectiveDate: '2024-04-01', status: 'active' },
+  { id: 'pol-7', title: 'Anti-Harassment Policy', company: 'MARQ AI Technologies', category: 'Compliance', version: '1.0', effectiveDate: '2024-01-01', status: 'active' },
+  { id: 'pol-8', title: 'Leave Policy', company: 'Acme Corp', category: 'HR', version: '2.0', effectiveDate: '2025-01-01', status: 'active' },
+  { id: 'pol-9', title: 'IT Security Policy', company: 'Acme Corp', category: 'IT', version: '1.0', effectiveDate: '2024-06-01', status: 'active' },
+  { id: 'pol-10', title: 'Dress Code Policy', company: 'Global Solutions', category: 'HR', version: '1.0', effectiveDate: '2024-01-01', status: 'inactive' },
+  { id: 'pol-11', title: 'Probation Policy', company: 'Acme Corp', category: 'HR', version: '1.1', effectiveDate: '2025-07-01', status: 'draft' },
+  { id: 'pol-12', title: 'Grievance Policy', company: 'Global Solutions', category: 'Compliance', version: '1.0', effectiveDate: '2025-06-01', status: 'draft' },
+]
+
 // ─── Helper: Status Badge ──────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: 'active' | 'inactive' }) {
+function StatusBadge({ status }: { status: 'active' | 'inactive' | 'draft' }) {
+  const draftClass = 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
+  const activeClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+  const inactiveClass = 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+  const config: Record<string, { label: string; className: string }> = {
+    active: { label: 'Active', className: activeClass },
+    inactive: { label: 'Inactive', className: inactiveClass },
+    draft: { label: 'Draft', className: draftClass },
+  }
+  const cfg = config[status] || config.active
   return (
-    <Badge
-      variant="secondary"
-      className={
-        status === 'active'
-          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-          : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-      }
-    >
-      {status === 'active' ? 'Active' : 'Inactive'}
+    <Badge variant="secondary" className={cfg.className}>
+      {cfg.label}
     </Badge>
   )
 }
@@ -519,10 +548,11 @@ export default function MasterManagement() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveTypeMaster[]>(SAMPLE_LEAVE_TYPES)
   const [skills, setSkills] = useState<SkillMaster[]>(SAMPLE_SKILLS)
   const [documentTypes, setDocumentTypes] = useState<DocumentTypeMaster[]>(SAMPLE_DOCUMENT_TYPES)
+  const [policies, setPolicies] = useState<PolicyMaster[]>(SAMPLE_POLICIES)
 
   // ── Search & Filter ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'draft'>('all')
 
   // ── Dialog State ─────────────────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false)
@@ -639,9 +669,10 @@ export default function MasterManagement() {
       case 'leave-types': return leaveTypes
       case 'skills': return skills
       case 'document-types': return documentTypes
+      case 'policies': return policies
       default: return []
     }
-  }, [activeTab, companies, branches, departments, designations, grades, shifts, leaveTypes, skills, documentTypes])
+  }, [activeTab, companies, branches, departments, designations, grades, shifts, leaveTypes, skills, documentTypes, policies])
 
   const currentData = getCurrentData()
 
@@ -679,6 +710,7 @@ export default function MasterManagement() {
       case 'leave-types': setLeaveTypes(newData as LeaveTypeMaster[]); break
       case 'skills': setSkills(newData as SkillMaster[]); break
       case 'document-types': setDocumentTypes(newData as DocumentTypeMaster[]); break
+      case 'policies': setPolicies(newData as PolicyMaster[]); break
     }
   }, [activeTab])
 
@@ -873,6 +905,7 @@ export default function MasterManagement() {
                       <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
                     </SelectContent>
                   </Select>
                   {(searchQuery || statusFilter !== 'all') && (
@@ -1392,6 +1425,18 @@ export default function MasterManagement() {
             <TableHead className="text-right">Actions</TableHead>
           </>
         )
+      case 'policies':
+        return (
+          <>
+            <TableHead className="pl-4">Policy Title</TableHead>
+            <TableHead className="hidden md:table-cell">Company</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead className="hidden md:table-cell">Version</TableHead>
+            <TableHead className="hidden lg:table-cell">Effective Date</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </>
+        )
       default:
         return (
           <>
@@ -1655,6 +1700,27 @@ export default function MasterManagement() {
             <TableCell className="text-right">{renderActions(record.id)}</TableCell>
           </TableRow>
         )
+      case 'policies':
+        return (
+          <TableRow key={record.id} className="group hover:bg-gray-50/50">
+            <TableCell className="pl-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-950">
+                  <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                </div>
+                <span className="text-sm font-medium">{record.title}</span>
+              </div>
+            </TableCell>
+            <TableCell className="hidden md:table-cell"><span className="text-xs">{record.company}</span></TableCell>
+            <TableCell>
+              <Badge variant="outline" className="text-[10px]">{record.category}</Badge>
+            </TableCell>
+            <TableCell className="hidden md:table-cell"><span className="text-xs font-mono">v{record.version}</span></TableCell>
+            <TableCell className="hidden lg:table-cell"><span className="text-xs">{record.effectiveDate}</span></TableCell>
+            <TableCell><StatusBadge status={record.status} /></TableCell>
+            <TableCell className="text-right">{renderActions(record.id)}</TableCell>
+          </TableRow>
+        )
       default:
         return null
     }
@@ -1677,6 +1743,7 @@ export default function MasterManagement() {
       case 'leave-types': return <LeaveTypeForm record={record as LeaveTypeMaster | null} mode={mode} />
       case 'skills': return <SkillForm record={record as SkillMaster | null} mode={mode} />
       case 'document-types': return <DocumentTypeForm record={record as DocumentTypeMaster | null} mode={mode} />
+      case 'policies': return <PolicyForm record={record as PolicyMaster | null} mode={mode} />
       default: return null
     }
   }
@@ -2278,6 +2345,99 @@ export default function MasterManagement() {
         <DialogFooter>
           <Button variant="outline" onClick={() => { if (mode === 'add') setAddOpen(false); else setEditOpen(false); setEditingRecord(null) }}>Cancel</Button>
           <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700">{mode === 'add' ? 'Create Document Type' : 'Update Document Type'}</Button>
+        </DialogFooter>
+      </div>
+    )
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // POLICY FORM
+  // ──────────────────────────────────────────────────────────────────────────
+
+  function PolicyForm({ record, mode }: { record: PolicyMaster | null; mode: 'add' | 'edit' }) {
+    const [form, setForm] = useState({
+      title: record?.title || '',
+      company: record?.company || '',
+      category: record?.category || 'HR',
+      version: record?.version || '1.0',
+      effectiveDate: record?.effectiveDate || new Date().toISOString().split('T')[0],
+      status: record?.status || 'draft' as 'active' | 'inactive' | 'draft',
+    })
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Policy Title *</Label>
+            <Input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Enter policy title" />
+          </div>
+          <div className="space-y-2">
+            <Label>Company *</Label>
+            <Select value={form.company} onValueChange={(v) => setForm(f => ({ ...f, company: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+              <SelectContent>
+                {companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Category *</Label>
+            <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HR">HR</SelectItem>
+                <SelectItem value="IT">IT</SelectItem>
+                <SelectItem value="Finance">Finance</SelectItem>
+                <SelectItem value="Compliance">Compliance</SelectItem>
+                <SelectItem value="Operations">Operations</SelectItem>
+                <SelectItem value="Admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Version</Label>
+            <Input value={form.version} onChange={(e) => setForm(f => ({ ...f, version: e.target.value }))} placeholder="e.g. 1.0" />
+          </div>
+          <div className="space-y-2">
+            <Label>Effective Date</Label>
+            <Input type="date" value={form.effectiveDate} onChange={(e) => setForm(f => ({ ...f, effectiveDate: e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={form.status} onValueChange={(v: any) => setForm(f => ({ ...f, status: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { addOpen ? setAddOpen(false) : setEditOpen(false) }}>Cancel</Button>
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700"
+            disabled={!form.title || !form.company}
+            onClick={() => {
+              const newRecord: PolicyMaster = {
+                id: record?.id || genId(),
+                ...form,
+              }
+              if (mode === 'add') {
+                updateData([...currentData, newRecord] as MasterRecord[])
+                setAddOpen(false)
+                toast({ title: 'Policy Created', description: `${form.title} has been created successfully.` })
+              } else {
+                const newData = currentData.map(r => r.id === newRecord.id ? newRecord : r) as MasterRecord[]
+                updateData(newData)
+                setEditOpen(false)
+                toast({ title: 'Policy Updated', description: `${form.title} has been updated successfully.` })
+              }
+            }}
+          >
+            {mode === 'add' ? 'Create Policy' : 'Save Changes'}
+          </Button>
         </DialogFooter>
       </div>
     )

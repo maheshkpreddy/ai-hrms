@@ -122,17 +122,6 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    key: 'company',
-    label: 'Company',
-    icon: Building2,
-    aiPowered: false,
-    color: 'from-slate-500 to-gray-600',
-    subItems: [
-      { key: 'company-info', label: 'Company Info', icon: Building2 },
-      { key: 'policies', label: 'Policies', icon: FileText },
-    ],
-  },
-  {
     key: 'masters',
     label: 'Masters',
     icon: ClipboardList,
@@ -151,6 +140,7 @@ const navItems: NavItem[] = [
       { key: 'leave-type-master', label: 'Leave Types', icon: CalendarDays },
       { key: 'skill-master', label: 'Skills', icon: Wrench },
       { key: 'document-type-master', label: 'Document Types', icon: FileText },
+      { key: 'policies', label: 'Policies', icon: FileText },
     ],
   },
   {
@@ -590,7 +580,7 @@ function NavItemButton({
 
       {/* Sub-menu items */}
       {!collapsed && expanded && item.subItems.length > 0 && (
-        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3 max-h-60 overflow-y-auto sidebar-scroll">
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3 max-h-80 overflow-y-auto sidebar-scroll">
           {item.subItems.map((subItem) => {
             const SubIcon = subItem.icon
             const isSubActive = activeSubItem === subItem.key
