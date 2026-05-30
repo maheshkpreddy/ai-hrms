@@ -435,15 +435,26 @@ export default function LoginPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 mb-5">
-                  <Sparkles className="w-7 h-7 text-emerald-400" />
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl overflow-hidden mb-5">
+                  <img
+                    src="/eh2r-logo.png"
+                    alt="eh2r AI"
+                    className="w-full h-full object-contain rounded-2xl"
+                  />
                 </div>
                 <h1 className="text-4xl font-bold text-white mb-1 tracking-tight">
                   eh2r AI
                 </h1>
-                <p className="text-emerald-400/80 text-sm font-medium uppercase tracking-[0.2em]">
-                  An AI Product of MARQ AI
-                </p>
+                <div className="flex items-center gap-1.5 justify-center">
+                  <img
+                    src="/marq-logo.png"
+                    alt="MARQ AI"
+                    className="h-4 w-4 rounded-sm object-contain"
+                  />
+                  <p className="text-emerald-400/80 text-sm font-medium uppercase tracking-[0.2em]">
+                    An AI Product of MARQ AI
+                  </p>
+                </div>
                 <p className="text-slate-300/70 text-sm mt-3 leading-relaxed max-w-xs">
                   AI-Powered Human Resource Management System. Transform your HR operations with intelligent automation.
                 </p>
@@ -533,13 +544,24 @@ export default function LoginPage() {
               animate={{ opacity: 1, y: 0 }}
               className="lg:hidden text-center mb-6"
             >
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 mb-3">
-                <Sparkles className="w-7 h-7 text-emerald-400" />
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl overflow-hidden mb-3">
+                <img
+                  src="/eh2r-logo.png"
+                  alt="eh2r AI"
+                  className="w-full h-full object-contain rounded-2xl"
+                />
               </div>
               <h1 className="text-2xl font-bold text-white">eh2r AI</h1>
-              <p className="text-emerald-400/80 text-[10px] font-medium uppercase tracking-[0.2em] mt-0.5">
-                An AI Product of MARQ AI
-              </p>
+              <div className="flex items-center gap-1.5 justify-center mt-0.5">
+                <img
+                  src="/marq-logo.png"
+                  alt="MARQ AI"
+                  className="h-3 w-3 rounded-sm object-contain"
+                />
+                <p className="text-emerald-400/80 text-[10px] font-medium uppercase tracking-[0.2em]">
+                  An AI Product of MARQ AI
+                </p>
+              </div>
             </motion.div>
 
             {/* ─── PWA Install Banner (Always Visible) ─── */}

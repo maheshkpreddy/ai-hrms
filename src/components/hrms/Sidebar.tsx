@@ -682,11 +682,15 @@ function SidebarContent({
         {/* Logo */}
         <div
           className={cn(
-            'flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 transition-all duration-300',
+            'flex shrink-0 items-center justify-center rounded-lg overflow-hidden transition-all duration-300',
             collapsed ? 'size-9' : 'size-10'
           )}
         >
-          <Sparkles className="size-5 text-white" />
+          <img
+            src="/eh2r-logo.png"
+            alt="eh2r AI"
+            className="size-full object-contain rounded-lg"
+          />
         </div>
 
         {!collapsed && (
@@ -694,9 +698,16 @@ function SidebarContent({
             <span className="text-lg font-bold tracking-tight text-white">
               eh2r AI
             </span>
-            <span className="text-[9px] font-medium uppercase tracking-[0.15em] text-emerald-400/80">
-              An AI Product of MARQ AI
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <img
+                src="/marq-logo.png"
+                alt="MARQ AI"
+                className="h-3 w-3 rounded-sm object-contain"
+              />
+              <span className="text-[9px] font-medium uppercase tracking-[0.15em] text-emerald-400/80">
+                An AI Product of MARQ AI
+              </span>
+            </div>
           </div>
         )}
 

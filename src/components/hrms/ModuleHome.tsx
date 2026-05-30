@@ -459,11 +459,11 @@ export default function ModuleHome() {
         </div>
 
         {/* Module Categories */}
-        <div className="space-y-10">
+        <div className="space-y-6">
           {categories.map((category) => (
             <div key={category.title}>
               {/* Category Header */}
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-3">
                 <h2 className="text-lg font-semibold text-foreground tracking-tight">
                   {category.title}
                 </h2>
@@ -474,43 +474,39 @@ export default function ModuleHome() {
               </div>
 
               {/* Module Grid */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {category.modules.map((mod) => {
                   const Icon = mod.icon
                   return (
                     <Card
                       key={mod.key}
-                      className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-300 overflow-hidden"
+                      className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300 overflow-hidden"
                       onClick={() => selectModule(mod.key)}
                     >
-                      <CardContent className="p-5">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className={`rounded-xl p-2.5 ${mod.iconBg}`}>
-                            <Icon className="h-6 w-6" />
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className={`rounded-lg p-1.5 ${mod.iconBg}`}>
+                            <Icon className="h-4 w-4" />
                           </div>
                           {mod.aiPowered && (
                             <Badge
                               variant="secondary"
-                              className="gap-0.5 text-[10px] bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 px-1.5 py-0"
+                              className="gap-0.5 text-[8px] bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 px-1 py-0"
                             >
-                              <Sparkles className="size-2.5" />
+                              <Sparkles className="size-2" />
                               AI
                             </Badge>
                           )}
                         </div>
-                        <h3 className="font-semibold text-sm text-foreground mb-1 group-hover:text-emerald-700 transition-colors">
+                        <h3 className="font-medium text-xs text-foreground group-hover:text-emerald-700 transition-colors truncate">
                           {mod.label}
                         </h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                        <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
                           {mod.description}
                         </p>
-                        <div className="flex items-center text-emerald-600 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                          Open Module
-                          <ArrowRight className="ml-1 size-3" />
-                        </div>
                       </CardContent>
                       {/* Bottom gradient accent */}
-                      <div className={`h-1 w-full bg-gradient-to-r ${mod.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                      <div className={`h-0.5 w-full bg-gradient-to-r ${mod.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-200`} />
                     </Card>
                   )
                 })}
