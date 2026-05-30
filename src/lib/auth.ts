@@ -13,7 +13,16 @@ export const authOptions: NextAuthOptions = {
         companyCode: { label: 'Company Code', type: 'text' },
       },
       async authorize(credentials) {
+        // Debug: Log what credentials we receive
+        console.log('[AUTH DEBUG] credentials received:', {
+          email: credentials?.email,
+          hasPassword: !!credentials?.password,
+          companyCode: credentials?.companyCode,
+          allKeys: credentials ? Object.keys(credentials) : [],
+        })
+
         if (!credentials?.email || !credentials?.password) {
+          console.log('[AUTH DEBUG] Missing email or password')
           return null
         }
 
@@ -24,10 +33,12 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
+            console.log('[AUTH DEBUG] User not found:', credentials.email)
             return null
           }
 
           if (!user.isActive) {
+            console.log('[AUTH DEBUG] User not active:', credentials.email)
             return null
           }
 
@@ -37,12 +48,15 @@ export const authOptions: NextAuthOptions = {
               where: { code: credentials.companyCode.toUpperCase() },
             })
             if (!company) {
+              console.log('[AUTH DEBUG] Company not found:', credentials.companyCode)
               return null
             }
             if (!company.isActive) {
+              console.log('[AUTH DEBUG] Company not active:', credentials.companyCode)
               return null
             }
             if (user.companyId && user.companyId !== company.id) {
+              console.log('[AUTH DEBUG] Company mismatch:', { userCompanyId: user.companyId, expectedCompanyId: company.id })
               return null
             }
           }
@@ -51,8 +65,11 @@ export const authOptions: NextAuthOptions = {
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
           if (!isPasswordValid) {
+            console.log('[AUTH DEBUG] Invalid password for:', credentials.email)
             return null
           }
+
+          console.log('[AUTH DEBUG] Login successful for:', credentials.email)
 
           // Update last login (non-critical)
           try {
@@ -110,7 +127,7 @@ export const authOptions: NextAuthOptions = {
             dashboard: roleToDashboard[user.role] || 'employee',
           }
         } catch (error) {
-          console.error('Auth error:', error)
+          console.error('[AUTH DEBUG] Auth error:', error)
           return null
         }
       },
