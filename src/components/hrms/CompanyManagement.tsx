@@ -2,111 +2,84 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  Building2,
-  Users,
-  Clock,
-  MapPin,
-  Loader2,
-  X,
-  Check,
-  UserPlus,
-  LogIn,
-  ArrowRightLeft,
-  Eye,
-  Copy,
-  Phone,
-  Mail,
-  Globe,
-  MapPinned,
-  FileText,
+  Search, Plus, Pencil, Trash2, Building2, Users, MapPin, Loader2,
+  X, Check, Eye, Copy, Globe, Clock, FileText, Briefcase,
+  CalendarDays, Shield, CreditCard, BarChart3, Brain,
+  ChevronDown, ChevronRight, AlertTriangle, TrendingUp,
+  TrendingDown, DollarSign, UserCheck, UserX, Settings,
+  PartyPopper, Truck, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Progress } from '@/components/ui/progress'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useApi, apiPost, apiPatch, apiDelete } from '@/lib/useApi'
-import { useHRMSStore } from '@/lib/store'
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { useApi, apiPost, apiPatch, apiPut, apiDelete } from '@/lib/useApi'
+import { useAppStore } from '@/store/app-store'
 import { useToast } from '@/hooks/use-toast'
-import { useSession } from 'next-auth/react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Company {
+interface CompanyMaster {
   id: string
   name: string
+  legalName: string | null
   code: string
-  description: string | null
+  gstVat: string | null
+  panTanCin: string | null
+  registrationNumber: string | null
   industry: string | null
-  website: string | null
+  industryType: string | null
   logo: string | null
+  domain: string | null
   address: string | null
-  city: string | null
-  state: string | null
   country: string | null
-  pincode: string | null
-  phone: string | null
-  email: string | null
-  foundedYear: string | null
-  employeeCount: number | null
+  state: string | null
+  city: string | null
+  currency: string
+  timezone: string
+  payrollCycle: string | null
+  financialYear: string | null
+  defaultLanguage: string | null
   status: string
-  createdBy: string | null
+  parentId: string | null
+  parent?: { id: string; name: string; code: string } | null
+  parentName?: string
+  children?: { id: string; name: string; code: string }[]
+  _count?: {
+    members?: number
+    employees?: number
+    departments?: number
+    branches?: number
+    companyPolicies?: number
+    payrollStructures?: number
+    workflowDefs?: number
+    users?: number
+  }
   createdAt: string
   updatedAt: string
-  _count?: {
-    members: number
-    officeLocations: number
-  }
-}
-
-interface MemberEmployee {
-  id: string
-  firstName: string
-  lastName: string
-  employeeId: string
-  email: string
-  department: string | null
-  designation: string | null
-  avatar: string | null
 }
 
 interface CompanyMember {
@@ -117,133 +90,198 @@ interface CompanyMember {
   status: string
   joinedAt: string | null
   createdAt: string
-  updatedAt: string
-  employee: MemberEmployee
+  employee: {
+    id: string
+    firstName: string
+    lastName: string
+    employeeId: string
+    email: string
+    department: string | null
+    designation: string | null
+    avatar: string | null
+  }
 }
 
-interface OfficeLocation {
+interface Department {
   id: string
-  companyId: string
   name: string
+  head: string | null
+  description: string | null
+  budget: number | null
+  companyId: string
+  isActive: boolean
+  company?: { id: string; name: string; code: string }
+  createdAt: string
+}
+
+interface Branch {
+  id: string
+  name: string
+  code: string | null
   address: string | null
-  latitude: number
-  longitude: number
-  radius: number
+  city: string | null
+  state: string | null
+  country: string | null
+  pincode: string | null
+  phone: string | null
+  email: string | null
+  head: string | null
+  isActive: boolean
+  companyId: string
+  createdAt: string
+}
+
+interface PayrollStructure {
+  id: string
+  name: string
+  basicPay: number
+  hra: number
+  da: number
+  transportAllowance: number
+  medicalAllowance: number
+  specialAllowance: number
+  pfEmployee: number
+  pfEmployer: number
+  esiEmployee: number
+  esiEmployer: number
+  taxDeduction: number
+  companyId: string
+  createdAt: string
+}
+
+interface LeaveType {
+  id: string
+  name: string
+  code: string
+  isPaid: boolean
+  annualQuota: number
+  carryForwardRule: string | null
+  encashmentRule: string | null
+  applicableGender: string | null
+  applicableEmpType: string | null
+  approvalRequired: boolean
+  attachmentRequired: boolean
+  companyId: string | null
   isActive: boolean
   createdAt: string
-  updatedAt: string
-  company?: { id: string; name: string }
 }
 
-interface CompaniesResponse {
-  companies?: Company[]
-  data?: Company[]
-  pagination: { page: number; limit: number; total: number; totalPages: number }
+interface Holiday {
+  id: string
+  name: string
+  date: string
+  type: string
+  description: string | null
+  isRecurring: boolean
+  companyId: string
+  createdAt: string
 }
 
-interface MembersResponse {
-  members: CompanyMember[]
-  pagination: { page: number; limit: number; total: number; totalPages: number }
+interface ComplianceItem {
+  id: string
+  title: string
+  description: string | null
+  category: string
+  dueDate: string | null
+  status: string
+  assignee: string | null
+  companyId: string
+  createdAt: string
 }
 
-interface LocationsResponse {
-  locations: OfficeLocation[]
-  pagination: { page: number; limit: number; total: number; totalPages: number }
+interface Subscription {
+  id: string | null
+  companyId: string
+  planName: string
+  maxEmployees: number
+  maxBranches: number
+  features: string
+  startDate: string | null
+  endDate: string | null
+  billingCycle: string
+  amount: number
+  currency: string
+  status: string
+  trialEndsAt: string | null
+  autoRenew: boolean
 }
 
-// ─── Industry Options ─────────────────────────────────────────────────────────
+interface CompanyDetail {
+  id: string
+  name: string
+  payrollStructures: PayrollStructure[]
+  companyPolicies: { id: string; title: string; category: string; status: string }[]
+  _count: Record<string, number>
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const INDUSTRIES = [
-  'Technology',
-  'Healthcare',
-  'Finance',
-  'Education',
-  'Manufacturing',
-  'Retail',
-  'Real Estate',
-  'Media',
-  'Consulting',
-  'Logistics',
-  'Energy',
-  'Other',
+  'Technology', 'Healthcare', 'Finance', 'Education', 'Manufacturing',
+  'Retail', 'Real Estate', 'Media', 'Consulting', 'Logistics', 'Energy', 'Other',
 ]
+
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD', 'SGD', 'AED', 'JPY']
+
+const TIMEZONES = [
+  'UTC', 'America/New_York', 'America/Chicago', 'America/Los_Angeles',
+  'Europe/London', 'Europe/Berlin', 'Asia/Kolkata', 'Asia/Singapore',
+  'Asia/Tokyo', 'Australia/Sydney',
+]
+
+const PAYROLL_CYCLES = ['monthly', 'bi-monthly', 'semi-monthly', 'weekly']
+
+const HOLIDAY_TYPES = ['public', 'optional', 'company', 'restricted']
+
+const PLAN_FEATURES: Record<string, { label: string; maxEmployees: number; maxBranches: number; amount: number }> = {
+  free: { label: 'Free', maxEmployees: 10, maxBranches: 1, amount: 0 },
+  starter: { label: 'Starter', maxEmployees: 50, maxBranches: 3, amount: 29 },
+  professional: { label: 'Professional', maxEmployees: 250, maxBranches: 10, amount: 79 },
+  enterprise: { label: 'Enterprise', maxEmployees: 9999, maxBranches: 999, amount: 199 },
+}
+
+const MEMBER_ROLES = ['owner', 'hr', 'manager', 'employee']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getStatusBadge(status: string) {
-  const config: Record<string, { label: string; className: string }> = {
-    active: {
-      label: 'Active',
-      className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
-    },
-    inactive: {
-      label: 'Inactive',
-      className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-    },
+function statusBadge(status: string) {
+  const cfg: Record<string, { label: string; cls: string }> = {
+    active: { label: 'Active', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+    inactive: { label: 'Inactive', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+    pending: { label: 'Pending', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+    approved: { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+    rejected: { label: 'Rejected', cls: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
+    removed: { label: 'Removed', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
+    completed: { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+    overdue: { label: 'Overdue', cls: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
+    cancelled: { label: 'Cancelled', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
   }
-  const cfg = config[status] || config.active
-  return (
-    <Badge variant="secondary" className={`text-[11px] font-medium ${cfg.className}`}>
-      {cfg.label}
-    </Badge>
-  )
+  const c = cfg[status] || cfg.active
+  return <Badge variant="secondary" className={`text-[11px] font-medium ${c.cls}`}>{c.label}</Badge>
 }
 
-function getMemberStatusBadge(status: string) {
-  const config: Record<string, { label: string; className: string }> = {
-    pending: {
-      label: 'Pending',
-      className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
-    },
-    approved: {
-      label: 'Approved',
-      className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
-    },
-    rejected: {
-      label: 'Rejected',
-      className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
-    },
-    removed: {
-      label: 'Removed',
-      className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
-    },
+function roleBadge(role: string) {
+  const cfg: Record<string, { label: string; cls: string }> = {
+    owner: { label: 'Owner', cls: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-800' },
+    hr: { label: 'HR', cls: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-400 dark:border-sky-800' },
+    manager: { label: 'Manager', cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800' },
+    employee: { label: 'Employee', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800' },
   }
-  const cfg = config[status] || config.pending
-  return (
-    <Badge variant="secondary" className={`text-[11px] font-medium ${cfg.className}`}>
-      {cfg.label}
-    </Badge>
-  )
+  const c = cfg[role] || cfg.employee
+  return <Badge variant="outline" className={`text-[11px] font-medium ${c.cls}`}>{c.label}</Badge>
 }
 
-function getRoleBadge(role: string) {
-  const config: Record<string, { label: string; className: string }> = {
-    owner: {
-      label: 'Owner',
-      className: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-800',
-    },
-    hr: {
-      label: 'HR',
-      className: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950 dark:text-sky-400 dark:border-sky-800',
-    },
-    manager: {
-      label: 'Manager',
-      className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800',
-    },
-    employee: {
-      label: 'Employee',
-      className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800',
-    },
+function severityBadge(severity: string) {
+  const cfg: Record<string, { label: string; cls: string }> = {
+    high: { label: 'High', cls: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
+    medium: { label: 'Medium', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+    low: { label: 'Low', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
   }
-  const cfg = config[role] || config.employee
-  return (
-    <Badge variant="outline" className={`text-[11px] font-medium ${cfg.className}`}>
-      {cfg.label}
-    </Badge>
-  )
+  const c = cfg[severity] || cfg.low
+  return <Badge variant="secondary" className={`text-[11px] font-medium ${c.cls}`}>{c.label}</Badge>
 }
 
-// ─── Loading Spinner ──────────────────────────────────────────────────────────
+// ─── Sub-Components ───────────────────────────────────────────────────────────
 
 function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
   return (
@@ -253,8 +291,6 @@ function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
     </div>
   )
 }
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyState({ icon: Icon, title, description }: { icon: React.ComponentType<{ className?: string }>; title: string; description: string }) {
   return (
@@ -266,1928 +302,2049 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ComponentT
   )
 }
 
+function StatCard({ icon: Icon, label, value, color }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string | number; color: string }) {
+  const colorMap: Record<string, string> = {
+    emerald: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400',
+    sky: 'bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400',
+    amber: 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400',
+    violet: 'bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400',
+    rose: 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400',
+  }
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[color] || colorMap.emerald}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs">{label}</p>
+            <p className="text-2xl font-bold">{value}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CompanyManagement() {
   const { toast } = useToast()
-  const { activeSubItem, setActiveSubItem } = useHRMSStore()
-  const { data: session } = useSession()
-  const employeeId = (session?.user as any)?.employeeId || ''
+  const { refreshCompanies } = useAppStore()
 
-  // ── Tab State ─────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState('companies')
-
-  // Respond to sub-item navigation from sidebar
-  useEffect(() => {
-    if (activeSubItem) {
-      switch (activeSubItem) {
-        case 'company-info':
-          setActiveTab('companies')
-          break
-        case 'branches':
-          setActiveTab('locations')
-          break
-        case 'policies':
-          setActiveTab('policies')
-          break
-        default:
-          break
-      }
-      setActiveSubItem(null)
-    }
-  }, [activeSubItem, setActiveSubItem])
-
-  // ── Company State ─────────────────────────────────────────────────────────
+  // ── Global State ─────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState('company-setup')
+  const [globalCompanyId, setGlobalCompanyId] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterIndustry, setFilterIndustry] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [viewOpen, setViewOpen] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
 
-  // ── Join Company State ────────────────────────────────────────────────────
-  const [joinOpen, setJoinOpen] = useState(false)
-  const [joinCode, setJoinCode] = useState('')
-  const [joining, setJoining] = useState(false)
+  // ── Companies ────────────────────────────────────────────────────────────
+  const [companyDialogOpen, setCompanyDialogOpen] = useState(false)
+  const [companyEditId, setCompanyEditId] = useState<string | null>(null)
+  const [companyDeleteId, setCompanyDeleteId] = useState<string | null>(null)
+  const [companySaving, setCompanySaving] = useState(false)
+  const [companyDeleting, setCompanyDeleting] = useState(false)
+  const [companyForm, setCompanyForm] = useState({
+    name: '', legalName: '', code: '', industry: '', address: '',
+    country: '', state: '', city: '', currency: 'USD', timezone: 'UTC',
+    gstVat: '', panTanCin: '', registrationNumber: '', payrollCycle: 'monthly',
+    financialYear: '', defaultLanguage: 'en', status: 'active', parentId: '',
+  })
 
-  // ── Members State ─────────────────────────────────────────────────────────
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
+  // ── Admin Assignment ─────────────────────────────────────────────────────
   const [memberFilterStatus, setMemberFilterStatus] = useState('all')
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [memberActionLoading, setMemberActionLoading] = useState<string | null>(null)
+  const [roleDialogMember, setRoleDialogMember] = useState<CompanyMember | null>(null)
+  const [selectedRole, setSelectedRole] = useState('employee')
 
-  // ── Office Location State ─────────────────────────────────────────────────
-  const [locationCompanyId, setLocationCompanyId] = useState<string>('')
-  const [addLocationOpen, setAddLocationOpen] = useState(false)
-  const [editLocationOpen, setEditLocationOpen] = useState(false)
-  const [deleteLocationConfirm, setDeleteLocationConfirm] = useState<string | null>(null)
-  const [locationSaving, setLocationSaving] = useState(false)
-  const [locationDeleting, setLocationDeleting] = useState(false)
-  const [selectedLocation, setSelectedLocation] = useState<OfficeLocation | null>(null)
+  // ── Departments & Branches ───────────────────────────────────────────────
+  const [deptDialogOpen, setDeptDialogOpen] = useState(false)
+  const [deptEditId, setDeptEditId] = useState<string | null>(null)
+  const [deptDeleteId, setDeptDeleteId] = useState<string | null>(null)
+  const [deptSaving, setDeptSaving] = useState(false)
+  const [deptForm, setDeptForm] = useState({ name: '', head: '', description: '', budget: '' })
 
-  // ── Create Form ───────────────────────────────────────────────────────────
-  const [createForm, setCreateForm] = useState({
-    name: '',
-    description: '',
-    industry: '',
-    website: '',
-    address: '',
-    city: '',
-    state: '',
-    country: '',
-    phone: '',
-    email: '',
+  const [branchDialogOpen, setBranchDialogOpen] = useState(false)
+  const [branchEditId, setBranchEditId] = useState<string | null>(null)
+  const [branchDeleteId, setBranchDeleteId] = useState<string | null>(null)
+  const [branchSaving, setBranchSaving] = useState(false)
+  const [branchForm, setBranchForm] = useState({
+    name: '', code: '', address: '', city: '', state: '', country: '', pincode: '', phone: '', email: '', head: '',
   })
 
-  // ── Edit Form ─────────────────────────────────────────────────────────────
-  const [editForm, setEditForm] = useState({
-    id: '',
-    name: '',
-    description: '',
-    industry: '',
-    website: '',
-    address: '',
-    city: '',
-    state: '',
-    country: '',
-    phone: '',
-    email: '',
-    status: 'active',
+  // ── Payroll ──────────────────────────────────────────────────────────────
+  const [payrollDialogOpen, setPayrollDialogOpen] = useState(false)
+  const [payrollEditId, setPayrollEditId] = useState<string | null>(null)
+  const [payrollDeleteId, setPayrollDeleteId] = useState<string | null>(null)
+  const [payrollSaving, setPayrollSaving] = useState(false)
+  const [payrollForm, setPayrollForm] = useState({
+    name: '', basicPay: '0', hra: '0', da: '0', transportAllowance: '0',
+    medicalAllowance: '0', specialAllowance: '0', pfEmployee: '0', pfEmployer: '0',
+    esiEmployee: '0', esiEmployer: '0', taxDeduction: '0',
   })
 
-  // ── Add Location Form ─────────────────────────────────────────────────────
-  const [locationForm, setLocationForm] = useState({
-    companyId: '',
-    name: '',
-    address: '',
-    latitude: '',
-    longitude: '',
-    radius: '500',
+  // ── Leave Policy ─────────────────────────────────────────────────────────
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [leaveEditId, setLeaveEditId] = useState<string | null>(null)
+  const [leaveDeleteId, setLeaveDeleteId] = useState<string | null>(null)
+  const [leaveSaving, setLeaveSaving] = useState(false)
+  const [leaveForm, setLeaveForm] = useState({
+    name: '', code: '', isPaid: true, annualQuota: '0',
+    carryForwardRule: '', approvalRequired: true, attachmentRequired: false,
   })
 
-  // ── API hooks ─────────────────────────────────────────────────────────────
-
-  const {
-    data: companiesData,
-    loading: companiesLoading,
-    error: companiesError,
-    refetch: refetchCompanies,
-  } = useApi<CompaniesResponse>({
-    baseUrl: '/api/companies',
-    params: {
-      page: 1,
-      limit: 100,
-      search: searchQuery || undefined,
-      industry: filterIndustry !== 'all' ? filterIndustry : undefined,
-      status: filterStatus !== 'all' ? filterStatus : undefined,
-    },
+  // ── Holiday Calendar ─────────────────────────────────────────────────────
+  const [holidayDialogOpen, setHolidayDialogOpen] = useState(false)
+  const [holidayEditId, setHolidayEditId] = useState<string | null>(null)
+  const [holidayDeleteId, setHolidayDeleteId] = useState<string | null>(null)
+  const [holidaySaving, setHolidaySaving] = useState(false)
+  const [holidayYear, setHolidayYear] = useState('2025')
+  const [holidayForm, setHolidayForm] = useState({
+    name: '', date: '', type: 'public', description: '', isRecurring: false,
   })
 
-  const {
-    data: membersData,
-    loading: membersLoading,
-    error: membersError,
-    refetch: refetchMembers,
-  } = useApi<MembersResponse>({
+  // ── Compliance ───────────────────────────────────────────────────────────
+  const [complianceDialogOpen, setComplianceDialogOpen] = useState(false)
+  const [complianceEditId, setComplianceEditId] = useState<string | null>(null)
+  const [complianceDeleteId, setComplianceDeleteId] = useState<string | null>(null)
+  const [complianceSaving, setComplianceSaving] = useState(false)
+  const [complianceForm, setComplianceForm] = useState({
+    title: '', description: '', category: '', dueDate: '', status: 'pending', assignee: '',
+  })
+
+  // ── Subscription ─────────────────────────────────────────────────────────
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState('free')
+
+  // ── API Data ─────────────────────────────────────────────────────────────
+  const { data: companiesData, loading: companiesLoading, refetch: refetchCompanies } = useApi<{ records: CompanyMaster[] }>({
+    baseUrl: '/api/masters/companies',
+    params: { search: searchQuery || undefined },
+  })
+
+  const companies = companiesData?.records ?? []
+
+  const { data: membersData, loading: membersLoading, refetch: refetchMembers } = useApi<{ members: CompanyMember[]; pagination: { total: number } }>({
     baseUrl: '/api/companies/members',
     params: {
-      companyId: selectedCompanyId || undefined,
+      companyId: globalCompanyId || undefined,
       status: memberFilterStatus !== 'all' ? memberFilterStatus : undefined,
-      page: 1,
       limit: 100,
     },
-    enabled: !!selectedCompanyId,
+    enabled: !!globalCompanyId,
   })
 
-  const {
-    data: locationsData,
-    loading: locationsLoading,
-    error: locationsError,
-    refetch: refetchLocations,
-  } = useApi<LocationsResponse>({
-    baseUrl: '/api/office-locations',
-    params: {
-      companyId: locationCompanyId || undefined,
-      page: 1,
-      limit: 100,
-    },
-    enabled: !!locationCompanyId,
+  const { data: deptData, loading: deptLoading, refetch: refetchDepts } = useApi<{ records: Department[] }>({
+    baseUrl: '/api/masters/departments',
+    params: { companyId: globalCompanyId || undefined },
+    enabled: !!globalCompanyId,
   })
 
-  const companies = companiesData?.companies ?? companiesData?.data ?? []
+  const { data: branchData, loading: branchLoading, refetch: refetchBranches } = useApi<{ branches: Branch[] }>({
+    baseUrl: '/api/masters/branches',
+    params: { companyId: globalCompanyId || undefined },
+    enabled: !!globalCompanyId,
+  })
+
+  const { data: companyDetail, refetch: refetchCompanyDetail } = useApi<CompanyDetail>({
+    baseUrl: `/api/masters/companies/${globalCompanyId}`,
+    enabled: !!globalCompanyId && activeTab === 'payroll',
+  })
+
+  const { data: leaveData, loading: leaveLoading, refetch: refetchLeaves } = useApi<{ records: LeaveType[] }>({
+    baseUrl: '/api/masters/leave-types',
+    params: { companyId: globalCompanyId || undefined },
+    enabled: !!globalCompanyId,
+  })
+
+  const { data: holidayData, loading: holidayLoading, refetch: refetchHolidays } = useApi<{ records: Holiday[] }>({
+    baseUrl: '/api/masters/holidays',
+    params: { companyId: globalCompanyId || undefined, year: holidayYear },
+    enabled: !!globalCompanyId,
+  })
+
+  const { data: complianceData, loading: complianceLoading, refetch: refetchCompliance } = useApi<{ data: ComplianceItem[]; overdueCount: number }>({
+    baseUrl: '/api/compliance',
+    params: { companyId: globalCompanyId || undefined, limit: 100 },
+    enabled: !!globalCompanyId,
+  })
+
+  const { data: subscriptionData, loading: subscriptionLoading, refetch: refetchSubscription } = useApi<{ record: Subscription }>({
+    baseUrl: '/api/masters/subscriptions',
+    params: { companyId: globalCompanyId || undefined },
+    enabled: !!globalCompanyId,
+  })
+
+  const { data: insightsData, loading: insightsLoading, refetch: refetchInsights } = useApi<Record<string, unknown>>({
+    baseUrl: '/api/company-insights',
+    params: { companyId: globalCompanyId || undefined, type: 'all' },
+    enabled: !!globalCompanyId && (activeTab === 'reports' || activeTab === 'ai-insights'),
+  })
+
+  const { data: clientData } = useApi<{ data: { id: string; name: string; status: string; email: string | null; phone: string | null }[] }>({
+    baseUrl: '/api/clients',
+    params: { companyId: globalCompanyId || undefined, limit: 50 },
+    enabled: !!globalCompanyId && activeTab === 'client-vendor',
+  })
+
+  const { data: vendorData } = useApi<{ data: { id: string; name: string; status: string; serviceType: string | null; rating: number | null }[] }>({
+    baseUrl: '/api/vendors',
+    params: { companyId: globalCompanyId || undefined, limit: 50 },
+    enabled: !!globalCompanyId && activeTab === 'client-vendor',
+  })
+
   const members = membersData?.members ?? []
-  const locations = locationsData?.locations ?? []
+  const departments = deptData?.records ?? []
+  const branches = branchData?.branches ?? []
+  const payrollStructures = companyDetail?.payrollStructures ?? []
+  const leaveTypes = leaveData?.records ?? []
+  const holidays = holidayData?.records ?? []
+  const complianceItems = complianceData?.data ?? []
+  const subscription = subscriptionData?.record ?? null
 
-  // ── Derived Stats ─────────────────────────────────────────────────────────
-
-  const totalCompanies = companies.length
-  const totalMembers = companies.reduce((acc, c) => acc + (c._count?.members || 0), 0)
-  const pendingRequests = members.filter((m) => m.status === 'pending').length
-  const totalLocations = companies.reduce((acc, c) => acc + (c._count?.officeLocations || 0), 0)
-
-  // ── Company Handlers ──────────────────────────────────────────────────────
-
-  const handleCreateDialogChange = useCallback((open: boolean) => {
-    setCreateOpen(open)
-    if (!open) {
-      setCreateForm({
-        name: '',
-        description: '',
-        industry: '',
-        website: '',
-        address: '',
-        city: '',
-        state: '',
-        country: '',
-        phone: '',
-        email: '',
-      })
+  // ── Auto-select first company ────────────────────────────────────────────
+  useEffect(() => {
+    if (!globalCompanyId && companies.length > 0) {
+      setGlobalCompanyId(companies[0].id)
     }
-  }, [])
+  }, [companies, globalCompanyId])
 
-  async function handleCreateCompany() {
-    if (!createForm.name) {
-      toast({ title: 'Validation Error', description: 'Company name is required.', variant: 'destructive' })
-      return
-    }
-    setSaving(true)
-    try {
-      await apiPost('/api/companies', {
-        name: createForm.name,
-        description: createForm.description || null,
-        industry: createForm.industry || null,
-        website: createForm.website || null,
-        address: createForm.address || null,
-        city: createForm.city || null,
-        state: createForm.state || null,
-        country: createForm.country || null,
-        phone: createForm.phone || null,
-        email: createForm.email || null,
-        createdBy: employeeId || null,
-      })
-      toast({
-        title: 'Company Created',
-        description: `${createForm.name} has been created successfully. A unique join code has been generated.`,
-      })
-      setCreateOpen(false)
-      setCreateForm({
-        name: '',
-        description: '',
-        industry: '',
-        website: '',
-        address: '',
-        city: '',
-        state: '',
-        country: '',
-        phone: '',
-        email: '',
-      })
-      refetchCompanies()
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to create company',
-        variant: 'destructive',
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
+  // ── Company CRUD ─────────────────────────────────────────────────────────
 
-  function handleEdit(company: Company) {
-    setSelectedCompany(company)
-    setEditForm({
-      id: company.id,
-      name: company.name,
-      description: company.description || '',
-      industry: company.industry || '',
-      website: company.website || '',
-      address: company.address || '',
-      city: company.city || '',
-      state: company.state || '',
-      country: company.country || '',
-      phone: company.phone || '',
-      email: company.email || '',
-      status: company.status,
+  function openCreateCompany() {
+    setCompanyEditId(null)
+    setCompanyForm({
+      name: '', legalName: '', code: '', industry: '', address: '',
+      country: '', state: '', city: '', currency: 'USD', timezone: 'UTC',
+      gstVat: '', panTanCin: '', registrationNumber: '', payrollCycle: 'monthly',
+      financialYear: '', defaultLanguage: 'en', status: 'active', parentId: '',
     })
-    setEditOpen(true)
+    setCompanyDialogOpen(true)
   }
 
-  function handleView(company: Company) {
-    setSelectedCompany(company)
-    setSelectedCompanyId(company.id)
-    setViewOpen(true)
-  }
-
-  async function handleEditCompany() {
-    setSaving(true)
-    try {
-      await apiPatch(`/api/companies/${editForm.id}`, {
-        name: editForm.name,
-        description: editForm.description || null,
-        industry: editForm.industry || null,
-        website: editForm.website || null,
-        address: editForm.address || null,
-        city: editForm.city || null,
-        state: editForm.state || null,
-        country: editForm.country || null,
-        phone: editForm.phone || null,
-        email: editForm.email || null,
-        status: editForm.status,
-      })
-      toast({
-        title: 'Company Updated',
-        description: `${editForm.name} has been updated successfully.`,
-      })
-      setEditOpen(false)
-      setSelectedCompany(null)
-      refetchCompanies()
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to update company',
-        variant: 'destructive',
-      })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleteConfirm) return
-    setDeleting(true)
-    try {
-      await apiDelete(`/api/companies/${deleteConfirm}`)
-      toast({
-        title: 'Company Deleted',
-        description: 'Company and all related data have been removed.',
-        variant: 'destructive',
-      })
-      setDeleteConfirm(null)
-      refetchCompanies()
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to delete company',
-        variant: 'destructive',
-      })
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  function handleCopyCode(code: string) {
-    navigator.clipboard.writeText(code)
-    toast({
-      title: 'Code Copied',
-      description: `Join code "${code}" copied to clipboard.`,
+  function openEditCompany(c: CompanyMaster) {
+    setCompanyEditId(c.id)
+    setCompanyForm({
+      name: c.name, legalName: c.legalName || '', code: c.code,
+      industry: c.industry || c.industryType || '', address: c.address || '',
+      country: c.country || '', state: c.state || '', city: c.city || '',
+      currency: c.currency || 'USD', timezone: c.timezone || 'UTC',
+      gstVat: c.gstVat || '', panTanCin: c.panTanCin || '',
+      registrationNumber: c.registrationNumber || '', payrollCycle: c.payrollCycle || 'monthly',
+      financialYear: c.financialYear || '', defaultLanguage: c.defaultLanguage || 'en',
+      status: c.status, parentId: c.parentId || '',
     })
+    setCompanyDialogOpen(true)
   }
 
-  // ── Join Company Handler ──────────────────────────────────────────────────
-
-  async function handleJoinCompany() {
-    if (!joinCode.trim()) {
-      toast({ title: 'Validation Error', description: 'Please enter a company join code.', variant: 'destructive' })
+  async function handleSaveCompany() {
+    if (!companyForm.name || !companyForm.code) {
+      toast({ title: 'Validation Error', description: 'Name and code are required.', variant: 'destructive' })
       return
     }
-    if (!employeeId) {
-      toast({ title: 'Error', description: 'You must be logged in as an employee to join a company.', variant: 'destructive' })
-      return
-    }
-    setJoining(true)
+    setCompanySaving(true)
     try {
-      await apiPost('/api/companies/join', {
-        employeeId,
-        code: joinCode.trim().toUpperCase(),
-      })
-      toast({
-        title: 'Request Sent',
-        description: 'Your join request has been submitted. Waiting for approval.',
-      })
-      setJoinOpen(false)
-      setJoinCode('')
+      const payload = {
+        ...companyForm,
+        industry: companyForm.industry || null,
+        parentId: companyForm.parentId || null,
+      }
+      if (companyEditId) {
+        await apiPut('/api/masters/companies', { id: companyEditId, ...payload })
+        toast({ title: 'Company Updated', description: `${companyForm.name} updated successfully.` })
+      } else {
+        await apiPost('/api/masters/companies', payload)
+        toast({ title: 'Company Created', description: `${companyForm.name} created successfully.` })
+      }
+      setCompanyDialogOpen(false)
       refetchCompanies()
+      refreshCompanies()
+      window.dispatchEvent(new CustomEvent('companies-updated'))
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to join company',
-        variant: 'destructive',
-      })
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to save company', variant: 'destructive' })
     } finally {
-      setJoining(false)
+      setCompanySaving(false)
     }
   }
 
-  // ── Member Handlers ───────────────────────────────────────────────────────
-
-  async function handleApproveMember(memberId: string, empName: string) {
-    setActionLoading(memberId)
+  async function handleDeleteCompany() {
+    if (!companyDeleteId) return
+    setCompanyDeleting(true)
     try {
-      await apiPatch('/api/companies/members', {
-        id: memberId,
-        status: 'approved',
-      })
-      toast({
-        title: 'Member Approved',
-        description: `${empName} has been approved to join the company.`,
-      })
+      await apiDelete(`/api/masters/companies?id=${companyDeleteId}`)
+      toast({ title: 'Company Deleted', description: 'Company has been removed.', variant: 'destructive' })
+      setCompanyDeleteId(null)
+      refetchCompanies()
+      refreshCompanies()
+      window.dispatchEvent(new CustomEvent('companies-updated'))
+      if (globalCompanyId === companyDeleteId) {
+        setGlobalCompanyId('')
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to delete', variant: 'destructive' })
+    } finally {
+      setCompanyDeleting(false)
+    }
+  }
+
+  async function handleToggleCompanyStatus(c: CompanyMaster) {
+    try {
+      const newStatus = c.status === 'active' ? 'inactive' : 'active'
+      await apiPut('/api/masters/companies', { id: c.id, status: newStatus })
+      toast({ title: 'Status Updated', description: `${c.name} is now ${newStatus}.` })
+      refetchCompanies()
+      refreshCompanies()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to update status', variant: 'destructive' })
+    }
+  }
+
+  // ── Member Actions ──────────────────────────────────────────────────────
+
+  async function handleMemberAction(memberId: string, status: string, empName: string) {
+    setMemberActionLoading(memberId)
+    try {
+      await apiPatch('/api/companies/members', { id: memberId, status })
+      toast({ title: `Member ${status}`, description: `${empName} has been ${status}.` })
       refetchMembers()
-      refetchCompanies()
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to approve member',
-        variant: 'destructive',
-      })
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
     } finally {
-      setActionLoading(null)
+      setMemberActionLoading(null)
     }
   }
 
-  async function handleRejectMember(memberId: string, empName: string) {
-    setActionLoading(memberId)
+  async function handleAssignRole() {
+    if (!roleDialogMember) return
+    setMemberActionLoading(roleDialogMember.id)
     try {
-      await apiPatch('/api/companies/members', {
-        id: memberId,
-        status: 'rejected',
-      })
-      toast({
-        title: 'Member Rejected',
-        description: `${empName}'s join request has been rejected.`,
-      })
+      await apiPatch('/api/companies/members', { id: roleDialogMember.id, status: roleDialogMember.status, role: selectedRole })
+      toast({ title: 'Role Updated', description: `Role set to ${selectedRole}.` })
+      setRoleDialogMember(null)
       refetchMembers()
-      refetchCompanies()
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to reject member',
-        variant: 'destructive',
-      })
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
     } finally {
-      setActionLoading(null)
+      setMemberActionLoading(null)
     }
   }
 
-  async function handleRemoveMember(memberId: string, empName: string) {
-    setActionLoading(memberId)
-    try {
-      await apiPatch('/api/companies/members', {
-        id: memberId,
-        status: 'removed',
-      })
-      toast({
-        title: 'Member Removed',
-        description: `${empName} has been removed from the company.`,
-        variant: 'destructive',
-      })
-      refetchMembers()
-      refetchCompanies()
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to remove member',
-        variant: 'destructive',
-      })
-    } finally {
-      setActionLoading(null)
-    }
+  // ── Department CRUD ─────────────────────────────────────────────────────
+
+  function openCreateDept() {
+    setDeptEditId(null)
+    setDeptForm({ name: '', head: '', description: '', budget: '' })
+    setDeptDialogOpen(true)
   }
 
-  function handleSelectCompanyForMembers(companyId: string) {
-    setSelectedCompanyId(companyId)
-    setMemberFilterStatus('all')
+  function openEditDept(d: Department) {
+    setDeptEditId(d.id)
+    setDeptForm({ name: d.name, head: d.head || '', description: d.description || '', budget: d.budget?.toString() || '' })
+    setDeptDialogOpen(true)
   }
 
-  // ── Office Location Handlers ──────────────────────────────────────────────
-
-  function handleAddLocation(companyId: string) {
-    setLocationForm({
-      companyId,
-      name: '',
-      address: '',
-      latitude: '',
-      longitude: '',
-      radius: '500',
-    })
-    setAddLocationOpen(true)
-  }
-
-  function handleEditLocation(location: OfficeLocation) {
-    setSelectedLocation(location)
-    setLocationForm({
-      companyId: location.companyId,
-      name: location.name,
-      address: location.address || '',
-      latitude: String(location.latitude),
-      longitude: String(location.longitude),
-      radius: String(location.radius),
-    })
-    setEditLocationOpen(true)
-  }
-
-  async function handleSaveLocation() {
-    if (!locationForm.name || !locationForm.latitude || !locationForm.longitude) {
-      toast({ title: 'Validation Error', description: 'Name, latitude, and longitude are required.', variant: 'destructive' })
+  async function handleSaveDept() {
+    if (!deptForm.name) {
+      toast({ title: 'Validation Error', description: 'Department name is required.', variant: 'destructive' })
       return
     }
-    setLocationSaving(true)
+    setDeptSaving(true)
     try {
-      await apiPost('/api/office-locations', {
-        companyId: locationForm.companyId,
-        name: locationForm.name,
-        address: locationForm.address || null,
-        latitude: parseFloat(locationForm.latitude),
-        longitude: parseFloat(locationForm.longitude),
-        radius: parseFloat(locationForm.radius) || 500,
-      })
-      toast({
-        title: 'Location Added',
-        description: `${locationForm.name} has been added as an office location.`,
-      })
-      setAddLocationOpen(false)
-      refetchLocations()
-      refetchCompanies()
+      const payload = {
+        ...deptForm,
+        companyId: globalCompanyId,
+        head: deptForm.head || null,
+        description: deptForm.description || null,
+        budget: deptForm.budget ? parseFloat(deptForm.budget) : null,
+      }
+      if (deptEditId) {
+        await apiPut('/api/masters/departments', { id: deptEditId, ...payload })
+        toast({ title: 'Department Updated' })
+      } else {
+        await apiPost('/api/masters/departments', payload)
+        toast({ title: 'Department Created' })
+      }
+      setDeptDialogOpen(false)
+      refetchDepts()
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to add location',
-        variant: 'destructive',
-      })
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
     } finally {
-      setLocationSaving(false)
+      setDeptSaving(false)
     }
   }
 
-  async function handleUpdateLocation() {
-    if (!selectedLocation) return
-    setLocationSaving(true)
+  async function handleDeleteDept() {
+    if (!deptDeleteId) return
     try {
-      await apiPatch('/api/office-locations', {
-        id: selectedLocation.id,
-        name: locationForm.name,
-        address: locationForm.address || null,
-        latitude: parseFloat(locationForm.latitude),
-        longitude: parseFloat(locationForm.longitude),
-        radius: parseFloat(locationForm.radius) || 500,
-      })
-      toast({
-        title: 'Location Updated',
-        description: `${locationForm.name} has been updated.`,
-      })
-      setEditLocationOpen(false)
-      setSelectedLocation(null)
-      refetchLocations()
+      await apiDelete(`/api/masters/departments/${deptDeleteId}`)
+      toast({ title: 'Department Deleted', variant: 'destructive' })
+      setDeptDeleteId(null)
+      refetchDepts()
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to update location',
-        variant: 'destructive',
-      })
-    } finally {
-      setLocationSaving(false)
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
     }
   }
 
-  async function confirmDeleteLocation() {
-    if (!deleteLocationConfirm) return
-    setLocationDeleting(true)
+  // ── Branch CRUD ─────────────────────────────────────────────────────────
+
+  function openCreateBranch() {
+    setBranchEditId(null)
+    setBranchForm({ name: '', code: '', address: '', city: '', state: '', country: '', pincode: '', phone: '', email: '', head: '' })
+    setBranchDialogOpen(true)
+  }
+
+  function openEditBranch(b: Branch) {
+    setBranchEditId(b.id)
+    setBranchForm({
+      name: b.name, code: b.code || '', address: b.address || '',
+      city: b.city || '', state: b.state || '', country: b.country || '',
+      pincode: b.pincode || '', phone: b.phone || '', email: b.email || '', head: b.head || '',
+    })
+    setBranchDialogOpen(true)
+  }
+
+  async function handleSaveBranch() {
+    if (!branchForm.name) {
+      toast({ title: 'Validation Error', description: 'Branch name is required.', variant: 'destructive' })
+      return
+    }
+    setBranchSaving(true)
     try {
-      await apiDelete(`/api/office-locations?id=${deleteLocationConfirm}`)
-      toast({
-        title: 'Location Deleted',
-        description: 'Office location has been removed.',
-        variant: 'destructive',
-      })
-      setDeleteLocationConfirm(null)
-      refetchLocations()
-      refetchCompanies()
+      const payload = {
+        ...branchForm,
+        companyId: globalCompanyId,
+        code: branchForm.code || null,
+        address: branchForm.address || null,
+        city: branchForm.city || null,
+        state: branchForm.state || null,
+        country: branchForm.country || null,
+        pincode: branchForm.pincode || null,
+        phone: branchForm.phone || null,
+        email: branchForm.email || null,
+        head: branchForm.head || null,
+      }
+      if (branchEditId) {
+        await apiPut(`/api/masters/branches/${branchEditId}`, payload)
+        toast({ title: 'Branch Updated' })
+      } else {
+        await apiPost('/api/masters/branches', payload)
+        toast({ title: 'Branch Created' })
+      }
+      setBranchDialogOpen(false)
+      refetchBranches()
     } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to delete location',
-        variant: 'destructive',
-      })
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
     } finally {
-      setLocationDeleting(false)
+      setBranchSaving(false)
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  async function handleDeleteBranch() {
+    if (!branchDeleteId) return
+    try {
+      await apiDelete(`/api/masters/branches/${branchDeleteId}`)
+      toast({ title: 'Branch Deleted', variant: 'destructive' })
+      setBranchDeleteId(null)
+      refetchBranches()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    }
+  }
+
+  // ── Payroll Structure CRUD ───────────────────────────────────────────────
+
+  function openCreatePayroll() {
+    setPayrollEditId(null)
+    setPayrollForm({ name: '', basicPay: '0', hra: '0', da: '0', transportAllowance: '0', medicalAllowance: '0', specialAllowance: '0', pfEmployee: '0', pfEmployer: '0', esiEmployee: '0', esiEmployer: '0', taxDeduction: '0' })
+    setPayrollDialogOpen(true)
+  }
+
+  function openEditPayroll(p: PayrollStructure) {
+    setPayrollEditId(p.id)
+    setPayrollForm({
+      name: p.name, basicPay: String(p.basicPay), hra: String(p.hra), da: String(p.da),
+      transportAllowance: String(p.transportAllowance), medicalAllowance: String(p.medicalAllowance),
+      specialAllowance: String(p.specialAllowance), pfEmployee: String(p.pfEmployee), pfEmployer: String(p.pfEmployer),
+      esiEmployee: String(p.esiEmployee), esiEmployer: String(p.esiEmployer), taxDeduction: String(p.taxDeduction),
+    })
+    setPayrollDialogOpen(true)
+  }
+
+  async function handleSavePayroll() {
+    if (!payrollForm.name) {
+      toast({ title: 'Validation Error', description: 'Structure name is required.', variant: 'destructive' })
+      return
+    }
+    setPayrollSaving(true)
+    try {
+      const payload = {
+        ...Object.fromEntries(Object.entries(payrollForm).map(([k, v]) => [k, k === 'name' ? v : parseFloat(v) || 0])),
+        companyId: globalCompanyId,
+      }
+      if (payrollEditId) {
+        await apiPut(`/api/masters/companies/${globalCompanyId}/payroll-structures/${payrollEditId}`, payload)
+        toast({ title: 'Payroll Structure Updated' })
+      } else {
+        await apiPost(`/api/masters/companies/${globalCompanyId}/payroll-structures`, payload)
+        toast({ title: 'Payroll Structure Created' })
+      }
+      setPayrollDialogOpen(false)
+      refetchCompanyDetail()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    } finally {
+      setPayrollSaving(false)
+    }
+  }
+
+  // ── Leave Type CRUD ─────────────────────────────────────────────────────
+
+  function openCreateLeave() {
+    setLeaveEditId(null)
+    setLeaveForm({ name: '', code: '', isPaid: true, annualQuota: '0', carryForwardRule: '', approvalRequired: true, attachmentRequired: false })
+    setLeaveDialogOpen(true)
+  }
+
+  function openEditLeave(l: LeaveType) {
+    setLeaveEditId(l.id)
+    setLeaveForm({
+      name: l.name, code: l.code, isPaid: l.isPaid, annualQuota: String(l.annualQuota),
+      carryForwardRule: l.carryForwardRule || '', approvalRequired: l.approvalRequired, attachmentRequired: l.attachmentRequired,
+    })
+    setLeaveDialogOpen(true)
+  }
+
+  async function handleSaveLeave() {
+    if (!leaveForm.name || !leaveForm.code) {
+      toast({ title: 'Validation Error', description: 'Name and code are required.', variant: 'destructive' })
+      return
+    }
+    setLeaveSaving(true)
+    try {
+      const payload = {
+        ...leaveForm,
+        annualQuota: parseInt(leaveForm.annualQuota) || 0,
+        companyId: globalCompanyId,
+        carryForwardRule: leaveForm.carryForwardRule || null,
+      }
+      if (leaveEditId) {
+        await apiPut(`/api/masters/leave-types/${leaveEditId}`, payload)
+        toast({ title: 'Leave Type Updated' })
+      } else {
+        await apiPost('/api/masters/leave-types', payload)
+        toast({ title: 'Leave Type Created' })
+      }
+      setLeaveDialogOpen(false)
+      refetchLeaves()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    } finally {
+      setLeaveSaving(false)
+    }
+  }
+
+  async function handleDeleteLeave() {
+    if (!leaveDeleteId) return
+    try {
+      await apiDelete(`/api/masters/leave-types/${leaveDeleteId}`)
+      toast({ title: 'Leave Type Deleted', variant: 'destructive' })
+      setLeaveDeleteId(null)
+      refetchLeaves()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    }
+  }
+
+  // ── Holiday CRUD ────────────────────────────────────────────────────────
+
+  function openCreateHoliday() {
+    setHolidayEditId(null)
+    setHolidayForm({ name: '', date: '', type: 'public', description: '', isRecurring: false })
+    setHolidayDialogOpen(true)
+  }
+
+  function openEditHoliday(h: Holiday) {
+    setHolidayEditId(h.id)
+    setHolidayForm({
+      name: h.name, date: h.date ? new Date(h.date).toISOString().split('T')[0] : '',
+      type: h.type, description: h.description || '', isRecurring: h.isRecurring,
+    })
+    setHolidayDialogOpen(true)
+  }
+
+  async function handleSaveHoliday() {
+    if (!holidayForm.name || !holidayForm.date) {
+      toast({ title: 'Validation Error', description: 'Name and date are required.', variant: 'destructive' })
+      return
+    }
+    setHolidaySaving(true)
+    try {
+      const payload = { ...holidayForm, companyId: globalCompanyId, description: holidayForm.description || null }
+      if (holidayEditId) {
+        await apiPut('/api/masters/holidays', { id: holidayEditId, ...payload })
+        toast({ title: 'Holiday Updated' })
+      } else {
+        await apiPost('/api/masters/holidays', payload)
+        toast({ title: 'Holiday Created' })
+      }
+      setHolidayDialogOpen(false)
+      refetchHolidays()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    } finally {
+      setHolidaySaving(false)
+    }
+  }
+
+  async function handleDeleteHoliday() {
+    if (!holidayDeleteId) return
+    try {
+      await apiDelete(`/api/masters/holidays?id=${holidayDeleteId}`)
+      toast({ title: 'Holiday Deleted', variant: 'destructive' })
+      setHolidayDeleteId(null)
+      refetchHolidays()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    }
+  }
+
+  // ── Compliance CRUD ─────────────────────────────────────────────────────
+
+  function openCreateCompliance() {
+    setComplianceEditId(null)
+    setComplianceForm({ title: '', description: '', category: '', dueDate: '', status: 'pending', assignee: '' })
+    setComplianceDialogOpen(true)
+  }
+
+  function openEditCompliance(c: ComplianceItem) {
+    setComplianceEditId(c.id)
+    setComplianceForm({
+      title: c.title, description: c.description || '', category: c.category,
+      dueDate: c.dueDate ? new Date(c.dueDate).toISOString().split('T')[0] : '',
+      status: c.status, assignee: c.assignee || '',
+    })
+    setComplianceDialogOpen(true)
+  }
+
+  async function handleSaveCompliance() {
+    if (!complianceForm.title || !complianceForm.category) {
+      toast({ title: 'Validation Error', description: 'Title and category are required.', variant: 'destructive' })
+      return
+    }
+    setComplianceSaving(true)
+    try {
+      const payload = {
+        ...complianceForm,
+        companyId: globalCompanyId,
+        dueDate: complianceForm.dueDate || null,
+        assignee: complianceForm.assignee || null,
+        description: complianceForm.description || null,
+      }
+      if (complianceEditId) {
+        await apiPut('/api/compliance', { id: complianceEditId, ...payload })
+        toast({ title: 'Compliance Updated' })
+      } else {
+        await apiPost('/api/compliance', payload)
+        toast({ title: 'Compliance Created' })
+      }
+      setComplianceDialogOpen(false)
+      refetchCompliance()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    } finally {
+      setComplianceSaving(false)
+    }
+  }
+
+  async function handleDeleteCompliance() {
+    if (!complianceDeleteId) return
+    try {
+      await apiDelete(`/api/compliance?id=${complianceDeleteId}`)
+      toast({ title: 'Compliance Deleted', variant: 'destructive' })
+      setComplianceDeleteId(null)
+      refetchCompliance()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    }
+  }
+
+  // ── Subscription Save ───────────────────────────────────────────────────
+
+  async function handleSaveSubscription() {
+    if (!globalCompanyId) return
+    setSubscriptionSaving(true)
+    try {
+      const plan = PLAN_FEATURES[selectedPlan]
+      await apiPost('/api/masters/subscriptions', {
+        companyId: globalCompanyId,
+        planName: selectedPlan,
+        maxEmployees: plan.maxEmployees,
+        maxBranches: plan.maxBranches,
+        amount: plan.amount,
+        currency: 'USD',
+        billingCycle: 'monthly',
+        autoRenew: true,
+        features: JSON.stringify(['basic_hr', 'attendance', 'leave', ...(selectedPlan !== 'free' ? ['payroll', 'performance'] : []), ...(selectedPlan === 'professional' || selectedPlan === 'enterprise' ? ['analytics', 'ai'] : [])]),
+      })
+      toast({ title: 'Subscription Updated', description: `Plan changed to ${plan.label}.` })
+      refetchSubscription()
+    } catch (err) {
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed', variant: 'destructive' })
+    } finally {
+      setSubscriptionSaving(false)
+    }
+  }
+
+  // ── Derived Stats ───────────────────────────────────────────────────────
+
+  const selectedCompanyObj = companies.find(c => c.id === globalCompanyId)
+  const totalEmployees = companies.reduce((a, c) => a + (c._count?.employees || 0), 0)
+  const totalDepartments = companies.reduce((a, c) => a + (c._count?.departments || 0), 0)
+  const totalBranches = companies.reduce((a, c) => a + (c._count?.branches || 0), 0)
+
+  const filteredCompanies = useMemo(() => {
+    if (!searchQuery) return companies
+    const q = searchQuery.toLowerCase()
+    return companies.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q) || (c.city || '').toLowerCase().includes(q))
+  }, [companies, searchQuery])
+
+  const pendingMembers = members.filter(m => m.status === 'pending')
+
+  // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* ─── Header ──────────────────────────────────────────────── */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
-              <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  Company Management
-                </h1>
-                <Badge
-                  variant="secondary"
-                  className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-                >
-                  {totalCompanies}
-                </Badge>
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          {/* ─── Header ─────────────────────────────────────────── */}
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
+                <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <p className="text-muted-foreground text-sm">
-                Manage companies, members &amp; office locations
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Company Management</h1>
+                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">{companies.length}</Badge>
+                </div>
+                <p className="text-muted-foreground text-sm">Manage companies, structures, policies & insights</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {/* ── Company Context Selector ─────────────────────── */}
+              <Select value={globalCompanyId} onValueChange={setGlobalCompanyId}>
+                <SelectTrigger className="w-full sm:w-[260px]">
+                  <Building2 className="mr-2 h-4 w-4 text-emerald-600" />
+                  <SelectValue placeholder="Select company..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-9 w-full pl-9 sm:w-[200px]" />
+              </div>
+              <Button onClick={openCreateCompany} className="gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800">
+                <Plus className="h-4 w-4" /> Add Company
+              </Button>
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search companies..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 w-full pl-9 sm:w-[240px]"
-              />
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => setJoinOpen(true)}
-              className="gap-2"
-            >
-              <LogIn className="h-4 w-4" />
-              Join Company
-            </Button>
-            <Button
-              onClick={() => setCreateOpen(true)}
-              className="gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800"
-            >
-              <Plus className="h-4 w-4" />
-              Create Company
-            </Button>
+
+          {/* ─── Stats ──────────────────────────────────────────── */}
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard icon={Building2} label="Companies" value={companies.length} color="emerald" />
+            <StatCard icon={Users} label="Total Employees" value={totalEmployees} color="sky" />
+            <StatCard icon={Briefcase} label="Departments" value={totalDepartments} color="amber" />
+            <StatCard icon={MapPin} label="Branches" value={totalBranches} color="violet" />
           </div>
-        </div>
 
-        {/* ─── Stats Cards ──────────────────────────────────────────── */}
-        <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
-                  <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Total Companies</p>
-                  <p className="text-2xl font-bold">{totalCompanies}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-950">
-                  <Users className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Active Members</p>
-                  <p className="text-2xl font-bold">{totalMembers}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950">
-                  <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Pending Requests</p>
-                  <p className="text-2xl font-bold">{pendingRequests}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950">
-                  <MapPin className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Office Locations</p>
-                  <p className="text-2xl font-bold">{totalLocations}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ─── Filter Bar ─────────────────────────────────────────── */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-sm font-medium whitespace-nowrap">
-                  Filters:
-                </span>
-              </div>
-              <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
-                <Select value={filterIndustry} onValueChange={setFilterIndustry}>
-                  <SelectTrigger className="w-full sm:w-[160px]" size="sm">
-                    <SelectValue placeholder="Industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Industries</SelectItem>
-                    {INDUSTRIES.map((ind) => (
-                      <SelectItem key={ind} value={ind}>{ind}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-full sm:w-[150px]" size="sm">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {(filterIndustry !== 'all' || filterStatus !== 'all') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1 text-muted-foreground"
-                  onClick={() => {
-                    setFilterIndustry('all')
-                    setFilterStatus('all')
-                  }}
-                >
-                  <X className="h-3 w-3" />
-                  Clear
-                </Button>
-              )}
+          {/* ─── Tabs ───────────────────────────────────────────── */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="mb-6 overflow-x-auto">
+              <TabsList className="flex-nowrap">
+                <TabsTrigger value="company-setup" className="gap-1.5 text-xs sm:text-sm"><Building2 className="h-3.5 w-3.5" />Setup</TabsTrigger>
+                <TabsTrigger value="admin-assignment" className="gap-1.5 text-xs sm:text-sm"><Users className="h-3.5 w-3.5" />Admins</TabsTrigger>
+                <TabsTrigger value="dept-branch" className="gap-1.5 text-xs sm:text-sm"><Briefcase className="h-3.5 w-3.5" />Dept/Branch</TabsTrigger>
+                <TabsTrigger value="payroll" className="gap-1.5 text-xs sm:text-sm"><DollarSign className="h-3.5 w-3.5" />Payroll</TabsTrigger>
+                <TabsTrigger value="leave-policy" className="gap-1.5 text-xs sm:text-sm"><FileText className="h-3.5 w-3.5" />Leave</TabsTrigger>
+                <TabsTrigger value="holidays" className="gap-1.5 text-xs sm:text-sm"><CalendarDays className="h-3.5 w-3.5" />Holidays</TabsTrigger>
+                <TabsTrigger value="client-vendor" className="gap-1.5 text-xs sm:text-sm"><Truck className="h-3.5 w-3.5" />Clients/Vendors</TabsTrigger>
+                <TabsTrigger value="compliance" className="gap-1.5 text-xs sm:text-sm"><Shield className="h-3.5 w-3.5" />Compliance</TabsTrigger>
+                <TabsTrigger value="subscription" className="gap-1.5 text-xs sm:text-sm"><CreditCard className="h-3.5 w-3.5" />Plan</TabsTrigger>
+                <TabsTrigger value="reports" className="gap-1.5 text-xs sm:text-sm"><BarChart3 className="h-3.5 w-3.5" />Reports</TabsTrigger>
+                <TabsTrigger value="ai-insights" className="gap-1.5 text-xs sm:text-sm"><Brain className="h-3.5 w-3.5" />AI Insights</TabsTrigger>
+              </TabsList>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* ─── Tabs ────────────────────────────────────────────────── */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="companies" className="gap-2">
-              <Building2 className="h-4 w-4" />
-              Companies
-            </TabsTrigger>
-            <TabsTrigger value="members" className="gap-2">
-              <Users className="h-4 w-4" />
-              Members
-            </TabsTrigger>
-            <TabsTrigger value="locations" className="gap-2">
-              <MapPin className="h-4 w-4" />
-              Office Locations
-            </TabsTrigger>
-            <TabsTrigger value="policies" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Policies
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ─── Companies Tab ──────────────────────────────────────── */}
-          <TabsContent value="companies">
-            <Card>
-              <CardContent className="p-0">
-                {companiesLoading ? (
-                  <LoadingSpinner message="Loading companies..." />
-                ) : companiesError ? (
-                  <div className="flex flex-col items-center justify-center gap-3 py-16">
-                    <p className="text-destructive text-sm">{companiesError}</p>
-                    <Button variant="outline" size="sm" onClick={refetchCompanies}>
-                      Retry
+            {/* ═══════════ TAB 1: Company Setup ═══════════ */}
+            <TabsContent value="company-setup">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Company Setup</CardTitle>
+                    <Button onClick={openCreateCompany} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                      <Plus className="h-3.5 w-3.5" /> New Company
                     </Button>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="pl-4">Company</TableHead>
-                          <TableHead>Join Code</TableHead>
-                          <TableHead className="hidden md:table-cell">Industry</TableHead>
-                          <TableHead>Members</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {companies.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} className="h-32 text-center">
-                              <EmptyState
-                                icon={Building2}
-                                title="No companies found"
-                                description="Create a new company or adjust your search filters"
-                              />
-                            </TableCell>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {companiesLoading ? <LoadingSpinner message="Loading companies..." /> : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="pl-4">Company</TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead className="hidden md:table-cell">Industry</TableHead>
+                            <TableHead className="hidden lg:table-cell">Location</TableHead>
+                            <TableHead>Employees</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
-                        ) : (
-                          companies.map((company) => (
-                            <TableRow key={company.id} className="group">
+                        </TableHeader>
+                        <TableBody>
+                          {filteredCompanies.length === 0 ? (
+                            <TableRow><TableCell colSpan={7} className="h-32 text-center"><EmptyState icon={Building2} title="No companies found" description="Create a new company or adjust your search" /></TableCell></TableRow>
+                          ) : filteredCompanies.map(c => (
+                            <TableRow key={c.id} className="group">
                               <TableCell className="pl-4">
                                 <div className="flex items-center gap-3">
                                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950">
                                     <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">{company.name}</p>
-                                    <p className="text-muted-foreground truncate text-[11px]">
-                                      {company.city}{company.city && company.country ? ', ' : ''}{company.country}
-                                    </p>
+                                    <p className="truncate text-sm font-medium">{c.name}</p>
+                                    {c.legalName && <p className="text-muted-foreground truncate text-[11px]">{c.legalName}</p>}
+                                    {c.parent && (
+                                      <p className="text-muted-foreground text-[10px]">
+                                        <ChevronRight className="mr-0.5 inline h-3 w-3" />
+                                        Parent: {c.parent.name}
+                                      </p>
+                                    )}
+                                    {c.children && c.children.length > 0 && (
+                                      <p className="text-muted-foreground text-[10px]">
+                                        <ChevronDown className="mr-0.5 inline h-3 w-3" />
+                                        {c.children.length} subsidiary
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1.5">
-                                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono font-semibold tracking-wider">
-                                    {company.code}
-                                  </code>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 text-muted-foreground hover:text-emerald-600"
-                                    onClick={() => handleCopyCode(company.code)}
-                                    title="Copy code"
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                  </Button>
+                                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono font-semibold">{c.code}</code>
+                                  <Tooltip><TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-emerald-600" onClick={() => { navigator.clipboard.writeText(c.code); toast({ title: 'Code Copied' }) }}>
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  </TooltipTrigger><TooltipContent>Copy code</TooltipContent></Tooltip>
                                 </div>
                               </TableCell>
                               <TableCell className="hidden md:table-cell">
-                                {company.industry ? (
-                                  <Badge variant="outline" className="text-[11px] font-medium">
-                                    {company.industry}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">—</span>
-                                )}
+                                {c.industry || c.industryType ? <Badge variant="outline" className="text-[11px]">{c.industry || c.industryType}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                              </TableCell>
+                              <TableCell className="hidden lg:table-cell">
+                                <span className="text-muted-foreground text-xs">{[c.city, c.state, c.country].filter(Boolean).join(', ') || '—'}</span>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1.5">
                                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <span className="text-sm font-medium">{company._count?.members || 0}</span>
+                                  <span className="text-sm font-medium">{c._count?.employees || 0}</span>
                                 </div>
                               </TableCell>
-                              <TableCell>{getStatusBadge(company.status === 'active' ? 'active' : 'inactive')}</TableCell>
+                              <TableCell>
+                                <Tooltip><TooltipTrigger asChild>
+                                  <button onClick={() => handleToggleCompanyStatus(c)}>
+                                    {statusBadge(c.status)}
+                                  </button>
+                                </TooltipTrigger><TooltipContent>Click to toggle status</TooltipContent></Tooltip>
+                              </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-sky-600 hover:bg-sky-50 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-950"
-                                    onClick={() => handleView(company)}
-                                    title="View Details"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
-                                    onClick={() => handleEdit(company)}
-                                    title="Edit"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
-                                    onClick={() => setDeleteConfirm(company.id)}
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-sky-600 hover:bg-sky-50" onClick={() => openEditCompany(c)} title="Edit"><Pencil className="h-4 w-4" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50" onClick={() => setCompanyDeleteId(c.id)} title="Delete"><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-
-                {/* Table Footer */}
-                {!companiesLoading && !companiesError && (
-                  <div className="flex items-center justify-between border-t px-4 py-3">
-                    <p className="text-muted-foreground text-sm">
-                      Showing{' '}
-                      <span className="font-medium text-foreground">{companies.length}</span>{' '}
-                      of{' '}
-                      <span className="font-medium text-foreground">{companiesData?.pagination?.total ?? companies.length}</span>{' '}
-                      companies
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ─── Members Tab ───────────────────────────────────────── */}
-          <TabsContent value="members">
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Label className="text-sm font-medium whitespace-nowrap">Select Company:</Label>
-                    <Select value={selectedCompanyId} onValueChange={handleSelectCompanyForMembers}>
-                      <SelectTrigger className="w-full sm:w-[260px]">
-                        <SelectValue placeholder="Choose a company..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name} ({c.code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={memberFilterStatus} onValueChange={setMemberFilterStatus}>
-                      <SelectTrigger className="w-full sm:w-[150px]" size="sm">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                        <SelectItem value="removed">Removed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {selectedCompanyId && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => {
-                        setLocationCompanyId(selectedCompanyId)
-                        setActiveTab('locations')
-                      }}
-                    >
-                      <MapPin className="h-4 w-4" />
-                      View Locations
-                    </Button>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {!selectedCompanyId ? (
-              <Card>
-                <CardContent className="p-0">
-                  <EmptyState
-                    icon={Users}
-                    title="Select a company"
-                    description="Choose a company above to view and manage its members"
-                  />
                 </CardContent>
               </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-0">
-                  {membersLoading ? (
-                    <LoadingSpinner message="Loading members..." />
-                  ) : membersError ? (
-                    <div className="flex flex-col items-center justify-center gap-3 py-16">
-                      <p className="text-destructive text-sm">{membersError}</p>
-                      <Button variant="outline" size="sm" onClick={refetchMembers}>
-                        Retry
-                      </Button>
+            </TabsContent>
+
+            {/* ═══════════ TAB 2: Admin Assignment ═══════════ */}
+            <TabsContent value="admin-assignment">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={Users} title="Select a Company" description="Choose a company from the dropdown above to manage admins" /></CardContent></Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <CardTitle className="text-lg">Company Members &amp; Admins</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {pendingMembers.length > 0 && <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400">{pendingMembers.length} Pending</Badge>}
+                        <Select value={memberFilterStatus} onValueChange={setMemberFilterStatus}>
+                          <SelectTrigger className="w-[140px]" size="sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="pl-4">Employee</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="hidden md:table-cell">Joined</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {members.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={5} className="h-32 text-center">
-                                <EmptyState
-                                  icon={Users}
-                                  title="No members found"
-                                  description="No members match the current filter"
-                                />
-                              </TableCell>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {membersLoading ? <LoadingSpinner message="Loading members..." /> : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="pl-4">Employee</TableHead>
+                              <TableHead>Role</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="hidden md:table-cell">Joined</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                          ) : (
-                            members.map((member) => (
-                              <TableRow key={member.id}>
+                          </TableHeader>
+                          <TableBody>
+                            {members.length === 0 ? (
+                              <TableRow><TableCell colSpan={5} className="h-32 text-center"><EmptyState icon={Users} title="No members found" description="No members match the current filter" /></TableCell></TableRow>
+                            ) : members.map(m => (
+                              <TableRow key={m.id}>
                                 <TableCell className="pl-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400">
-                                      {member.employee.firstName.charAt(0)}{member.employee.lastName.charAt(0)}
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
+                                      {m.employee.firstName[0]}{m.employee.lastName[0]}
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="truncate text-sm font-medium">
-                                        {member.employee.firstName} {member.employee.lastName}
-                                      </p>
-                                      <p className="text-muted-foreground truncate text-[11px]">
-                                        {member.employee.email}
-                                      </p>
+                                      <p className="text-sm font-medium">{m.employee.firstName} {m.employee.lastName}</p>
+                                      <p className="text-muted-foreground text-xs">{m.employee.email}</p>
                                     </div>
                                   </div>
                                 </TableCell>
-                                <TableCell>{getRoleBadge(member.role)}</TableCell>
-                                <TableCell>{getMemberStatusBadge(member.status)}</TableCell>
-                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                  {member.joinedAt
-                                    ? new Date(member.joinedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                                    : '—'}
+                                <TableCell>
+                                  <button onClick={() => { setRoleDialogMember(m); setSelectedRole(m.role) }} className="hover:opacity-80">
+                                    {roleBadge(m.role)}
+                                  </button>
+                                </TableCell>
+                                <TableCell>{statusBadge(m.status)}</TableCell>
+                                <TableCell className="hidden md:table-cell text-muted-foreground text-xs">
+                                  {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : '—'}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-1">
-                                    {member.status === 'pending' && (
+                                    {m.status === 'pending' && (
                                       <>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
-                                          onClick={() => handleApproveMember(member.id, `${member.employee.firstName} ${member.employee.lastName}`)}
-                                          disabled={actionLoading === member.id}
-                                          title="Approve"
-                                        >
-                                          {actionLoading === member.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
-                                          onClick={() => handleRejectMember(member.id, `${member.employee.firstName} ${member.employee.lastName}`)}
-                                          disabled={actionLoading === member.id}
-                                          title="Reject"
-                                        >
-                                          <X className="h-4 w-4" />
-                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:bg-emerald-50" disabled={memberActionLoading === m.id} onClick={() => handleMemberAction(m.id, 'approved', `${m.employee.firstName} ${m.employee.lastName}`)} title="Approve"><Check className="h-3.5 w-3.5" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:bg-red-50" disabled={memberActionLoading === m.id} onClick={() => handleMemberAction(m.id, 'rejected', `${m.employee.firstName} ${m.employee.lastName}`)} title="Reject"><X className="h-3.5 w-3.5" /></Button>
                                       </>
                                     )}
-                                    {member.status === 'approved' && member.role !== 'owner' && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
-                                        onClick={() => handleRemoveMember(member.id, `${member.employee.firstName} ${member.employee.lastName}`)}
-                                        disabled={actionLoading === member.id}
-                                        title="Remove"
-                                      >
-                                        {actionLoading === member.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                                      </Button>
-                                    )}
-                                    {member.role === 'owner' && (
-                                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                                        Owner
-                                      </Badge>
+                                    {m.status === 'approved' && (
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:bg-red-50" disabled={memberActionLoading === m.id} onClick={() => handleMemberAction(m.id, 'removed', `${m.employee.firstName} ${m.employee.lastName}`)} title="Remove"><UserX className="h-3.5 w-3.5" /></Button>
                                     )}
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
 
-                  {!membersLoading && !membersError && (
-                    <div className="flex items-center justify-between border-t px-4 py-3">
-                      <p className="text-muted-foreground text-sm">
-                        Showing{' '}
-                        <span className="font-medium text-foreground">{members.length}</span>{' '}
-                        of{' '}
-                        <span className="font-medium text-foreground">{membersData?.pagination?.total ?? members.length}</span>{' '}
-                        members
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
+            {/* ═══════════ TAB 3: Departments & Branches ═══════════ */}
+            <TabsContent value="dept-branch">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={Briefcase} title="Select a Company" description="Choose a company to manage departments & branches" /></CardContent></Card>
+              ) : (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Departments */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Departments ({departments.length})</CardTitle>
+                        <Button onClick={openCreateDept} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Plus className="h-3.5 w-3.5" /> Add</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {deptLoading ? <LoadingSpinner message="Loading..." /> : departments.length === 0 ? <EmptyState icon={Briefcase} title="No departments" description="Add departments for this company" /> : (
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader><TableRow className="bg-muted/50"><TableHead className="pl-4">Name</TableHead><TableHead className="hidden sm:table-cell">Head</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                              {departments.map(d => (
+                                <TableRow key={d.id}>
+                                  <TableCell className="pl-4"><p className="text-sm font-medium">{d.name}</p>{d.description && <p className="text-muted-foreground text-xs truncate max-w-[200px]">{d.description}</p>}</TableCell>
+                                  <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{d.head || '—'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-sky-600" onClick={() => openEditDept(d)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => setDeptDeleteId(d.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-          {/* ─── Office Locations Tab ──────────────────────────────── */}
-          <TabsContent value="locations">
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Label className="text-sm font-medium whitespace-nowrap">Select Company:</Label>
-                    <Select value={locationCompanyId} onValueChange={setLocationCompanyId}>
-                      <SelectTrigger className="w-full sm:w-[260px]">
-                        <SelectValue placeholder="Choose a company..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {companies.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name} ({c.code})
-                          </SelectItem>
+                  {/* Branches */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Branches ({branches.length})</CardTitle>
+                        <Button onClick={openCreateBranch} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Plus className="h-3.5 w-3.5" /> Add</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {branchLoading ? <LoadingSpinner message="Loading..." /> : branches.length === 0 ? <EmptyState icon={MapPin} title="No branches" description="Add branches for this company" /> : (
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader><TableRow className="bg-muted/50"><TableHead className="pl-4">Name</TableHead><TableHead className="hidden sm:table-cell">City</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                              {branches.map(b => (
+                                <TableRow key={b.id}>
+                                  <TableCell className="pl-4"><p className="text-sm font-medium">{b.name}</p>{b.code && <p className="text-muted-foreground text-xs">{b.code}</p>}</TableCell>
+                                  <TableCell className="hidden sm:table-cell text-muted-foreground text-xs">{b.city || '—'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-sky-600" onClick={() => openEditBranch(b)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => setBranchDeleteId(b.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 4: Payroll Structure ═══════════ */}
+            <TabsContent value="payroll">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={DollarSign} title="Select a Company" description="Choose a company to manage payroll structures" /></CardContent></Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Payroll Structures ({payrollStructures.length})</CardTitle>
+                      <Button onClick={openCreatePayroll} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Plus className="h-3.5 w-3.5" /> Add Structure</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {payrollStructures.length === 0 ? <EmptyState icon={DollarSign} title="No payroll structures" description="Define payroll components for this company" /> : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="pl-4">Name</TableHead>
+                              <TableHead>Basic</TableHead>
+                              <TableHead>HRA</TableHead>
+                              <TableHead>DA</TableHead>
+                              <TableHead className="hidden lg:table-cell">PF (E)</TableHead>
+                              <TableHead className="hidden lg:table-cell">PF (Er)</TableHead>
+                              <TableHead className="hidden xl:table-cell">Tax</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {payrollStructures.map(p => (
+                              <TableRow key={p.id}>
+                                <TableCell className="pl-4 font-medium text-sm">{p.name}</TableCell>
+                                <TableCell className="text-sm">{p.basicPay.toLocaleString()}</TableCell>
+                                <TableCell className="text-sm">{p.hra.toLocaleString()}</TableCell>
+                                <TableCell className="text-sm">{p.da.toLocaleString()}</TableCell>
+                                <TableCell className="hidden lg:table-cell text-sm">{p.pfEmployee.toLocaleString()}</TableCell>
+                                <TableCell className="hidden lg:table-cell text-sm">{p.pfEmployer.toLocaleString()}</TableCell>
+                                <TableCell className="hidden xl:table-cell text-sm">{p.taxDeduction.toLocaleString()}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-sky-600" onClick={() => openEditPayroll(p)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 5: Leave Policy ═══════════ */}
+            <TabsContent value="leave-policy">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={FileText} title="Select a Company" description="Choose a company to manage leave policies" /></CardContent></Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Leave Types ({leaveTypes.length})</CardTitle>
+                      <Button onClick={openCreateLeave} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Plus className="h-3.5 w-3.5" /> Add Leave Type</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {leaveLoading ? <LoadingSpinner message="Loading..." /> : leaveTypes.length === 0 ? <EmptyState icon={FileText} title="No leave types" description="Define leave policies for this company" /> : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="pl-4">Name</TableHead>
+                              <TableHead>Code</TableHead>
+                              <TableHead>Paid</TableHead>
+                              <TableHead>Quota</TableHead>
+                              <TableHead className="hidden md:table-cell">Carry Fwd</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {leaveTypes.map(l => (
+                              <TableRow key={l.id}>
+                                <TableCell className="pl-4 font-medium text-sm">{l.name}</TableCell>
+                                <TableCell><code className="rounded bg-muted px-1.5 py-0.5 text-xs">{l.code}</code></TableCell>
+                                <TableCell>{l.isPaid ? <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 text-[10px]">Paid</Badge> : <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 text-[10px]">Unpaid</Badge>}</TableCell>
+                                <TableCell className="text-sm">{l.annualQuota} days</TableCell>
+                                <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{l.carryForwardRule || 'None'}</TableCell>
+                                <TableCell>{l.isActive ? statusBadge('active') : statusBadge('inactive')}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-sky-600" onClick={() => openEditLeave(l)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => setLeaveDeleteId(l.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 6: Holiday Calendar ═══════════ */}
+            <TabsContent value="holidays">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={CalendarDays} title="Select a Company" description="Choose a company to manage holidays" /></CardContent></Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <CardTitle className="text-lg">Holiday Calendar ({holidays.length})</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Select value={holidayYear} onValueChange={setHolidayYear}>
+                          <SelectTrigger className="w-[100px]" size="sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['2024', '2025', '2026'].map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Button onClick={openCreateHoliday} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Plus className="h-3.5 w-3.5" /> Add Holiday</Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {holidayLoading ? <LoadingSpinner message="Loading..." /> : holidays.length === 0 ? <EmptyState icon={CalendarDays} title="No holidays" description={`No holidays defined for ${holidayYear}`} /> : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="pl-4">Name</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead className="hidden md:table-cell">Recurring</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {holidays.map(h => (
+                              <TableRow key={h.id}>
+                                <TableCell className="pl-4"><p className="text-sm font-medium">{h.name}</p>{h.description && <p className="text-muted-foreground text-xs truncate max-w-[200px]">{h.description}</p>}</TableCell>
+                                <TableCell className="text-sm">{new Date(h.date).toLocaleDateString()}</TableCell>
+                                <TableCell><Badge variant="outline" className="text-[11px] capitalize">{h.type}</Badge></TableCell>
+                                <TableCell className="hidden md:table-cell">{h.isRecurring ? <Check className="h-4 w-4 text-emerald-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-sky-600" onClick={() => openEditHoliday(h)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => setHolidayDeleteId(h.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 7: Client/Vendor Mapping ═══════════ */}
+            <TabsContent value="client-vendor">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={Truck} title="Select a Company" description="Choose a company to view clients & vendors" /></CardContent></Card>
+              ) : (
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-lg">Clients ({clientData?.data?.length || 0})</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                      {!clientData?.data?.length ? <EmptyState icon={PartyPopper} title="No clients" description="No clients mapped to this company" /> : (
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader><TableRow className="bg-muted/50"><TableHead className="pl-4">Name</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                              {clientData.data.map(c => (
+                                <TableRow key={c.id}>
+                                  <TableCell className="pl-4"><p className="text-sm font-medium">{c.name}</p>{c.email && <p className="text-muted-foreground text-xs">{c.email}</p>}</TableCell>
+                                  <TableCell>{statusBadge(c.status)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-lg">Vendors ({vendorData?.data?.length || 0})</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                      {!vendorData?.data?.length ? <EmptyState icon={Truck} title="No vendors" description="No vendors mapped to this company" /> : (
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader><TableRow className="bg-muted/50"><TableHead className="pl-4">Name</TableHead><TableHead>Service</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                              {vendorData.data.map(v => (
+                                <TableRow key={v.id}>
+                                  <TableCell className="pl-4"><p className="text-sm font-medium">{v.name}</p>{v.rating && <p className="text-muted-foreground text-xs">Rating: {v.rating}/5</p>}</TableCell>
+                                  <TableCell className="text-muted-foreground text-xs">{v.serviceType || '—'}</TableCell>
+                                  <TableCell>{statusBadge(v.status)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 8: Compliance Settings ═══════════ */}
+            <TabsContent value="compliance">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={Shield} title="Select a Company" description="Choose a company to manage compliance" /></CardContent></Card>
+              ) : (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <CardTitle className="text-lg">Compliance Settings</CardTitle>
+                        {complianceData?.overdueCount ? <Badge className="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400">{complianceData.overdueCount} Overdue</Badge> : null}
+                      </div>
+                      <Button onClick={openCreateCompliance} size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"><Plus className="h-3.5 w-3.5" /> Add Item</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {complianceLoading ? <LoadingSpinner message="Loading..." /> : complianceItems.length === 0 ? <EmptyState icon={Shield} title="No compliance items" description="Add compliance items for this company" /> : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead className="pl-4">Title</TableHead>
+                              <TableHead>Category</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead className="hidden md:table-cell">Due Date</TableHead>
+                              <TableHead className="hidden lg:table-cell">Assignee</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {complianceItems.map(c => {
+                              const isOverdue = c.status === 'pending' && c.dueDate && new Date(c.dueDate) < new Date()
+                              return (
+                                <TableRow key={c.id} className={isOverdue ? 'bg-red-50/50 dark:bg-red-950/20' : ''}>
+                                  <TableCell className="pl-4">
+                                    <div className="flex items-center gap-2">
+                                      {isOverdue && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                                      <p className="text-sm font-medium">{c.title}</p>
+                                    </div>
+                                    {c.description && <p className="text-muted-foreground text-xs truncate max-w-[200px]">{c.description}</p>}
+                                  </TableCell>
+                                  <TableCell><Badge variant="outline" className="text-[11px]">{c.category}</Badge></TableCell>
+                                  <TableCell>{isOverdue ? statusBadge('overdue') : statusBadge(c.status)}</TableCell>
+                                  <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{c.dueDate ? new Date(c.dueDate).toLocaleDateString() : '—'}</TableCell>
+                                  <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{c.assignee || '—'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-sky-600" onClick={() => openEditCompliance(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => setComplianceDeleteId(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 9: Subscription/Package ═══════════ */}
+            <TabsContent value="subscription">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={CreditCard} title="Select a Company" description="Choose a company to manage subscription" /></CardContent></Card>
+              ) : subscriptionLoading ? <LoadingSpinner message="Loading subscription..." /> : (
+                <div className="space-y-6">
+                  {/* Current Plan */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Current Plan</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {subscription ? (
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Plan</p>
+                            <p className="text-xl font-bold capitalize">{subscription.planName}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Max Employees</p>
+                            <p className="text-xl font-bold">{subscription.maxEmployees}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Max Branches</p>
+                            <p className="text-xl font-bold">{subscription.maxBranches}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Amount</p>
+                            <p className="text-xl font-bold">{subscription.currency} {subscription.amount}/mo</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Billing Cycle</p>
+                            <p className="text-xl font-bold capitalize">{subscription.billingCycle}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Auto Renew</p>
+                            <p className="text-xl font-bold">{subscription.autoRenew ? 'Yes' : 'No'}</p>
+                          </div>
+                        </div>
+                      ) : <p className="text-muted-foreground">No subscription found.</p>}
+                    </CardContent>
+                  </Card>
+
+                  {/* Plan Selection */}
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-lg">Change Plan</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {Object.entries(PLAN_FEATURES).map(([key, plan]) => (
+                          <Card key={key} className={`cursor-pointer transition-all hover:border-emerald-400 ${selectedPlan === key ? 'border-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-800' : ''}`} onClick={() => setSelectedPlan(key)}>
+                            <CardContent className="p-4">
+                              <p className="font-bold">{plan.label}</p>
+                              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${plan.amount}<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+                              <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                                <p>Up to {plan.maxEmployees} employees</p>
+                                <p>Up to {plan.maxBranches} branches</p>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                        <Button onClick={handleSaveSubscription} disabled={subscriptionSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                          {subscriptionSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                          Save Plan
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 10: Reports ═══════════ */}
+            <TabsContent value="reports">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={BarChart3} title="Select a Company" description="Choose a company to view reports" /></CardContent></Card>
+              ) : insightsLoading ? <LoadingSpinner message="Generating insights..." /> : (
+                <div className="space-y-6">
+                  {/* Overview Stats */}
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatCard icon={Users} label="Active Employees" value={((insightsData?.workforce as Record<string, unknown>)?.totalActive as number) ?? selectedCompanyObj?._count?.employees ?? 0} color="emerald" />
+                    <StatCard icon={Briefcase} label="Departments" value={((insightsData?.workforce as Record<string, unknown>)?.departments as number) ?? selectedCompanyObj?._count?.departments ?? 0} color="sky" />
+                    <StatCard icon={MapPin} label="Branches" value={((insightsData?.workforce as Record<string, unknown>)?.branches as number) ?? selectedCompanyObj?._count?.branches ?? 0} color="amber" />
+                    <StatCard icon={FileText} label="Leave Policies" value={((insightsData?.workforce as Record<string, unknown>)?.leavePolicies as number) ?? 0} color="violet" />
+                  </div>
+
+                  {/* Department Distribution */}
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <Card>
+                      <CardHeader className="pb-3"><CardTitle className="text-lg">Department Distribution</CardTitle></CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const dist = (insightsData?.workforce as Record<string, unknown>)?.departmentDistribution as Record<string, number> | undefined
+                          if (!dist || Object.keys(dist).length === 0) return <EmptyState icon={BarChart3} title="No data" description="No department data available" />
+                          const maxVal = Math.max(...Object.values(dist))
+                          return (
+                            <div className="space-y-3">
+                              {Object.entries(dist).map(([dept, count]) => (
+                                <div key={dept} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span>{dept}</span>
+                                    <span className="font-medium">{count as number}</span>
+                                  </div>
+                                  <Progress value={((count as number) / maxVal) * 100} className="h-2" />
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })()}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3"><CardTitle className="text-lg">Employment Type Distribution</CardTitle></CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const dist = (insightsData?.workforce as Record<string, unknown>)?.employmentTypeDistribution as Record<string, number> | undefined
+                          if (!dist || Object.keys(dist).length === 0) return <EmptyState icon={BarChart3} title="No data" description="No employment type data available" />
+                          const total = Object.values(dist).reduce((a, b) => a + b, 0)
+                          return (
+                            <div className="space-y-3">
+                              {Object.entries(dist).map(([type, count]) => (
+                                <div key={type} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                                    <span className="text-sm">{type}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">{count as number}</span>
+                                    <span className="text-muted-foreground text-xs">({Math.round(((count as number) / total) * 100)}%)</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })()}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Payroll Summary */}
+                  <Card>
+                    <CardHeader className="pb-3"><CardTitle className="text-lg">Payroll Summary</CardTitle></CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const cost = insightsData?.cost as Record<string, unknown> | undefined
+                        if (!cost) return <EmptyState icon={DollarSign} title="No payroll data" description="No cost prediction available" />
+                        return (
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div><p className="text-muted-foreground text-xs">Avg Salary</p><p className="text-xl font-bold">{String(cost.currency || 'USD')} {Number(cost.averageSalary || 0).toLocaleString()}</p></div>
+                            <div><p className="text-muted-foreground text-xs">Monthly Payroll</p><p className="text-xl font-bold">{String(cost.currency || 'USD')} {Number(cost.monthlyPayroll || 0).toLocaleString()}</p></div>
+                            <div><p className="text-muted-foreground text-xs">Annual Payroll</p><p className="text-xl font-bold">{String(cost.currency || 'USD')} {Number(cost.annualPayroll || 0).toLocaleString()}</p></div>
+                            <div><p className="text-muted-foreground text-xs">Total Projected Cost</p><p className="text-xl font-bold">{String(cost.currency || 'USD')} {Number(cost.totalProjectedCost || 0).toLocaleString()}</p></div>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* ═══════════ TAB 11: AI Insights ═══════════ */}
+            <TabsContent value="ai-insights">
+              {!globalCompanyId ? (
+                <Card><CardContent className="py-16"><EmptyState icon={Brain} title="Select a Company" description="Choose a company to view AI insights" /></CardContent></Card>
+              ) : insightsLoading ? <LoadingSpinner message="Generating AI insights..." /> : (
+                <div className="space-y-6">
+                  {/* Workforce Insights */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2"><Brain className="h-5 w-5 text-emerald-600" /><CardTitle className="text-lg">Workforce Insights</CardTitle></div>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const wf = insightsData?.workforce as Record<string, unknown> | undefined
+                        if (!wf) return <EmptyState icon={Brain} title="No data" description="Insufficient data for workforce analysis" />
+                        return (
+                          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Active Employees</p><p className="text-2xl font-bold">{String(wf.totalActive ?? 0)}</p></div>
+                            <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Avg Tenure</p><p className="text-2xl font-bold">{String(wf.averageTenure ?? 0)} yrs</p></div>
+                            <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Recent Hires (90d)</p><p className="text-2xl font-bold">{String(wf.recentHires ?? 0)}</p></div>
+                            <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Payroll Structures</p><p className="text-2xl font-bold">{String(wf.payrollStructures ?? 0)}</p></div>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Headcount Forecast */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-sky-600" /><CardTitle className="text-lg">Headcount Forecast</CardTitle></div>
+                      </CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const hc = insightsData?.headcount as Record<string, unknown> | undefined
+                          if (!hc) return <EmptyState icon={TrendingUp} title="No data" description="Insufficient data" />
+                          const forecast = hc.forecast as { month: string; projected: number; lowerBound: number; upperBound: number }[] | undefined
+                          return (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-3 gap-3 text-center">
+                                <div><p className="text-muted-foreground text-xs">Current</p><p className="text-xl font-bold">{String(hc.currentHeadcount ?? 0)}</p></div>
+                                <div><p className="text-muted-foreground text-xs">Growth Rate</p><p className="text-xl font-bold">{String(hc.monthlyGrowthRate ?? 0)}%</p></div>
+                                <div><p className="text-muted-foreground text-xs">12mo Projected</p><p className="text-xl font-bold">{String(hc.projected12Months ?? 0)}</p></div>
+                              </div>
+                              {forecast && forecast.length > 0 && (
+                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                  {forecast.slice(0, 6).map(f => (
+                                    <div key={f.month} className="flex items-center justify-between text-sm">
+                                      <span className="text-muted-foreground">{f.month}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">{f.projected}</span>
+                                        <ArrowUpRight className="h-3 w-3 text-emerald-500" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </CardContent>
+                    </Card>
+
+                    {/* Compliance Risk */}
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2"><Shield className="h-5 w-5 text-amber-600" /><CardTitle className="text-lg">Compliance Risk</CardTitle></div>
+                      </CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const comp = insightsData?.compliance as Record<string, unknown> | undefined
+                          if (!comp) return <EmptyState icon={Shield} title="No data" description="Insufficient compliance data" />
+                          const risks = comp.risks as { title: string; severity: string; description: string; recommendation: string }[] | undefined
+                          return (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-4">
+                                <div className="text-center">
+                                  <p className="text-muted-foreground text-xs">Score</p>
+                                  <p className="text-3xl font-bold">{String(comp.complianceScore ?? 0)}</p>
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                  <div className="flex items-center justify-between text-sm"><span>High Risk</span><span className="font-medium text-red-600">{String(comp.highRiskCount ?? 0)}</span></div>
+                                  <div className="flex items-center justify-between text-sm"><span>Medium Risk</span><span className="font-medium text-amber-600">{String(comp.mediumRiskCount ?? 0)}</span></div>
+                                  <div className="flex items-center justify-between text-sm"><span>Low Risk</span><span className="font-medium text-emerald-600">{String(comp.lowRiskCount ?? 0)}</span></div>
+                                </div>
+                              </div>
+                              {risks && risks.length > 0 && (
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                  {risks.map((r, i) => (
+                                    <div key={i} className="flex items-start gap-2 rounded-lg border p-2">
+                                      {severityBadge(r.severity)}
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-medium">{r.title}</p>
+                                        <p className="text-muted-foreground text-[10px] truncate">{r.recommendation}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Attrition Trends */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2"><TrendingDown className="h-5 w-5 text-rose-600" /><CardTitle className="text-lg">Attrition Trends</CardTitle></div>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const attr = insightsData?.attrition as Record<string, unknown> | undefined
+                        if (!attr) return <EmptyState icon={TrendingDown} title="No data" description="Insufficient attrition data" />
+                        const monthly = attr.monthlyAttrition as { month: string; exits: number; rate: number }[] | undefined
+                        const deptAttr = attr.departmentAttrition as Record<string, number> | undefined
+                        const trend = attr.trend as string
+                        return (
+                          <div className="space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-3">
+                              <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Total Exits (12mo)</p><p className="text-2xl font-bold">{String(attr.totalExits ?? 0)}</p></div>
+                              <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Annual Attrition Rate</p><p className="text-2xl font-bold">{String(attr.annualAttritionRate ?? 0)}%</p></div>
+                              <div className="rounded-lg border p-3">
+                                <p className="text-muted-foreground text-xs">Trend</p>
+                                <div className="flex items-center gap-1">
+                                  {trend === 'increasing' ? <ArrowUpRight className="h-5 w-5 text-red-500" /> : trend === 'decreasing' ? <ArrowDownRight className="h-5 w-5 text-emerald-500" /> : <TrendingUp className="h-5 w-5 text-amber-500" />}
+                                  <p className="text-xl font-bold capitalize">{trend || 'stable'}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid gap-6 lg:grid-cols-2">
+                              {monthly && monthly.length > 0 && (
+                                <div>
+                                  <p className="mb-2 text-sm font-medium">Monthly Attrition</p>
+                                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                                    {monthly.map(m => (
+                                      <div key={m.month} className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">{m.month}</span>
+                                        <div className="flex items-center gap-2">
+                                          <span>{m.exits} exits</span>
+                                          <Badge variant="outline" className="text-[10px]">{m.rate}%</Badge>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {deptAttr && Object.keys(deptAttr).length > 0 && (
+                                <div>
+                                  <p className="mb-2 text-sm font-medium">By Department</p>
+                                  <div className="space-y-1">
+                                    {Object.entries(deptAttr).map(([dept, exits]) => (
+                                      <div key={dept} className="flex items-center justify-between text-sm">
+                                        <span>{dept}</span>
+                                        <span className="font-medium">{exits as number} exits</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+
+                  {/* Cost Prediction */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-emerald-600" /><CardTitle className="text-lg">Cost Prediction</CardTitle></div>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const cost = insightsData?.cost as Record<string, unknown> | undefined
+                        if (!cost) return <EmptyState icon={DollarSign} title="No data" description="Insufficient cost data" />
+                        const projections = cost.projections as Record<string, { rate: number; annual: number }> | undefined
+                        const monthlyCost = cost.monthlyCost as { month: string; salary: number; benefits: number; overhead: number }[] | undefined
+                        const cur = String(cost.currency || 'USD')
+                        return (
+                          <div className="space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                              <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Benefits Cost</p><p className="text-lg font-bold">{cur} {Number(cost.benefitsCost || 0).toLocaleString()}</p></div>
+                              <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Overhead Cost</p><p className="text-lg font-bold">{cur} {Number(cost.overheadCost || 0).toLocaleString()}</p></div>
+                              <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Total Projected</p><p className="text-lg font-bold">{cur} {Number(cost.totalProjectedCost || 0).toLocaleString()}</p></div>
+                              <div className="rounded-lg border p-3"><p className="text-muted-foreground text-xs">Avg Salary</p><p className="text-lg font-bold">{cur} {Number(cost.averageSalary || 0).toLocaleString()}</p></div>
+                            </div>
+                            {projections && (
+                              <div>
+                                <p className="mb-2 text-sm font-medium">Growth Scenarios</p>
+                                <div className="grid gap-2 sm:grid-cols-3">
+                                  {Object.entries(projections).map(([scenario, data]) => (
+                                    <div key={scenario} className="rounded-lg border p-3">
+                                      <p className="text-xs font-medium capitalize">{scenario}</p>
+                                      <p className="text-sm">+{Math.round(data.rate * 100)}% → {cur} {data.annual.toLocaleString()}/yr</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {monthlyCost && monthlyCost.length > 0 && (
+                              <div>
+                                <p className="mb-2 text-sm font-medium">Monthly Breakdown (Next 6mo)</p>
+                                <div className="space-y-1 max-h-48 overflow-y-auto">
+                                  {monthlyCost.slice(0, 6).map(m => (
+                                    <div key={m.month} className="flex items-center justify-between text-sm">
+                                      <span className="text-muted-foreground">{m.month}</span>
+                                      <div className="flex items-center gap-3 text-xs">
+                                        <span>Salary: {cur} {m.salary.toLocaleString()}</span>
+                                        <span>Benefits: {cur} {m.benefits.toLocaleString()}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* ═══════════ DIALOGS ═══════════ */}
+
+        {/* ── Company Create/Edit Dialog ── */}
+        <Dialog open={companyDialogOpen} onOpenChange={setCompanyDialogOpen}>
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{companyEditId ? 'Edit Company' : 'Create Company'}</DialogTitle>
+              <DialogDescription>{companyEditId ? 'Update company details.' : 'Add a new company to the system.'}</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Company Name *</Label><Input value={companyForm.name} onChange={e => setCompanyForm(f => ({ ...f, name: e.target.value }))} placeholder="Acme Corp" /></div>
+                <div className="space-y-2"><Label>Legal Name</Label><Input value={companyForm.legalName} onChange={e => setCompanyForm(f => ({ ...f, legalName: e.target.value }))} placeholder="Acme Corporation Pvt. Ltd." /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Code *</Label><Input value={companyForm.code} onChange={e => setCompanyForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="ACME" /></div>
+                <div className="space-y-2"><Label>Industry</Label>
+                  <Select value={companyForm.industry} onValueChange={v => setCompanyForm(f => ({ ...f, industry: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
+                    <SelectContent>{INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2"><Label>Address</Label><Textarea value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} placeholder="Full address" rows={2} /></div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>City</Label><Input value={companyForm.city} onChange={e => setCompanyForm(f => ({ ...f, city: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>State</Label><Input value={companyForm.state} onChange={e => setCompanyForm(f => ({ ...f, state: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Country</Label><Input value={companyForm.country} onChange={e => setCompanyForm(f => ({ ...f, country: e.target.value }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>Currency</Label>
+                  <Select value={companyForm.currency} onValueChange={v => setCompanyForm(f => ({ ...f, currency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Timezone</Label>
+                  <Select value={companyForm.timezone} onValueChange={v => setCompanyForm(f => ({ ...f, timezone: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{TIMEZONES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Payroll Cycle</Label>
+                  <Select value={companyForm.payrollCycle} onValueChange={v => setCompanyForm(f => ({ ...f, payrollCycle: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PAYROLL_CYCLES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>GST/VAT</Label><Input value={companyForm.gstVat} onChange={e => setCompanyForm(f => ({ ...f, gstVat: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>PAN/TAN/CIN</Label><Input value={companyForm.panTanCin} onChange={e => setCompanyForm(f => ({ ...f, panTanCin: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Registration No.</Label><Input value={companyForm.registrationNumber} onChange={e => setCompanyForm(f => ({ ...f, registrationNumber: e.target.value }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Financial Year</Label><Input value={companyForm.financialYear} onChange={e => setCompanyForm(f => ({ ...f, financialYear: e.target.value }))} placeholder="Apr-Mar" /></div>
+                <div className="space-y-2"><Label>Default Language</Label>
+                  <Select value={companyForm.defaultLanguage} onValueChange={v => setCompanyForm(f => ({ ...f, defaultLanguage: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="en">English</SelectItem><SelectItem value="hi">Hindi</SelectItem><SelectItem value="es">Spanish</SelectItem><SelectItem value="fr">French</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {companyEditId && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2"><Label>Status</Label>
+                    <Select value={companyForm.status} onValueChange={v => setCompanyForm(f => ({ ...f, status: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Parent Company</Label>
+                    <Select value={companyForm.parentId} onValueChange={v => setCompanyForm(f => ({ ...f, parentId: v }))}>
+                      <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {companies.filter(c => c.id !== companyEditId).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
-                  {locationCompanyId && (
-                    <Button
-                      className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                      onClick={() => handleAddLocation(locationCompanyId)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Location
-                    </Button>
-                  )}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCompanyDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveCompany} disabled={companySaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                {companySaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {companyEditId ? 'Update' : 'Create'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-            {!locationCompanyId ? (
-              <Card>
-                <CardContent className="p-0">
-                  <EmptyState
-                    icon={MapPin}
-                    title="Select a company"
-                    description="Choose a company above to manage its office locations"
-                  />
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-0">
-                  {locationsLoading ? (
-                    <LoadingSpinner message="Loading office locations..." />
-                  ) : locationsError ? (
-                    <div className="flex flex-col items-center justify-center gap-3 py-16">
-                      <p className="text-destructive text-sm">{locationsError}</p>
-                      <Button variant="outline" size="sm" onClick={refetchLocations}>
-                        Retry
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="pl-4">Location Name</TableHead>
-                            <TableHead className="hidden md:table-cell">Address</TableHead>
-                            <TableHead>Coordinates</TableHead>
-                            <TableHead>Radius</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {locations.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={6} className="h-32 text-center">
-                                <EmptyState
-                                  icon={MapPinned}
-                                  title="No office locations"
-                                  description="Add geofenced office locations for attendance tracking"
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ) : (
-                            locations.map((location) => (
-                              <TableRow key={location.id}>
-                                <TableCell className="pl-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950">
-                                      <MapPin className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-                                    </div>
-                                    <p className="text-sm font-medium">{location.name}</p>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                                  {location.address || '—'}
-                                </TableCell>
-                                <TableCell>
-                                  <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono">
-                                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                                  </code>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="text-sm">{location.radius}m</span>
-                                </TableCell>
-                                <TableCell>
-                                  {location.isActive ? (
-                                    <Badge variant="secondary" className="text-[11px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                                      Active
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="text-[11px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                                      Inactive
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
-                                      onClick={() => handleEditLocation(location)}
-                                      title="Edit"
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
-                                      onClick={() => setDeleteLocationConfirm(location.id)}
-                                      title="Delete"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+        {/* ── Company Delete Confirm ── */}
+        <AlertDialog open={!!companyDeleteId} onOpenChange={() => setCompanyDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Delete Company?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the company and all related data. This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteCompany} disabled={companyDeleting} className="bg-red-600 hover:bg-red-700">{companyDeleting ? 'Deleting...' : 'Delete'}</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-                  {!locationsLoading && !locationsError && (
-                    <div className="flex items-center justify-between border-t px-4 py-3">
-                      <p className="text-muted-foreground text-sm">
-                        Showing{' '}
-                        <span className="font-medium text-foreground">{locations.length}</span>{' '}
-                        of{' '}
-                        <span className="font-medium text-foreground">{locationsData?.pagination?.total ?? locations.length}</span>{' '}
-                        locations
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* ─── Policies Tab ──────────────────────────────────────── */}
-          <TabsContent value="policies">
-            <Card>
-              <CardContent className="p-6">
-                <EmptyState
-                  icon={FileText}
-                  title="Company Policies"
-                  description="Manage company policies and guidelines. Policy management features coming soon."
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* ─── Create Company Dialog ────────────────────────────────── */}
-      <Dialog open={createOpen} onOpenChange={handleCreateDialogChange}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-emerald-600" />
-              Create New Company
-            </DialogTitle>
-            <DialogDescription>
-              Add a new company. A unique 6-character join code will be auto-generated.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="companyName">Company Name *</Label>
-              <Input
-                id="companyName"
-                value={createForm.name}
-                onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g., Acme Technologies"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="companyDesc">Description</Label>
-              <Textarea
-                id="companyDesc"
-                value={createForm.description}
-                onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Brief description of the company"
-                rows={2}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="companyIndustry">Industry</Label>
-                <Select
-                  value={createForm.industry}
-                  onValueChange={(v) => setCreateForm((f) => ({ ...f, industry: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INDUSTRIES.map((ind) => (
-                      <SelectItem key={ind} value={ind}>{ind}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="companyWebsite">Website</Label>
-                <Input
-                  id="companyWebsite"
-                  value={createForm.website}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, website: e.target.value }))}
-                  placeholder="https://example.com"
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="companyAddress">Address</Label>
-              <Input
-                id="companyAddress"
-                value={createForm.address}
-                onChange={(e) => setCreateForm((f) => ({ ...f, address: e.target.value }))}
-                placeholder="Street address"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <div className="grid gap-2">
-                <Label htmlFor="companyCity">City</Label>
-                <Input
-                  id="companyCity"
-                  value={createForm.city}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, city: e.target.value }))}
-                  placeholder="City"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="companyState">State</Label>
-                <Input
-                  id="companyState"
-                  value={createForm.state}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, state: e.target.value }))}
-                  placeholder="State"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="companyCountry">Country</Label>
-                <Input
-                  id="companyCountry"
-                  value={createForm.country}
-                  onChange={(e) => setCreateForm((f) => ({ ...f, country: e.target.value }))}
-                  placeholder="Country"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="companyPhone">Phone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="companyPhone"
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="+1 234 567 890"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="companyEmail">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="companyEmail"
-                    type="email"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                    placeholder="contact@company.com"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleCreateCompany}
-              disabled={saving || !createForm.name}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-              Create Company
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Edit Company Dialog ──────────────────────────────────── */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-amber-600" />
-              Edit Company
-            </DialogTitle>
-            <DialogDescription>
-              Update company information for &ldquo;{selectedCompany?.name}&rdquo;
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="editCompanyName">Company Name *</Label>
-              <Input
-                id="editCompanyName"
-                value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="editCompanyDesc">Description</Label>
-              <Textarea
-                id="editCompanyDesc"
-                value={editForm.description}
-                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
-                rows={2}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyIndustry">Industry</Label>
-                <Select
-                  value={editForm.industry}
-                  onValueChange={(v) => setEditForm((f) => ({ ...f, industry: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INDUSTRIES.map((ind) => (
-                      <SelectItem key={ind} value={ind}>{ind}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyWebsite">Website</Label>
-                <Input
-                  id="editCompanyWebsite"
-                  value={editForm.website}
-                  onChange={(e) => setEditForm((f) => ({ ...f, website: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="editCompanyAddress">Address</Label>
-              <Input
-                id="editCompanyAddress"
-                value={editForm.address}
-                onChange={(e) => setEditForm((f) => ({ ...f, address: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyCity">City</Label>
-                <Input
-                  id="editCompanyCity"
-                  value={editForm.city}
-                  onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyState">State</Label>
-                <Input
-                  id="editCompanyState"
-                  value={editForm.state}
-                  onChange={(e) => setEditForm((f) => ({ ...f, state: e.target.value }))}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyCountry">Country</Label>
-                <Input
-                  id="editCompanyCountry"
-                  value={editForm.country}
-                  onChange={(e) => setEditForm((f) => ({ ...f, country: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyPhone">Phone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="editCompanyPhone"
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="editCompanyEmail">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="editCompanyEmail"
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="editCompanyStatus">Status</Label>
-              <Select
-                value={editForm.status === 'active' ? 'active' : 'inactive'}
-                onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Active</SelectItem>
-                  <SelectItem value="false">Inactive</SelectItem>
-                </SelectContent>
+        {/* ── Role Assignment Dialog ── */}
+        <Dialog open={!!roleDialogMember} onOpenChange={() => setRoleDialogMember(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Assign Role</DialogTitle><DialogDescription>Change role for {roleDialogMember?.employee.firstName} {roleDialogMember?.employee.lastName}</DialogDescription></DialogHeader>
+            <div className="py-4">
+              <Label>New Role</Label>
+              <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+                <SelectContent>{MEMBER_ROLES.map(r => <SelectItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleEditCompany}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
-              Update Company
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleDialogMember(null)}>Cancel</Button>
+              <Button onClick={handleAssignRole} disabled={!!memberActionLoading} className="gap-2 bg-emerald-600 hover:bg-emerald-700">Assign</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* ─── View Company Dialog ──────────────────────────────────── */}
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-sky-600" />
-              Company Details
-            </DialogTitle>
-            <DialogDescription>
-              Overview of &ldquo;{selectedCompany?.name}&rdquo;
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCompany && (
+        {/* ── Department Dialog ── */}
+        <Dialog open={deptDialogOpen} onOpenChange={setDeptDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>{deptEditId ? 'Edit Department' : 'Create Department'}</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="flex items-center gap-4 rounded-lg border p-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950">
-                  <Building2 className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="space-y-2"><Label>Name *</Label><Input value={deptForm.name} onChange={e => setDeptForm(f => ({ ...f, name: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Head</Label><Input value={deptForm.head} onChange={e => setDeptForm(f => ({ ...f, head: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={deptForm.description} onChange={e => setDeptForm(f => ({ ...f, description: e.target.value }))} rows={2} /></div>
+              <div className="space-y-2"><Label>Budget</Label><Input type="number" value={deptForm.budget} onChange={e => setDeptForm(f => ({ ...f, budget: e.target.value }))} /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeptDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveDept} disabled={deptSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">{deptSaving && <Loader2 className="h-4 w-4 animate-spin" />}{deptEditId ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Department Delete ── */}
+        <AlertDialog open={!!deptDeleteId} onOpenChange={() => setDeptDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Delete Department?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteDept} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* ── Branch Dialog ── */}
+        <Dialog open={branchDialogOpen} onOpenChange={setBranchDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader><DialogTitle>{branchEditId ? 'Edit Branch' : 'Create Branch'}</DialogTitle></DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Name *</Label><Input value={branchForm.name} onChange={e => setBranchForm(f => ({ ...f, name: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Code</Label><Input value={branchForm.code} onChange={e => setBranchForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} /></div>
+              </div>
+              <div className="space-y-2"><Label>Address</Label><Textarea value={branchForm.address} onChange={e => setBranchForm(f => ({ ...f, address: e.target.value }))} rows={2} /></div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>City</Label><Input value={branchForm.city} onChange={e => setBranchForm(f => ({ ...f, city: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>State</Label><Input value={branchForm.state} onChange={e => setBranchForm(f => ({ ...f, state: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Country</Label><Input value={branchForm.country} onChange={e => setBranchForm(f => ({ ...f, country: e.target.value }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>Pincode</Label><Input value={branchForm.pincode} onChange={e => setBranchForm(f => ({ ...f, pincode: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Phone</Label><Input value={branchForm.phone} onChange={e => setBranchForm(f => ({ ...f, phone: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Email</Label><Input value={branchForm.email} onChange={e => setBranchForm(f => ({ ...f, email: e.target.value }))} /></div>
+              </div>
+              <div className="space-y-2"><Label>Branch Head</Label><Input value={branchForm.head} onChange={e => setBranchForm(f => ({ ...f, head: e.target.value }))} /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setBranchDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveBranch} disabled={branchSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">{branchSaving && <Loader2 className="h-4 w-4 animate-spin" />}{branchEditId ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Branch Delete ── */}
+        <AlertDialog open={!!branchDeleteId} onOpenChange={() => setBranchDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Delete Branch?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteBranch} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* ── Payroll Structure Dialog ── */}
+        <Dialog open={payrollDialogOpen} onOpenChange={setPayrollDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader><DialogTitle>{payrollEditId ? 'Edit Payroll Structure' : 'Create Payroll Structure'}</DialogTitle></DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2"><Label>Structure Name *</Label><Input value={payrollForm.name} onChange={e => setPayrollForm(f => ({ ...f, name: e.target.value }))} placeholder="Standard Salary Structure" /></div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>Basic Pay</Label><Input type="number" value={payrollForm.basicPay} onChange={e => setPayrollForm(f => ({ ...f, basicPay: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>HRA</Label><Input type="number" value={payrollForm.hra} onChange={e => setPayrollForm(f => ({ ...f, hra: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>DA</Label><Input type="number" value={payrollForm.da} onChange={e => setPayrollForm(f => ({ ...f, da: e.target.value }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>Transport Allowance</Label><Input type="number" value={payrollForm.transportAllowance} onChange={e => setPayrollForm(f => ({ ...f, transportAllowance: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Medical Allowance</Label><Input type="number" value={payrollForm.medicalAllowance} onChange={e => setPayrollForm(f => ({ ...f, medicalAllowance: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Special Allowance</Label><Input type="number" value={payrollForm.specialAllowance} onChange={e => setPayrollForm(f => ({ ...f, specialAllowance: e.target.value }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2"><Label>PF (Employee)</Label><Input type="number" value={payrollForm.pfEmployee} onChange={e => setPayrollForm(f => ({ ...f, pfEmployee: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>PF (Employer)</Label><Input type="number" value={payrollForm.pfEmployer} onChange={e => setPayrollForm(f => ({ ...f, pfEmployer: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>ESI (Employee)</Label><Input type="number" value={payrollForm.esiEmployee} onChange={e => setPayrollForm(f => ({ ...f, esiEmployee: e.target.value }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>ESI (Employer)</Label><Input type="number" value={payrollForm.esiEmployer} onChange={e => setPayrollForm(f => ({ ...f, esiEmployer: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Tax Deduction</Label><Input type="number" value={payrollForm.taxDeduction} onChange={e => setPayrollForm(f => ({ ...f, taxDeduction: e.target.value }))} /></div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPayrollDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSavePayroll} disabled={payrollSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">{payrollSaving && <Loader2 className="h-4 w-4 animate-spin" />}{payrollEditId ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Leave Type Dialog ── */}
+        <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>{leaveEditId ? 'Edit Leave Type' : 'Create Leave Type'}</DialogTitle></DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Name *</Label><Input value={leaveForm.name} onChange={e => setLeaveForm(f => ({ ...f, name: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Code *</Label><Input value={leaveForm.code} onChange={e => setLeaveForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} /></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Annual Quota (days)</Label><Input type="number" value={leaveForm.annualQuota} onChange={e => setLeaveForm(f => ({ ...f, annualQuota: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Carry Forward Rule</Label><Input value={leaveForm.carryForwardRule} onChange={e => setLeaveForm(f => ({ ...f, carryForwardRule: e.target.value }))} placeholder="e.g. max 5 days" /></div>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div><p className="text-sm font-medium">Paid Leave</p><p className="text-muted-foreground text-xs">Employee receives pay during this leave</p></div>
+                <Switch checked={leaveForm.isPaid} onCheckedChange={v => setLeaveForm(f => ({ ...f, isPaid: v }))} />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div><p className="text-sm font-medium">Approval Required</p><p className="text-muted-foreground text-xs">Manager must approve before taking leave</p></div>
+                <Switch checked={leaveForm.approvalRequired} onCheckedChange={v => setLeaveForm(f => ({ ...f, approvalRequired: v }))} />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div><p className="text-sm font-medium">Attachment Required</p><p className="text-muted-foreground text-xs">Employee must upload document</p></div>
+                <Switch checked={leaveForm.attachmentRequired} onCheckedChange={v => setLeaveForm(f => ({ ...f, attachmentRequired: v }))} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveLeave} disabled={leaveSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">{leaveSaving && <Loader2 className="h-4 w-4 animate-spin" />}{leaveEditId ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Leave Delete ── */}
+        <AlertDialog open={!!leaveDeleteId} onOpenChange={() => setLeaveDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Delete Leave Type?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteLeave} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* ── Holiday Dialog ── */}
+        <Dialog open={holidayDialogOpen} onOpenChange={setHolidayDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>{holidayEditId ? 'Edit Holiday' : 'Create Holiday'}</DialogTitle></DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2"><Label>Name *</Label><Input value={holidayForm.name} onChange={e => setHolidayForm(f => ({ ...f, name: e.target.value }))} /></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Date *</Label><Input type="date" value={holidayForm.date} onChange={e => setHolidayForm(f => ({ ...f, date: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Type</Label>
+                  <Select value={holidayForm.type} onValueChange={v => setHolidayForm(f => ({ ...f, type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{HOLIDAY_TYPES.map(t => <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold">{selectedCompany.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    {getStatusBadge(selectedCompany.status === 'active' ? 'active' : 'inactive')}
-                    {selectedCompany.industry && (
-                      <Badge variant="outline" className="text-[11px]">{selectedCompany.industry}</Badge>
-                    )}
-                  </div>
+              </div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={holidayForm.description} onChange={e => setHolidayForm(f => ({ ...f, description: e.target.value }))} rows={2} /></div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div><p className="text-sm font-medium">Recurring Annually</p><p className="text-muted-foreground text-xs">This holiday repeats every year</p></div>
+                <Switch checked={holidayForm.isRecurring} onCheckedChange={v => setHolidayForm(f => ({ ...f, isRecurring: v }))} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setHolidayDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveHoliday} disabled={holidaySaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">{holidaySaving && <Loader2 className="h-4 w-4 animate-spin" />}{holidayEditId ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Holiday Delete ── */}
+        <AlertDialog open={!!holidayDeleteId} onOpenChange={() => setHolidayDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Delete Holiday?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteHoliday} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* ── Compliance Dialog ── */}
+        <Dialog open={complianceDialogOpen} onOpenChange={setComplianceDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>{complianceEditId ? 'Edit Compliance Item' : 'Create Compliance Item'}</DialogTitle></DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2"><Label>Title *</Label><Input value={complianceForm.title} onChange={e => setComplianceForm(f => ({ ...f, title: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={complianceForm.description} onChange={e => setComplianceForm(f => ({ ...f, description: e.target.value }))} rows={2} /></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Category *</Label>
+                  <Select value={complianceForm.category} onValueChange={v => setComplianceForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectContent>
+                      {['HR', 'IT', 'Finance', 'Legal', 'Safety', 'Tax', 'Other'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={complianceForm.dueDate} onChange={e => setComplianceForm(f => ({ ...f, dueDate: e.target.value }))} /></div>
               </div>
-
-              <div className="grid gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                    <Copy className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Join Code</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm font-mono font-bold tracking-wider">{selectedCompany.code}</code>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => handleCopyCode(selectedCompany.code)}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>Status</Label>
+                  <Select value={complianceForm.status} onValueChange={v => setComplianceForm(f => ({ ...f, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{['pending', 'completed', 'overdue', 'cancelled'].map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
-
-                {selectedCompany.description && (
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Description</p>
-                      <p className="text-sm">{selectedCompany.description}</p>
-                    </div>
-                  </div>
-                )}
-
-                {selectedCompany.website && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Website</p>
-                      <p className="text-sm text-emerald-600 dark:text-emerald-400">{selectedCompany.website}</p>
-                    </div>
-                  </div>
-                )}
-
-                {(selectedCompany.address || selectedCompany.city || selectedCompany.country) && (
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Location</p>
-                      <p className="text-sm">
-                        {[selectedCompany.address, selectedCompany.city, selectedCompany.state, selectedCompany.country].filter(Boolean).join(', ')}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {selectedCompany.phone && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Phone</p>
-                      <p className="text-sm">{selectedCompany.phone}</p>
-                    </div>
-                  </div>
-                )}
-
-                {selectedCompany.email && (
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Email</p>
-                      <p className="text-sm">{selectedCompany.email}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 rounded-lg border p-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-emerald-600">{selectedCompany._count?.members || 0}</p>
-                  <p className="text-xs text-muted-foreground">Members</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-violet-600">{selectedCompany._count?.officeLocations || 0}</p>
-                  <p className="text-xs text-muted-foreground">Office Locations</p>
-                </div>
+                <div className="space-y-2"><Label>Assignee</Label><Input value={complianceForm.assignee} onChange={e => setComplianceForm(f => ({ ...f, assignee: e.target.value }))} /></div>
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewOpen(false)}>Close</Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => {
-                setViewOpen(false)
-                if (selectedCompany) {
-                  setSelectedCompanyId(selectedCompany.id)
-                  setActiveTab('members')
-                }
-              }}
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Manage Members
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setComplianceDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveCompliance} disabled={complianceSaving} className="gap-2 bg-emerald-600 hover:bg-emerald-700">{complianceSaving && <Loader2 className="h-4 w-4 animate-spin" />}{complianceEditId ? 'Update' : 'Create'}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* ─── Join Company Dialog ──────────────────────────────────── */}
-      <Dialog open={joinOpen} onOpenChange={setJoinOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LogIn className="h-5 w-5 text-emerald-600" />
-              Join a Company
-            </DialogTitle>
-            <DialogDescription>
-              Enter the 6-character join code shared by HR to request membership
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="joinCode">Company Join Code</Label>
-              <Input
-                id="joinCode"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="e.g., AB12CD"
-                className="h-12 text-center text-xl font-mono tracking-[0.3em] uppercase"
-                maxLength={6}
-              />
-              <p className="text-xs text-muted-foreground">
-                Ask your HR for the company join code
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setJoinOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleJoinCompany}
-              disabled={joining || joinCode.length < 6}
-            >
-              {joining ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
-              Join Company
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* ── Compliance Delete ── */}
+        <AlertDialog open={!!complianceDeleteId} onOpenChange={() => setComplianceDeleteId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Delete Compliance Item?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteCompliance} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      {/* ─── Delete Company Confirm ───────────────────────────────── */}
-      <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Company</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this company? This will also remove all members, office locations, tasks, and meetings. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={deleting}
-            >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ─── Add Office Location Dialog ───────────────────────────── */}
-      <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-emerald-600" />
-              Add Office Location
-            </DialogTitle>
-            <DialogDescription>
-              Create a geofenced office location for attendance tracking
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="locName">Location Name *</Label>
-              <Input
-                id="locName"
-                value={locationForm.name}
-                onChange={(e) => setLocationForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g., HQ - Main Office"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="locAddress">Address</Label>
-              <Input
-                id="locAddress"
-                value={locationForm.address}
-                onChange={(e) => setLocationForm((f) => ({ ...f, address: e.target.value }))}
-                placeholder="Full address of the office"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="locLat">Latitude *</Label>
-                <Input
-                  id="locLat"
-                  type="number"
-                  step="any"
-                  value={locationForm.latitude}
-                  onChange={(e) => setLocationForm((f) => ({ ...f, latitude: e.target.value }))}
-                  placeholder="e.g., 28.613895"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="locLng">Longitude *</Label>
-                <Input
-                  id="locLng"
-                  type="number"
-                  step="any"
-                  value={locationForm.longitude}
-                  onChange={(e) => setLocationForm((f) => ({ ...f, longitude: e.target.value }))}
-                  placeholder="e.g., 77.209006"
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="locRadius">Geofence Radius (meters)</Label>
-              <Input
-                id="locRadius"
-                type="number"
-                value={locationForm.radius}
-                onChange={(e) => setLocationForm((f) => ({ ...f, radius: e.target.value }))}
-                placeholder="500"
-              />
-              <p className="text-xs text-muted-foreground">
-                Radius in meters for geofencing. Default is 500m.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddLocationOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleSaveLocation}
-              disabled={locationSaving || !locationForm.name || !locationForm.latitude || !locationForm.longitude}
-            >
-              {locationSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-              Add Location
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Edit Office Location Dialog ──────────────────────────── */}
-      <Dialog open={editLocationOpen} onOpenChange={setEditLocationOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-amber-600" />
-              Edit Office Location
-            </DialogTitle>
-            <DialogDescription>
-              Update geofenced office location details
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="editLocName">Location Name *</Label>
-              <Input
-                id="editLocName"
-                value={locationForm.name}
-                onChange={(e) => setLocationForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="editLocAddress">Address</Label>
-              <Input
-                id="editLocAddress"
-                value={locationForm.address}
-                onChange={(e) => setLocationForm((f) => ({ ...f, address: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="editLocLat">Latitude *</Label>
-                <Input
-                  id="editLocLat"
-                  type="number"
-                  step="any"
-                  value={locationForm.latitude}
-                  onChange={(e) => setLocationForm((f) => ({ ...f, latitude: e.target.value }))}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="editLocLng">Longitude *</Label>
-                <Input
-                  id="editLocLng"
-                  type="number"
-                  step="any"
-                  value={locationForm.longitude}
-                  onChange={(e) => setLocationForm((f) => ({ ...f, longitude: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="editLocRadius">Geofence Radius (meters)</Label>
-              <Input
-                id="editLocRadius"
-                type="number"
-                value={locationForm.radius}
-                onChange={(e) => setLocationForm((f) => ({ ...f, radius: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditLocationOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleUpdateLocation}
-              disabled={locationSaving}
-            >
-              {locationSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
-              Update Location
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Delete Location Confirm ──────────────────────────────── */}
-      <AlertDialog open={!!deleteLocationConfirm} onOpenChange={() => setDeleteLocationConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Office Location</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this office location? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteLocation}
-              className="bg-red-600 hover:bg-red-700"
-              disabled={locationDeleting}
-            >
-              {locationDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }

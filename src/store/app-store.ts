@@ -246,24 +246,58 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchCompanies: async () => {
     try {
-      const res = await fetch('/api/companies?status=active&limit=100');
-      if (!res.ok) return;
-      const json = await res.json();
-      const apiCompanies = (json.data || []) as Array<Record<string, unknown>>;
-      const mapped: CompanyInfo[] = apiCompanies.map((c) => ({
-        id: c.id as string,
-        name: c.name as string,
-        code: (c.code as string) || '',
-        industry: (c.industry as string) || '',
-        logo: (c.logo as string) || undefined,
-        country: (c.country as string) || '',
-        currency: (c.currency as string) || 'USD',
-        employeeCount: (c._count as Record<string, number>)?.employees ?? 0,
-        status: (c.status as string) || 'active',
-        state: (c.state as string) || '',
-        city: (c.city as string) || '',
-        timezone: (c.timezone as string) || '',
-      }));
+      // Try the masters API first (more reliable with Prisma ORM)
+      let mapped: CompanyInfo[] = [];
+      
+      try {
+        const mastersRes = await fetch('/api/masters/companies?status=active');
+        if (mastersRes.ok) {
+          const mastersJson = await mastersRes.json();
+          const records = (mastersJson.records || []) as Array<Record<string, unknown>>;
+          if (records.length > 0) {
+            mapped = records.map((c) => ({
+              id: c.id as string,
+              name: c.name as string,
+              code: (c.code as string) || '',
+              industry: (c.industry as string) || '',
+              logo: (c.logo as string) || undefined,
+              country: (c.country as string) || '',
+              currency: (c.currency as string) || 'USD',
+              employeeCount: (c._count as Record<string, number>)?.employees ?? 0,
+              status: (c.status as string) || 'active',
+              state: (c.state as string) || '',
+              city: (c.city as string) || '',
+              timezone: (c.timezone as string) || '',
+            }));
+          }
+        }
+      } catch {
+        // Fall through to the primary API
+      }
+
+      // Fallback to primary companies API if masters didn't return data
+      if (mapped.length === 0) {
+        const res = await fetch('/api/companies?status=active&limit=100');
+        if (res.ok) {
+          const json = await res.json();
+          const apiCompanies = (json.data || []) as Array<Record<string, unknown>>;
+          mapped = apiCompanies.map((c) => ({
+            id: c.id as string,
+            name: c.name as string,
+            code: (c.code as string) || '',
+            industry: (c.industry as string) || '',
+            logo: (c.logo as string) || undefined,
+            country: (c.country as string) || '',
+            currency: (c.currency as string) || 'USD',
+            employeeCount: (c._count as Record<string, number>)?.employees ?? (c.emp_count as number) ?? 0,
+            status: (c.status as string) || 'active',
+            state: (c.state as string) || '',
+            city: (c.city as string) || '',
+            timezone: (c.timezone as string) || '',
+          }));
+        }
+      }
+
       set({ companies: mapped });
 
       // If currentCompany is set but not found in loaded companies, update it

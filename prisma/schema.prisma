@@ -53,6 +53,8 @@ model Company {
   requisitions ManpowerRequisition[]
   members     CompanyMember[]
   officeLocations OfficeLocation[]
+  holidays    Holiday[]
+  subscription CompanySubscription?
   meetings    Meeting[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1106,6 +1108,45 @@ model OfficeLocation {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ==================== HOLIDAY CALENDAR ====================
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String
+  date        DateTime
+  type        String   @default("public") // public, optional, company, restricted
+  description String?
+  isRecurring Boolean  @default(false)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, date, name])
+}
+
+// ==================== COMPANY SUBSCRIPTION ====================
+
+model CompanySubscription {
+  id              String   @id @default(cuid())
+  companyId       String   @unique
+  company         Company  @relation(fields: [companyId], references: [id])
+  planName        String   @default("free") // free, starter, professional, enterprise
+  maxEmployees    Int      @default(10)
+  maxBranches     Int      @default(1)
+  features        String   @default("[]") // JSON array of feature keys
+  startDate       DateTime?
+  endDate         DateTime?
+  billingCycle    String   @default("monthly") // monthly, yearly
+  amount          Float    @default(0)
+  currency        String   @default("USD")
+  status          String   @default("active") // active, expired, suspended, trial
+  trialEndsAt     DateTime?
+  autoRenew       Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ==================== MEETINGS ====================

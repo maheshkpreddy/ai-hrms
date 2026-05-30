@@ -92,6 +92,7 @@ const MODULE_COMPONENTS: Record<string, React.ComponentType> = {
   job_portal: JobPortal,
   ai_interview: AIInterviewModule,
   ai_chatbot: AIChatbot,
+  'company-management': CompanyManagement,
 };
 
 export function HRMSLayout() {

@@ -57,6 +57,7 @@ import {
   CalendarDays,
   Layers,
   Wrench,
+  CreditCard,
 } from 'lucide-react'
 import { useHRMSStore, type ModuleKey } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -122,13 +123,33 @@ const navItems: NavItem[] = [
     ],
   },
   {
+    key: 'company-management' as ModuleKey,
+    label: 'Company Management',
+    icon: Building2,
+    aiPowered: true,
+    color: 'from-emerald-500 to-teal-600',
+    subItems: [
+      { key: 'company-setup', label: 'Company Setup', icon: Building2 },
+      { key: 'admin-assignment', label: 'Admin Assignment', icon: UserCheck },
+      { key: 'dept-branches', label: 'Depts & Branches', icon: Globe },
+      { key: 'payroll-structure', label: 'Payroll Structure', icon: DollarSign },
+      { key: 'leave-policy', label: 'Leave Policy', icon: CalendarDays },
+      { key: 'holiday-calendar', label: 'Holiday Calendar', icon: CalendarDays },
+      { key: 'client-vendor', label: 'Client/Vendor', icon: Briefcase },
+      { key: 'compliance-settings', label: 'Compliance', icon: Shield },
+      { key: 'subscription', label: 'Subscription', icon: CreditCard },
+      { key: 'company-reports', label: 'Reports', icon: BarChart3 },
+      { key: 'ai-insights', label: 'AI Insights', icon: Brain },
+    ],
+  },
+  {
     key: 'masters',
     label: 'Masters',
     icon: ClipboardList,
     aiPowered: false,
     color: 'from-emerald-500 to-teal-600',
     subItems: [
-      { key: 'company-masters', label: 'Company Masters', icon: Building2 },
+      { key: 'company-masters', label: 'Company Masters', icon: Building2, moduleKey: 'company-management' as ModuleKey },
       { key: 'branches', label: 'Branches', icon: Globe },
       { key: 'departments-master', label: 'Departments', icon: Building2 },
       { key: 'sub-departments', label: 'Sub-Departments', icon: Users },

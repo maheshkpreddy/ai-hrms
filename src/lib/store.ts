@@ -35,6 +35,7 @@ export type ModuleKey =
   | 'audit'
   | 'profile'
   | 'knowledge-hub'
+  | 'company-management'
 
 interface HRMSState {
   activeModule: ModuleKey
