@@ -229,8 +229,9 @@ export default function OnboardingModule() {
     'probation': 'probation-tracking',
   }
   const [manualTab, setManualTab] = useState('new-hires')
-  // Derive active tab from sidebar sub-item, fallback to manual selection
+  // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
+
   const handleTabChange = (tab: string) => {
     setManualTab(tab)
     setActiveSubItem(null)

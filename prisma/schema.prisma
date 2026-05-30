@@ -533,16 +533,26 @@ model Vendor {
 }
 
 model SubVendor {
-  id          String   @id @default(cuid())
-  name        String
-  email       String?
-  phone       String?
-  company     String?
-  status      String   @default("active")
-  vendorId    String
-  vendor      Vendor   @relation(fields: [vendorId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  companyName     String
+  contactPerson   String
+  email           String   @unique
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?
+  gstNumber       String?
+  panNumber       String?
+  specialization  String?
+  companyId       String?
+  passwordHash    String?
+  isActive        Boolean  @default(true)
+  vendorId        String?
+  vendor          Vendor?  @relation(fields: [vendorId], references: [id])
+  uploadedResumes SubVendorResume[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // ==================== NOTIFICATIONS ====================
@@ -682,8 +692,12 @@ model OnboardingTask {
 model Document {
   id          String   @id @default(cuid())
   name        String
+  title       String?
   type        String   @default("general")
+  docType     String   @default("general")
   fileUrl     String?
+  accessLevel String?  @default("hr-only")
+  uploadedBy  String?
   status      String   @default("active")
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
@@ -895,8 +909,13 @@ model Role {
   name        String   @unique
   description String?
   isSystem    Boolean  @default(false)
+  level       Int      @default(4)
+  permissions String?  // JSON string for module permissions
+  dashboard   String?  @default("employee")
+  menuItems   String?  // JSON string for sidebar menu items
+  color       String?  @default("teal")
   companyId   String?
-  permissions RolePermission[]
+  rolePermissions RolePermission[]
   users       UserRoleAssignment[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1014,6 +1033,26 @@ model ManpowerRequisition {
   approvedBy      String?
   companyId       String
   company         Company  @relation(fields: [companyId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==================== SUB-VENDOR RESUMES ====================
+
+model SubVendorResume {
+  id              String   @id @default(cuid())
+  candidateName   String
+  email           String
+  phone           String?
+  resumeUrl       String?
+  skills          String?
+  experience      String?
+  currentCompany  String?
+  expectedSalary  String?
+  jobId           String?
+  status          String   @default("uploaded")
+  subVendorId     String
+  subVendor       SubVendor @relation(fields: [subVendorId], references: [id], onDelete: Cascade)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

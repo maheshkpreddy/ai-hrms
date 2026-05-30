@@ -222,7 +222,7 @@ function LoadingSpinner({ message = 'Loading...' }: { message?: string }) {
 
 export default function AssetManagement() {
   const { toast } = useToast()
-  const { activeSubItem } = useHRMSStore()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
 
   // State
   const [searchQuery, setSearchQuery] = useState('')
@@ -248,8 +248,9 @@ export default function AssetManagement() {
       if (activeSubItem === 'assign-asset') {
         setAddOpen(true)
       }
+      setActiveSubItem(null)
     }
-  }, [activeSubItem])
+  }, [activeSubItem, setActiveSubItem])
 
   // Add Asset Form
   const [addForm, setAddForm] = useState({

@@ -5,12 +5,61 @@ export async function GET(
   { params }: { params: Promise<{ platform: string }> }
 ) {
   const { platform } = await params
+  const validPlatforms = ['android', 'ios', 'web']
 
-  // Redirect to the mobile app info page
-  // The mobile apps are coming soon - redirect users to the download info page
-  if (platform === 'android' || platform === 'ios') {
-    return NextResponse.redirect(new URL('/mobile-app', request.url))
+  if (!validPlatforms.includes(platform.toLowerCase())) {
+    return NextResponse.json(
+      { error: 'Invalid platform. Supported: android, ios, web' },
+      { status: 400 }
+    )
   }
 
-  return NextResponse.json({ error: 'Invalid platform. Use "android" or "ios".' }, { status: 400 })
+  const host = request.headers.get('host') || 'localhost:3000'
+  const protocol = request.headers.get('x-forwarded-proto') || 'https'
+  const appUrl = `${protocol}://${host}`
+
+  const platformInfo: Record<string, {
+    platform: string
+    installType: string
+    appUrl: string
+    instructions: string[]
+  }> = {
+    android: {
+      platform: 'android',
+      installType: 'pwa',
+      appUrl,
+      instructions: [
+        'Open this URL in Chrome browser',
+        'Tap the three-dot menu (⋮) in the top right',
+        'Select "Add to Home Screen" or "Install app"',
+        'Tap "Install" to confirm',
+        'The app will appear on your home screen'
+      ]
+    },
+    ios: {
+      platform: 'ios',
+      installType: 'pwa',
+      appUrl,
+      instructions: [
+        'Open this URL in Safari browser',
+        'Tap the Share button (⬆️) at the bottom',
+        'Scroll down and tap "Add to Home Screen"',
+        'Tap "Add" to confirm',
+        'The app will appear on your home screen'
+      ]
+    },
+    web: {
+      platform: 'web',
+      installType: 'pwa',
+      appUrl,
+      instructions: [
+        'Click the install icon in the browser address bar',
+        'Or click "Install" when prompted',
+        'The app will open as a standalone window'
+      ]
+    }
+  }
+
+  const info = platformInfo[platform.toLowerCase()]
+  return NextResponse.json(info)
 }

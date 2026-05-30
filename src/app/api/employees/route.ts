@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       data: employees,
+      employees, // Alias for components that expect 'employees' key
       pagination: {
         page,
         limit,

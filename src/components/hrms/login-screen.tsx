@@ -431,26 +431,28 @@ export function LoginScreen() {
               {/* App store badges */}
               <div className="flex-1 space-y-1.5">
                 <a
-                  href="/mobile-app"
-                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/15 transition-all"
+                  href={installPrompt ? undefined : '#'}
+                  onClick={installPrompt ? handleInstallClick : undefined}
+                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/15 transition-all cursor-pointer"
                 >
                   <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M17.523 2.2l1.3 1.1-2.1 2.5a7.7 7.7 0 012.7 5.8h-2a5.7 5.7 0 00-2.5-4.6L12 10.1l-2.9-3.1A5.7 5.7 0 006.6 11.6h-2a7.7 7.7 0 012.7-5.8L5.2 3.3l1.3-1.1 2.9 3.1a7.6 7.6 0 015.2 0l2.9-3.1zM12 12.9c-2.2 0-4 1.8-4 4v4h8v-4c0-2.2-1.8-4-4-4z"/>
                   </svg>
                   <div className="text-left">
-                    <p className="text-[7px] text-emerald-200/60 leading-none">Download for</p>
+                    <p className="text-[7px] text-emerald-200/60 leading-none">Install for</p>
                     <p className="text-[11px] font-semibold text-white leading-tight">Android</p>
                   </div>
                 </a>
                 <a
-                  href="/mobile-app"
-                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/15 transition-all"
+                  href={installPrompt ? undefined : '#'}
+                  onClick={installPrompt ? handleInstallClick : undefined}
+                  className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/15 transition-all cursor-pointer"
                 >
                   <svg className="w-4 h-4 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                   </svg>
                   <div className="text-left">
-                    <p className="text-[7px] text-emerald-200/60 leading-none">Download for</p>
+                    <p className="text-[7px] text-emerald-200/60 leading-none">Install for</p>
                     <p className="text-[11px] font-semibold text-white leading-tight">iOS</p>
                   </div>
                 </a>
@@ -467,7 +469,7 @@ export function LoginScreen() {
           className="mt-3"
         >
           <a
-            href="/job-portal"
+            href="/login"
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-violet-600/20 hover:bg-violet-600/30 border border-violet-500/30 hover:border-violet-500/50 text-violet-300 font-medium transition-all text-sm backdrop-blur-sm"
           >
             <Briefcase className="w-4 h-4" />
@@ -502,8 +504,8 @@ export function LoginScreen() {
             <Mail className="w-3 h-3" />
             Support
           </a>
-          <a href="/privacy" className="text-emerald-200/40 hover:text-emerald-300 transition-colors">Privacy</a>
-          <a href="/terms" className="text-emerald-200/40 hover:text-emerald-300 transition-colors">Terms</a>
+          <a href="mailto:privacy@marqai.com" className="text-emerald-200/40 hover:text-emerald-300 transition-colors">Privacy</a>
+          <a href="mailto:legal@marqai.com" className="text-emerald-200/40 hover:text-emerald-300 transition-colors">Terms</a>
         </motion.div>
 
         {/* Copyright */}

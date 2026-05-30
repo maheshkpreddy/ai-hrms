@@ -187,11 +187,14 @@ export default function AuditCompliance() {
   const [exporting, setExporting] = useState(false)
 
   const tabMap: Record<string, string> = { 'logs': 'audit-logs', 'compliance': 'compliance-reports', 'export': 'data-export', 'audit-logs-view': 'audit-logs', 'data-security': 'data-export' }
+
+  // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
-  useEffect(() => {
-    if (activeSubItem) setActiveSubItem(null)
-  }, [activeSubItem, setActiveSubItem])
+  const handleTabChange = (tab: string) => {
+    setLocalTab(tab)
+    setActiveSubItem(null)
+  }
 
   const modules = [...new Set(logs.map(l => l.module))]
   const actions = [...new Set(logs.map(l => l.action))]
@@ -262,7 +265,7 @@ export default function AuditCompliance() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setLocalTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="mb-4">
             <TabsTrigger value="audit-logs" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Audit Logs</TabsTrigger>
             <TabsTrigger value="compliance-reports" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Compliance</TabsTrigger>

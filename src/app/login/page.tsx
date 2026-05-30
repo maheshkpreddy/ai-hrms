@@ -10,8 +10,12 @@ import {
   Mail, Phone, MapPin, GraduationCap, Award, FileText,
   ChevronRight, ArrowLeft, Shield, Clock, Users,
   BarChart3, MessageSquare, QrCode, Lock, Globe,
-  Heart, ExternalLink
+  Heart, ExternalLink, X, KeyRound, Info
 } from 'lucide-react'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogFooter
+} from '@/components/ui/dialog'
 
 // Extend Window interface for PWA install prompt
 interface BeforeInstallPromptEvent extends Event {
@@ -57,6 +61,13 @@ export default function LoginPage() {
   const [isInstalled, setIsInstalled] = useState(false)
   const [isInstalling, setIsInstalling] = useState(false)
 
+  // Dialog state
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
+
   // Animated feature index
   const [activeFeature, setActiveFeature] = useState(0)
 
@@ -97,19 +108,53 @@ export default function LoginPage() {
   }, [])
 
   const handleInstallClick = async () => {
-    if (!installPrompt) return
-    setIsInstalling(true)
+    if (installPrompt) {
+      setIsInstalling(true)
+      try {
+        await installPrompt.prompt()
+        const result = await installPrompt.userChoice
+        if (result.outcome === 'accepted') {
+          setIsInstalled(true)
+          setInstallPrompt(null)
+        }
+      } catch {
+        // Install prompt failed
+      } finally {
+        setIsInstalling(false)
+      }
+    } else {
+      setShowInstallInstructions(true)
+    }
+  }
+
+  const handleMobileAppClick = async () => {
+    if (isInstalled) return
+    if (installPrompt) {
+      await handleInstallClick()
+    } else {
+      setShowInstallInstructions(true)
+    }
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotPasswordEmail.trim()) return
+    setForgotPasswordLoading(true)
     try {
-      await installPrompt.prompt()
-      const result = await installPrompt.userChoice
-      if (result.outcome === 'accepted') {
-        setIsInstalled(true)
-        setInstallPrompt(null)
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotPasswordEmail, companyCode: companyCode.toUpperCase(), action: 'reset-request' }),
+      })
+      if (res.ok) {
+        setForgotPasswordSent(true)
+      } else {
+        setForgotPasswordSent(true) // Still show success for security
       }
     } catch {
-      // Install prompt failed
+      setForgotPasswordSent(true) // Still show success for security
     } finally {
-      setIsInstalling(false)
+      setForgotPasswordLoading(false)
     }
   }
 
@@ -497,8 +542,8 @@ export default function LoginPage() {
               </p>
             </motion.div>
 
-            {/* ─── PWA Install Banner (Prominent) ─── */}
-            {installPrompt && !isInstalled && (
+            {/* ─── PWA Install Banner (Always Visible) ─── */}
+            {!isInstalled && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -509,7 +554,7 @@ export default function LoginPage() {
                     <Download className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">Install eh2r AI</p>
+                    <p className="text-sm font-medium text-white">Install eh2r AI App</p>
                     <p className="text-[11px] text-slate-400">Quick access like a native app</p>
                   </div>
                   <button
@@ -648,9 +693,22 @@ export default function LoginPage() {
             </motion.form>
 
             {/* Forgot Password */}
-            <p className="mt-3 text-center text-slate-500 text-xs">
-              Forgot password? Contact your HR Admin
-            </p>
+            <div className="mt-3 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => { setShowForgotPassword(true); setForgotPasswordSent(false); setForgotPasswordEmail('') }}
+                className="text-emerald-400/80 hover:text-emerald-400 text-xs font-medium transition-colors flex items-center gap-1"
+              >
+                <KeyRound className="w-3 h-3" />
+                Forgot Password?
+              </button>
+              <a
+                href="mailto:support@marqai.com"
+                className="text-slate-500 hover:text-slate-300 text-[11px] transition-colors"
+              >
+                Need help?
+              </a>
+            </div>
 
             {/* ─── Job Portal Link ─── */}
             <motion.div
@@ -659,99 +717,102 @@ export default function LoginPage() {
               transition={{ delay: 0.4 }}
               className="mt-5 pt-5 border-t border-white/5"
             >
-              <a
-                href="/job-portal"
+              <button
+                type="button"
+                onClick={() => setView('job-portal')}
                 className="w-full flex items-center justify-center gap-2.5 py-3 rounded-lg bg-violet-600/15 hover:bg-violet-600/25 border border-violet-500/30 hover:border-violet-500/50 text-violet-400 font-medium transition-all text-sm"
               >
                 <Briefcase className="w-4 h-4" />
                 Job Portal — View Openings & Apply
                 <ChevronRight className="w-4 h-4" />
-              </a>
+              </button>
               <p className="text-[10px] text-slate-500 text-center mt-1.5">
                 Looking for a job? Browse openings and submit your resume without login.
               </p>
             </motion.div>
 
-            {/* ─── Mobile App Download Section (Prominent) ─── */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-5 pt-5 border-t border-white/5"
-            >
-              {/* Mobile install instructions for non-PWA mobile browsers */}
-              {(isAndroid || isIOS) && !installPrompt && !isInstalled && (
-                <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/10">
-                  <p className="text-xs text-slate-300 font-medium mb-2 flex items-center gap-1.5">
-                    <Download className="w-3.5 h-3.5 text-emerald-400" />
-                    Install as Web App
-                  </p>
-                  {isAndroid && (
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Open this page in <span className="text-white font-medium">Chrome</span>, tap the
-                      <span className="text-white font-medium"> menu</span>, then select
-                      <span className="text-emerald-400 font-medium"> &quot;Add to Home Screen&quot;</span>
-                    </p>
-                  )}
-                  {isIOS && (
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Open this page in <span className="text-white font-medium">Safari</span>, tap the
-                      <span className="text-white font-medium"> Share button</span>, then select
-                      <span className="text-emerald-400 font-medium"> &quot;Add to Home Screen&quot;</span>
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Download Mobile App Link (prominent) */}
-              <a
-                href="/mobile-app"
-                className="w-full flex items-center gap-3 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/30 hover:border-emerald-500/50 hover:from-emerald-600/30 hover:to-teal-600/30 transition-all group"
+            {/* ─── Mobile App Download Section (Always Visible) ─── */}
+            {!isInstalled && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="mt-5 pt-5 border-t border-white/5"
               >
-                <div className="rounded-lg bg-emerald-500/20 p-2 shrink-0">
-                  <Smartphone className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white">Download Mobile App</p>
-                  <p className="text-[11px] text-slate-400">Android & iOS — works like a native app</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
-              </a>
+                {/* Download Mobile App Link (prominent, always visible) */}
+                <button
+                  type="button"
+                  onClick={handleMobileAppClick}
+                  className="w-full flex items-center gap-3 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/30 hover:border-emerald-500/50 hover:from-emerald-600/30 hover:to-teal-600/30 transition-all group cursor-pointer"
+                >
+                  <div className="rounded-lg bg-emerald-500/20 p-2 shrink-0">
+                    <Smartphone className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-semibold text-white">Get the Mobile App</p>
+                    <p className="text-[11px] text-slate-400">Android & iOS — install as a web app</p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {installPrompt && !isInstalling ? (
+                      <span className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium transition-colors">Install</span>
+                    ) : isInstalling ? (
+                      <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                    ) : (
+                      <Info className="w-4 h-4 text-emerald-400" />
+                    )}
+                    <ChevronRight className="w-4 h-4 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </button>
 
-              {/* QR Code & App Store Badges */}
-              <div className="mt-3 flex items-center gap-3">
-                <div className="w-16 h-16 rounded-lg border border-dashed border-white/20 flex flex-col items-center justify-center shrink-0">
-                  <QrCode className="w-6 h-6 text-slate-500" />
-                  <span className="text-[7px] text-slate-500 mt-0.5">Scan me</span>
-                </div>
-                <div className="flex-1 space-y-1.5">
-                  <a
-                    href="/mobile-app"
-                    className="flex items-center gap-2 py-1.5 px-3 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                {/* Quick install tip for mobile browsers */}
+                {(isAndroid || isIOS) && !installPrompt && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                    <p className="text-[11px] text-slate-400 leading-relaxed flex items-start gap-1.5">
+                      <Download className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
+                      {isAndroid ? (
+                        <>Open in <span className="text-white font-medium">Chrome</span>, tap <span className="text-white font-medium">⋮ Menu</span> → <span className="text-emerald-400 font-medium">&quot;Add to Home Screen&quot;</span></>
+                      ) : (
+                        <>Open in <span className="text-white font-medium">Safari</span>, tap <span className="text-white font-medium">Share ⬆️</span> → <span className="text-emerald-400 font-medium">&quot;Add to Home Screen&quot;</span></>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Platform badges */}
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleMobileAppClick}
+                    className="flex-1 flex items-center gap-2 py-2 px-3 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] transition-all cursor-pointer"
                   >
                     <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.523 2.2l1.3 1.1-2.1 2.5a7.7 7.7 0 012.7 5.8h-2a5.7 5.7 0 00-2.5-4.6L12 10.1l-2.9-3.1A5.7 5.7 0 006.6 11.6h-2a7.7 7.7 0 012.7-5.8L5.2 3.3l1.3-1.1 2.9 3.1a7.6 7.6 0 015.2 0l2.9-3.1zM12 12.9c-2.2 0-4 1.8-4 4v4h8v-4c0-2.2-1.8-4-4-4z"/>
                     </svg>
                     <div className="text-left">
-                      <p className="text-[7px] text-slate-400 leading-none">Download for</p>
-                      <p className="text-[10px] font-semibold text-white leading-tight">Android</p>
+                      <p className="text-[7px] text-slate-400 leading-none">Install for</p>
+                      <p className="text-[11px] font-semibold text-white leading-tight">Android</p>
                     </div>
-                  </a>
-                  <a
-                    href="/mobile-app"
-                    className="flex items-center gap-2 py-1.5 px-3 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMobileAppClick}
+                    className="flex-1 flex items-center gap-2 py-2 px-3 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] transition-all cursor-pointer"
                   >
                     <svg className="w-4 h-4 text-slate-300 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                     </svg>
                     <div className="text-left">
-                      <p className="text-[7px] text-slate-400 leading-none">Download for</p>
-                      <p className="text-[10px] font-semibold text-white leading-tight">iOS</p>
+                      <p className="text-[7px] text-slate-400 leading-none">Install for</p>
+                      <p className="text-[11px] font-semibold text-white leading-tight">iOS</p>
                     </div>
-                  </a>
+                  </button>
+                  <div className="w-14 h-14 rounded-lg border border-dashed border-white/15 flex flex-col items-center justify-center shrink-0">
+                    <QrCode className="w-5 h-5 text-slate-500" />
+                    <span className="text-[6px] text-slate-500 mt-0.5">Scan</span>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
 
             {/* ─── Footer Links ─── */}
             <motion.div
@@ -764,8 +825,13 @@ export default function LoginPage() {
                 <Mail className="w-3 h-3" />
                 Contact Support
               </a>
-              <a href="/privacy" className="text-slate-500 hover:text-emerald-400 transition-colors">Privacy Policy</a>
-              <a href="/terms" className="text-slate-500 hover:text-emerald-400 transition-colors">Terms of Service</a>
+              <a href="mailto:privacy@marqai.com" className="text-slate-500 hover:text-emerald-400 transition-colors flex items-center gap-1">
+                <Shield className="w-3 h-3" />
+                Privacy Policy
+              </a>
+              <a href="mailto:legal@marqai.com" className="text-slate-500 hover:text-emerald-400 transition-colors">
+                Terms of Service
+              </a>
             </motion.div>
 
             {/* Mobile-only trust badges */}
@@ -785,6 +851,164 @@ export default function LoginPage() {
           &copy; {new Date().getFullYear()} MARQ AI. All rights reserved.
         </p>
       </div>
+
+      {/* ─── Forgot Password Dialog ─── */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-emerald-400" />
+              Reset Your Password
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {forgotPasswordSent
+                ? 'Check your email for reset instructions.'
+                : 'Enter your email address and we\'ll send you a password reset link.'
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          {!forgotPasswordSent ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Company Code</label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={companyCode}
+                    readOnly
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 uppercase text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-500" />
+                  <input
+                    type="email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    placeholder="your.email@company.com"
+                    required
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all text-sm"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={forgotPasswordLoading}
+                className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white font-medium transition-all flex items-center justify-center gap-2 text-sm"
+              >
+                {forgotPasswordLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Reset Link
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            <div className="text-center py-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 mb-4">
+                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+              </div>
+              <p className="text-sm text-slate-300 mb-1">
+                If an account exists for <span className="text-emerald-400 font-medium">{forgotPasswordEmail}</span>, you will receive a password reset link shortly.
+              </p>
+              <p className="text-xs text-slate-500 mt-3">
+                Didn&apos;t receive an email? Contact your HR Admin with company code <span className="text-white font-medium">{companyCode}</span>.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="sm:justify-start">
+            {!forgotPasswordSent && (
+              <div className="w-full p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                <p className="text-xs text-slate-400 flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                  <span>Can&apos;t access your email? Contact your HR administrator with company code <span className="text-emerald-400 font-medium">{companyCode}</span> for assistance.</span>
+                </p>
+              </div>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Install Instructions Dialog ─── */}
+      <Dialog open={showInstallInstructions} onOpenChange={setShowInstallInstructions}>
+        <DialogContent className="bg-slate-900 border-white/10 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-emerald-400" />
+              Install eh2r AI App
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Install eh2r AI as a Progressive Web App (PWA) on your device for the best experience.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Android Instructions */}
+            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.523 2.2l1.3 1.1-2.1 2.5a7.7 7.7 0 012.7 5.8h-2a5.7 5.7 0 00-2.5-4.6L12 10.1l-2.9-3.1A5.7 5.7 0 006.6 11.6h-2a7.7 7.7 0 012.7-5.8L5.2 3.3l1.3-1.1 2.9 3.1a7.6 7.6 0 015.2 0l2.9-3.1zM12 12.9c-2.2 0-4 1.8-4 4v4h8v-4c0-2.2-1.8-4-4-4z"/>
+                </svg>
+                <h4 className="text-sm font-semibold text-white">Android (Chrome)</h4>
+              </div>
+              <ol className="space-y-1.5 text-xs text-slate-400">
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">1.</span> Open this app in <span className="text-white">Google Chrome</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">2.</span> Tap the <span className="text-white">three-dot menu</span> (⋮) in the top right</li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">3.</span> Select <span className="text-emerald-400 font-medium">&quot;Add to Home Screen&quot;</span> or <span className="text-emerald-400 font-medium">&quot;Install app&quot;</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">4.</span> Tap <span className="text-white">&quot;Install&quot;</span> to confirm</li>
+              </ol>
+            </div>
+
+            {/* iOS Instructions */}
+            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-slate-300" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+                <h4 className="text-sm font-semibold text-white">iOS (Safari)</h4>
+              </div>
+              <ol className="space-y-1.5 text-xs text-slate-400">
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">1.</span> Open this app in <span className="text-white">Safari</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">2.</span> Tap the <span className="text-white">Share button</span> (⬆️) at the bottom</li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">3.</span> Scroll down and tap <span className="text-emerald-400 font-medium">&quot;Add to Home Screen&quot;</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">4.</span> Tap <span className="text-white">&quot;Add&quot;</span> to confirm</li>
+              </ol>
+            </div>
+
+            {/* Desktop Instructions */}
+            <div className="p-4 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="flex items-center gap-2 mb-3">
+                <Globe className="w-5 h-5 text-teal-400" />
+                <h4 className="text-sm font-semibold text-white">Desktop (Chrome / Edge)</h4>
+              </div>
+              <ol className="space-y-1.5 text-xs text-slate-400">
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">1.</span> Look for the <span className="text-white">install icon</span> in the address bar</li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">2.</span> Or click <span className="text-white">⋮ Menu</span> → <span className="text-emerald-400 font-medium">&quot;Install eh2r AI&quot;</span></li>
+                <li className="flex items-start gap-2"><span className="text-emerald-400 font-medium shrink-0">3.</span> Click <span className="text-white">&quot;Install&quot;</span> to confirm</li>
+              </ol>
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-center">
+            <button
+              type="button"
+              onClick={() => setShowInstallInstructions(false)}
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+            >
+              Got it
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

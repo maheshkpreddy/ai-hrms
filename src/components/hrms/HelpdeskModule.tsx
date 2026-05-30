@@ -271,8 +271,9 @@ export default function HelpdeskModule() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const tabMap: Record<string, string> = { 'my-tickets': 'my-tickets', 'raise': 'raise-ticket', 'kb': 'knowledge-base', 'sla': 'sla-tracking', 'hr-helpdesk': 'my-tickets', 'it-helpdesk': 'my-tickets', 'knowledge-base': 'knowledge-base' }
   const [manualTab, setManualTab] = useState('my-tickets')
-  // Derive active tab from sidebar sub-item, fallback to manual selection
+  // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
+
   const handleTabChange = (tab: string) => {
     setManualTab(tab)
     setActiveSubItem(null)

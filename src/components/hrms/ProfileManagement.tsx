@@ -254,7 +254,7 @@ function ProfileSkeleton() {
 export default function ProfileManagement() {
   const { data: session } = useSession()
   const { toast } = useToast()
-  const { activeSubItem } = useHRMSStore()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
 
   // Internal tab state synced from sidebar sub-items
   const [activeTab, setActiveTab] = useState<string>('personal-info')
@@ -268,8 +268,9 @@ export default function ProfileManagement() {
   useEffect(() => {
     if (activeSubItem) {
       setActiveTab(activeSubItem)
+      setActiveSubItem(null)
     }
-  }, [activeSubItem])
+  }, [activeSubItem, setActiveSubItem])
 
   // Scroll to the active section when tab changes
   useEffect(() => {

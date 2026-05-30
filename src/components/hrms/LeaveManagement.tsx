@@ -188,11 +188,14 @@ export default function LeaveManagement() {
   })
 
   const tabMap: Record<string, string> = { 'my-leaves': 'my-leaves', 'balance': 'leave-balance', 'policy': 'leave-policy', 'calendar': 'team-calendar', 'leave-requests': 'my-leaves', 'leave-balance': 'leave-balance', 'leave-calendar': 'team-calendar' }
+
+  // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
-  useEffect(() => {
-    if (activeSubItem) setActiveSubItem(null)
-  }, [activeSubItem, setActiveSubItem])
+  const handleTabChange = (tab: string) => {
+    setLocalTab(tab)
+    setActiveSubItem(null)
+  }
 
   const myLeaves = leaves.filter(l => l.employeeId === 'EMP001')
   const pendingApprovals = leaves.filter(l => l.status === 'pending' && l.employeeId !== 'EMP001')

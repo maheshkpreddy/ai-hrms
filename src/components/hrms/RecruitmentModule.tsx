@@ -291,11 +291,14 @@ export default function RecruitmentModule() {
   const [interviewForm, setInterviewForm] = useState({ candidateId: '', date: '', time: '', type: 'video' as Interview['type'], interviewer: '' })
 
   const tabMap: Record<string, string> = { 'requisitions': 'requisitions', 'postings': 'job-postings', 'candidates': 'candidate-pool', 'interviews': 'interview-schedule', 'offers': 'offer-letters' }
+
+  // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
-  useEffect(() => {
-    if (activeSubItem) setActiveSubItem(null)
-  }, [activeSubItem, setActiveSubItem])
+  const handleTabChange = (tab: string) => {
+    setLocalTab(tab)
+    setActiveSubItem(null)
+  }
 
   const totalCandidates = candidates.length
   const activePostings = jobPostings.filter(j => j.status === 'active').length

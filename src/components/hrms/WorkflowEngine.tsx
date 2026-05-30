@@ -308,8 +308,9 @@ export default function WorkflowEngine() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const tabMap: Record<string, string> = { 'builder': 'builder', 'workflow-builder': 'builder', 'active': 'active-workflows', 'active-workflows': 'active-workflows', 'history': 'workflow-history', 'workflow-templates': 'builder', 'templates': 'builder' }
   const [manualTab, setManualTab] = useState('builder')
-  // Derive active tab from sidebar sub-item, fallback to manual selection
+  // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
+
   const handleTabChange = (tab: string) => {
     setManualTab(tab)
     setActiveSubItem(null)

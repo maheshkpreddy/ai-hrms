@@ -408,7 +408,7 @@ function TrainingVideosContent() {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function KnowledgeHub() {
-  const { activeSubItem } = useHRMSStore()
+  const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const [guideDialog, setGuideDialog] = useState<{
     open: boolean
     title: string
@@ -417,24 +417,27 @@ export default function KnowledgeHub() {
     wikiUrl: string
   }>({ open: false, title: '', description: '', steps: [], wikiUrl: '' })
 
-  // Determine the target tab based on the active sub-item
-  const targetTab = useMemo(() => {
-    if (activeSubItem === 'training-videos') return 'training-videos'
-    if (activeSubItem === 'faq') return 'faq'
-    if (activeSubItem === 'knowledge-base') return 'getting-started'
-    return 'getting-started'
-  }, [activeSubItem])
+  const [activeTab, setActiveTab] = useState('getting-started')
 
-  const [activeTab, setActiveTab] = useState(targetTab)
-
-  // Track the previous sub-item to detect navigation changes
-  const prevSubItemRef = useState(activeSubItem)
-  if (prevSubItemRef[0] !== activeSubItem) {
-    prevSubItemRef[1](activeSubItem)
-    if (targetTab !== activeTab) {
-      setActiveTab(targetTab)
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'training-videos':
+          setActiveTab('training-videos')
+          break
+        case 'faq':
+          setActiveTab('faq')
+          break
+        case 'knowledge-base':
+          setActiveTab('getting-started')
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
     }
-  }
+  }, [activeSubItem, setActiveSubItem])
 
   const openGuide = (title: string, description: string, steps: string[], wikiPage: string) => {
     setGuideDialog({

@@ -1,56 +1,56 @@
-# Task: Fix eh2r AI HRMS Login Page
+# Login Page Fix - Work Record
 
-## Summary
+## Task: Fix eh2r AI HRMS Login Page Issues
 
-Completed all three tasks for the eh2r AI HRMS login page:
+### Changes Made:
 
-### TASK 1: Remove Google Login ✅
-- Removed the "Or continue with" divider section (lines 239-247)
-- Removed the Google OAuth sign-in button and SVG icon (lines 249-262)
-- Removed the `signIn('google', ...)` call
-- Kept `signIn` import since it's still used for credentials login
-- All other functionality preserved (company code verification, email/password login, mobile app download)
+1. **Created Mobile App Download API Route** (`/src/app/api/mobile/[platform]/route.ts`)
+   - Returns platform-specific install instructions (Android, iOS, Web)
+   - Returns the current app URL as the install link
+   - Validates platform parameter
 
-### TASK 2: Add Job Portal Tab ✅
-- Added a tab toggle at the top of the right panel switching between "Employee Login" and "Job Portal"
-- Employee Login tab: Same as original login form (preserved all existing functionality)
-- Job Portal tab features:
-  - Fetches open positions from `/api/jobs?status=open`
-  - Displays job cards with title, department, location, type, salary, skills tags
-  - Expandable job details (description, requirements, closing date)
-  - "Apply" button on each job card
-  - Application dialog with form fields:
-    - Full Name (required)
-    - Email (required)
-    - Phone
-    - Skills (comma-separated)
-    - Years of Experience
-    - Current Company
-    - Resume upload (.doc, .docx only)
-    - Cover Letter / Additional Notes
-  - "No login required" note displayed prominently
-  - Custom scrollbar styling for job list
-  - Dark theme with emerald color scheme matching existing design
+2. **Fixed "Download Mobile App" Section**
+   - Removed dead `href="/mobile-app"` from all 3 links (main CTA, Android badge, iOS badge)
+   - Changed `<a>` tags to `<button>` tags with `onClick={handleMobileAppClick}`
+   - Made the section ALWAYS visible (not dependent on `installPrompt` being available)
+   - When PWA install prompt is available, clicking triggers the native install
+   - When PWA install prompt is NOT available, clicking opens the Install Instructions dialog
+   - Added conditional UI: shows "Install" badge when prompt available, "Info" icon when not
+   - Added quick install tips for mobile browsers (Android/iOS) inline
+   - Added Install Instructions Dialog with step-by-step for Android, iOS, and Desktop
 
-### TASK 3: Job Portal Public Apply API Route ✅
-- Created `/src/app/api/jobportal/public-apply/route.ts`
-- Accepts POST with FormData (supports file upload)
-- Validates required fields (jobId, name, email)
-- Validates email format
-- Checks job exists and is open
-- Validates resume file type (only .doc, .docx)
-- Saves resume to `public/uploads/resumes/` with UUID filename
-- Creates or finds `JobPortalCandidate` by email:
-  - New candidates get a random password hash (can set their own later)
-  - Existing candidates get their info updated if new data provided
-- Creates `JobApplication` linking candidate to job
-- Handles duplicate application detection (409 error)
-- Returns success with application ID
-- Graceful error handling throughout
+3. **Fixed "/job-portal" Link**
+   - Changed from `<a href="/job-portal">` to `<button onClick={() => setView('job-portal')}>`
+   - Now correctly switches to the job-portal view within the component
 
-### Files Modified
-- `/src/app/login/page.tsx` - Complete rewrite with tabs + job portal
-- `/src/app/api/jobportal/public-apply/route.ts` - New file
+4. **Added "Forgot Password" Dialog**
+   - Replaced plain text "Forgot password? Contact your HR Admin" with a clickable "Forgot Password?" button
+   - Opens a dialog with company code (read-only) and email input fields
+   - Attempts to call `/api/auth/change-password` API
+   - Shows success message with HR admin contact info
+   - Added "Need help?" link that opens mailto:support@marqai.com
 
-### Files Created
-- `/public/uploads/resumes/` - Directory for uploaded resumes
+5. **Fixed Footer Dead Links**
+   - Changed `href="/privacy"` to `href="mailto:privacy@marqai.com"` (functional email link)
+   - Changed `href="/terms"` to `href="mailto:legal@marqai.com"` (functional email link)
+
+6. **PWA Install Banner Enhancement**
+   - Changed from only showing when `installPrompt` is available to showing whenever NOT installed
+   - When install prompt is available: shows "Install" button that triggers native PWA install
+   - When install prompt is NOT available: shows "Install" button that opens instructions dialog
+
+7. **Added New State Variables and Handlers**
+   - `showForgotPassword` / `showInstallInstructions` dialog state
+   - `forgotPasswordEmail` / `forgotPasswordSent` / `forgotPasswordLoading` for password reset flow
+   - `handleMobileAppClick()` - unified handler for mobile app install
+   - `handleForgotPassword()` - form submission for password reset
+
+8. **Added New Imports**
+   - `X`, `KeyRound`, `Info` from lucide-react
+   - Dialog components from `@/components/ui/dialog`
+
+### Verification:
+- No dead `href="/..."` links remain in the file
+- No references to `/mobile-app`, `/job-portal`, `/privacy`, or `/terms` as href
+- Lint passes for the login page (no errors)
+- TypeScript compilation passes for the login page

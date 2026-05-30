@@ -243,6 +243,26 @@ export default function AIChatbot() {
     if (activeSessionId === id) setActiveSessionId(null)
   }
 
+  // Respond to sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'chat':
+          // Focus on current chat or start a new one
+          if (!activeSessionId) createNewChat()
+          inputRef.current?.focus()
+          break
+        case 'conversation-history':
+          // Ensure sidebar is open to show history
+          setSidebarOpen(true)
+          break
+        default:
+          break
+      }
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   const suggestedQueries = [
     { icon: Calendar, label: "What's my leave balance?", query: "What's my leave balance?" },
     { icon: Clock, label: 'Check attendance', query: 'Show my attendance for this month' },

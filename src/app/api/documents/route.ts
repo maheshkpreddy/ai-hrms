@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
               firstName: true,
               lastName: true,
               employeeId: true,
-              department: true,
+              department: { select: { id: true, name: true } },
               avatar: true,
             },
           },
@@ -54,8 +54,19 @@ export async function GET(request: NextRequest) {
       db.document.count({ where }),
     ]);
 
+    // Transform documents so employee.department is a string (department name)
+    const transformedDocs = documents.map((doc: any) => ({
+      ...doc,
+      employee: doc.employee
+        ? {
+            ...doc.employee,
+            department: doc.employee.department?.name ?? doc.employee.department ?? null,
+          }
+        : doc.employee,
+    }));
+
     return NextResponse.json({
-      documents,
+      documents: transformedDocs,
       pagination: {
         page,
         limit,
@@ -86,6 +97,7 @@ export async function POST(request: NextRequest) {
     const document = await db.document.create({
       data: {
         employeeId: body.employeeId,
+        name: body.name || body.title || 'Untitled Document',
         docType: body.docType,
         title: body.title,
         fileUrl: body.fileUrl,
@@ -108,10 +120,12 @@ export async function POST(request: NextRequest) {
       data: {
         employeeId: body.employeeId,
         action: 'create',
+        entity: 'document',
+        entityId: document.id,
         module: 'hr',
         details: `Document uploaded for ${document.employee.firstName} ${document.employee.lastName}: ${body.docType} - ${body.title}`,
       },
-    });
+    }).catch(() => {});
 
     return NextResponse.json(document, { status: 201 });
   } catch (error) {
@@ -167,10 +181,12 @@ export async function PATCH(request: NextRequest) {
       data: {
         employeeId: existing.employeeId,
         action: 'update',
+        entity: 'document',
+        entityId: existing.id,
         module: 'hr',
-        details: `Document updated: ${existing.title} (${existing.docType})`,
+        details: `Document updated: ${existing.title || existing.name} (${existing.docType})`,
       },
-    });
+    }).catch(() => {});
 
     return NextResponse.json(document);
   } catch (error) {
@@ -209,10 +225,12 @@ export async function DELETE(request: NextRequest) {
       data: {
         employeeId: existing.employeeId,
         action: 'delete',
+        entity: 'document',
+        entityId: existing.id,
         module: 'hr',
-        details: `Deleted document: ${existing.title} (${existing.docType})`,
+        details: `Deleted document: ${existing.title || existing.name} (${existing.docType})`,
       },
-    });
+    }).catch(() => {});
 
     return NextResponse.json({ message: 'Document deleted successfully' });
   } catch (error) {

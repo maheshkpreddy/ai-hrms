@@ -141,11 +141,14 @@ export default function SettingsModule() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const tabMap: Record<string, string> = { 'general': 'general', 'integrations': 'integrations', 'notifications': 'notifications', 'email-templates': 'email-templates', 'general-settings': 'general', 'notification-settings': 'notifications', 'integration-settings': 'integrations' }
+
+  // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
-  useEffect(() => {
-    if (activeSubItem) setActiveSubItem(null)
-  }, [activeSubItem, setActiveSubItem])
+  const handleTabChange = (tab: string) => {
+    setLocalTab(tab)
+    setActiveSubItem(null)
+  }
 
   function handleSave() {
     setSaved(true)
@@ -234,7 +237,7 @@ export default function SettingsModule() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setLocalTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="mb-4">
             <TabsTrigger value="general" className="gap-1.5"><Settings className="h-3.5 w-3.5" /> General</TabsTrigger>
             <TabsTrigger value="integrations" className="gap-1.5"><Puzzle className="h-3.5 w-3.5" /> Integrations</TabsTrigger>
