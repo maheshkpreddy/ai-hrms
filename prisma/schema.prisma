@@ -14,24 +14,13 @@ model Company {
   id          String   @id @default(cuid())
   name        String
   code        String   @unique
-  description String?
   industry    String?
   logo        String?
   domain      String?
-  website     String?
-  address     String?
-  city        String?
-  state       String?
   country     String?
-  pincode     String?
-  phone       String?
-  email       String?
   currency    String   @default("USD")
   timezone    String   @default("UTC")
-  foundedYear Int?
-  employeeCount Int?
   isActive    Boolean  @default(true)
-  createdBy   String?
   parentId    String?
   parent      Company?  @relation("CompanyHierarchy", fields: [parentId], references: [id])
   children    Company[] @relation("CompanyHierarchy")
@@ -550,20 +539,11 @@ model Vendor {
 
 model SubVendor {
   id              String   @id @default(cuid())
-  companyName     String
-  contactPerson   String
+  name            String
   email           String   @unique
   phone           String?
-  address         String?
-  city            String?
-  state           String?
-  country         String?
-  gstNumber       String?
-  panNumber       String?
-  specialization  String?
-  companyId       String?
-  passwordHash    String?
-  isActive        Boolean  @default(true)
+  company         String?
+  status          String   @default("active")
   vendorId        String?
   vendor          Vendor?  @relation(fields: [vendorId], references: [id])
   uploadedResumes SubVendorResume[]
@@ -708,12 +688,8 @@ model OnboardingTask {
 model Document {
   id          String   @id @default(cuid())
   name        String
-  title       String?
   type        String   @default("general")
-  docType     String   @default("general")
   fileUrl     String?
-  accessLevel String?  @default("hr-only")
-  uploadedBy  String?
   status      String   @default("active")
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
