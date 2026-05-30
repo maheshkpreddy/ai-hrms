@@ -654,6 +654,13 @@ export default function MasterManagement() {
     setDetailLoading(false)
   }, [companies])
 
+  // ── Notify header dropdown of company changes ───────────────────────────
+  const notifyCompanyChange = useCallback(() => {
+    if (activeTab === 'companies') {
+      window.dispatchEvent(new CustomEvent('companies-updated'))
+    }
+  }, [activeTab])
+
   // ── Generate ID ──────────────────────────────────────────────────────────
   const genId = () => `${activeTab}-${Date.now()}`
 
@@ -733,6 +740,7 @@ export default function MasterManagement() {
             item.id === id ? { ...item, status: newStatus } : item
           ) as MasterRecord[]
           updateData(newData)
+          notifyCompanyChange()
           toast({ title: 'Status Updated', description: 'Company status has been toggled via API.' })
           return
         }
@@ -760,6 +768,7 @@ export default function MasterManagement() {
           const newData = currentData.filter((item) => item.id !== deleteConfirm) as MasterRecord[]
           updateData(newData)
           setDeleteConfirm(null)
+          notifyCompanyChange()
           toast({ title: 'Record Deleted', description: 'The company has been removed via API.', variant: 'destructive' })
           return
         }
@@ -1801,6 +1810,7 @@ export default function MasterManagement() {
               toast({ title: 'Company Added', description: `${form.name} has been created via API.` })
               setAddOpen(false)
               fetchCompanies()
+              notifyCompanyChange()
               setSavingLocal(false)
               return
             }
@@ -1818,6 +1828,7 @@ export default function MasterManagement() {
             defaultLanguage: form.defaultLanguage || 'English', status: 'active',
           }
           setCompanies(prev => [...prev, newRecord])
+          notifyCompanyChange()
           toast({ title: 'Company Added', description: `${newRecord.name} has been created.` })
           setAddOpen(false)
         } else if (record) {
@@ -1853,6 +1864,7 @@ export default function MasterManagement() {
               setEditOpen(false)
               setEditingRecord(null)
               fetchCompanies()
+              notifyCompanyChange()
               setSavingLocal(false)
               return
             }
@@ -1861,6 +1873,7 @@ export default function MasterManagement() {
           }
 
           setCompanies(prev => prev.map(c => c.id === record.id ? { ...c, ...form } as CompanyMaster : c))
+          notifyCompanyChange()
           toast({ title: 'Company Updated', description: `${form.name} has been updated.` })
           setEditOpen(false)
           setEditingRecord(null)

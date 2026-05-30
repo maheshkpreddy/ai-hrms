@@ -310,33 +310,33 @@ export async function POST() {
     const companies = await Promise.all([
       db.company.upsert({
         where: { code: 'MARQ' },
-        update: {},
-        create: { name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', isActive: true },
+        update: { status: 'active' },
+        create: { name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', status: 'active' },
       }),
       db.company.upsert({
         where: { code: 'TCG' },
-        update: {},
-        create: { name: 'TechCorp Global', code: 'TCG', industry: 'IT Services', country: 'US', currency: 'USD', timezone: 'America/New_York', isActive: true },
+        update: { status: 'active' },
+        create: { name: 'TechCorp Global', code: 'TCG', industry: 'IT Services', country: 'US', currency: 'USD', timezone: 'America/New_York', status: 'active' },
       }),
       db.company.upsert({
         where: { code: 'MPI' },
-        update: {},
-        create: { name: 'ManufactPro Industries', code: 'MPI', industry: 'Manufacturing', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', isActive: true },
+        update: { status: 'active' },
+        create: { name: 'ManufactPro Industries', code: 'MPI', industry: 'Manufacturing', country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', status: 'active' },
       }),
       db.company.upsert({
         where: { code: 'HFS' },
-        update: {},
-        create: { name: 'HealthFirst Solutions', code: 'HFS', industry: 'Healthcare', country: 'GB', currency: 'GBP', timezone: 'Europe/London', isActive: true },
+        update: { status: 'active' },
+        create: { name: 'HealthFirst Solutions', code: 'HFS', industry: 'Healthcare', country: 'GB', currency: 'GBP', timezone: 'Europe/London', status: 'active' },
       }),
       db.company.upsert({
         where: { code: 'RMG' },
-        update: {},
-        create: { name: 'RetailMax Group', code: 'RMG', industry: 'Retail', country: 'DE', currency: 'EUR', timezone: 'Europe/Berlin', isActive: true },
+        update: { status: 'active' },
+        create: { name: 'RetailMax Group', code: 'RMG', industry: 'Retail', country: 'DE', currency: 'EUR', timezone: 'Europe/Berlin', status: 'active' },
       }),
       db.company.upsert({
         where: { code: 'LTW' },
-        update: {},
-        create: { name: 'LogiTrans Worldwide', code: 'LTW', industry: 'Logistics', country: 'SG', currency: 'SGD', timezone: 'Asia/Singapore', isActive: true },
+        update: { status: 'active' },
+        create: { name: 'LogiTrans Worldwide', code: 'LTW', industry: 'Logistics', country: 'SG', currency: 'SGD', timezone: 'Asia/Singapore', status: 'active' },
       }),
     ]);
     created.companies = companies.length;

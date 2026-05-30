@@ -49,11 +49,12 @@ interface AppState {
   setActiveModule: (module: ModuleKey) => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setCurrentCompany: (company: CompanyInfo) => void;
+  setCurrentCompany: (company: CompanyInfo) => Promise<void>;
   toggleDarkMode: () => void;
   setNotificationCount: (count: number) => void;
   setCompanies: (companies: CompanyInfo[]) => void;
   fetchCompanies: () => Promise<void>;
+  refreshCompanies: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -208,7 +209,37 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveModule: (module) => set({ activeModule: module }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  setCurrentCompany: (company) => set({ currentCompany: company }),
+  setCurrentCompany: async (company) => {
+    // Optimistically update the UI
+    set({ currentCompany: company });
+
+    // Persist the switch to the backend
+    try {
+      const res = await fetch('/api/user/switch-company', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update with server-confirmed data (includes fresh counts)
+        if (data.company) {
+          set({
+            currentCompany: data.company,
+            user: get().user ? {
+              ...get().user!,
+              companyId: data.company.id,
+              companyName: data.company.name,
+              companyCode: data.company.code,
+              companyCurrency: data.company.currency,
+            } : null,
+          });
+        }
+      }
+    } catch {
+      // API call failed but local state is already updated
+    }
+  },
   toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
   setNotificationCount: (count) => set({ notificationCount: count }),
   setCompanies: (companies) => set({ companies }),
@@ -224,11 +255,14 @@ export const useAppStore = create<AppState>((set, get) => ({
         name: c.name as string,
         code: (c.code as string) || '',
         industry: (c.industry as string) || '',
-        logo: c.logo as string | undefined,
+        logo: (c.logo as string) || undefined,
         country: (c.country as string) || '',
         currency: (c.currency as string) || 'USD',
         employeeCount: (c._count as Record<string, number>)?.employees ?? 0,
         status: (c.status as string) || 'active',
+        state: (c.state as string) || '',
+        city: (c.city as string) || '',
+        timezone: (c.timezone as string) || '',
       }));
       set({ companies: mapped });
 
@@ -249,5 +283,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     } catch {
       // Silently fail — dropdown will just be empty
     }
+  },
+
+  refreshCompanies: async () => {
+    // Same as fetchCompanies but can be called after company CRUD
+    await get().fetchCompanies();
   },
 }));

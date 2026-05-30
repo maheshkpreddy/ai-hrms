@@ -52,6 +52,9 @@ export interface CompanyInfo {
   currency: string;
   employeeCount: number;
   status: string;
+  state?: string;
+  city?: string;
+  timezone?: string;
 }
 
 export interface EmployeeInfo {

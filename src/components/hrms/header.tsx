@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { signOut } from 'next-auth/react';
 import { useAppStore } from '@/store/app-store';
 import { useHRMSStore } from '@/lib/store';
@@ -11,16 +11,14 @@ import type { CompanyInfo } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from '@/components/ui/select';
-import {
-  Menu, Search, Bell, Moon, Sun, LogOut, User, Settings, ChevronDown
+  Menu, Search, Bell, Moon, Sun, LogOut, User, Settings, ChevronDown,
+  Building2, MapPin, Users, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,6 +37,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [switchingCompany, setSwitchingCompany] = useState(false);
 
   const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
@@ -62,6 +61,30 @@ export function Header() {
     fetchCompanies();
   }, [user?.id, fetchCompanies]);
 
+  // Listen for company changes from MasterManagement
+  useEffect(() => {
+    const handleCompanyChange = () => {
+      fetchCompanies();
+    };
+    window.addEventListener('companies-updated', handleCompanyChange);
+    return () => window.removeEventListener('companies-updated', handleCompanyChange);
+  }, [fetchCompanies]);
+
+  const handleSwitchCompany = useCallback(async (company: CompanyInfo) => {
+    if (company.id === currentCompany?.id) return;
+    setSwitchingCompany(true);
+    try {
+      await setCurrentCompany(company);
+      toast.success(`Switched to ${company.name}`, {
+        description: `${company.city ? company.city + ', ' : ''}${company.country || ''}`,
+      });
+    } catch {
+      toast.error('Failed to switch company');
+    } finally {
+      setSwitchingCompany(false);
+    }
+  }, [currentCompany, setCurrentCompany]);
+
   const handleMarkRead = async (id: string) => {
     try {
       await markNotificationRead(id);
@@ -84,34 +107,98 @@ export function Header() {
         <Menu className="h-5 w-5" />
       </Button>
 
-      {/* Company Switcher */}
+      {/* Company Switcher - Desktop */}
       <div className="shrink-0 hidden sm:block">
-        <Select
-          value={currentCompany?.id || ''}
-          onValueChange={(id) => {
-            const company = companies.find(c => c.id === id);
-            if (company) setCurrentCompany(company);
-          }}
-        >
-          <SelectTrigger className="w-[200px] h-9 text-sm border-border">
-            <div className="flex items-center gap-2 truncate">
-              <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded flex items-center justify-center shrink-0">
-                <span className="text-white text-[9px] font-bold">{currentCompany?.code || 'TC'}</span>
-              </div>
-              <span className="truncate">{currentCompany?.name || 'Select Company'}</span>
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            {companies.map((c: CompanyInfo) => (
-              <SelectItem key={c.id} value={c.id}>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{c.name}</span>
-                  <span className="text-muted-foreground text-xs">({c.employeeCount} employees)</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-[220px] h-9 justify-start gap-2 text-sm font-normal border-border hover:bg-accent/50"
+              disabled={switchingCompany}
+            >
+              {currentCompany?.logo ? (
+                <Avatar className="h-6 w-6 shrink-0">
+                  <AvatarImage src={currentCompany.logo} alt={currentCompany.code} />
+                  <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-[9px] font-bold">
+                    {currentCompany?.code?.slice(0, 2) || 'TC'}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-md flex items-center justify-center shrink-0">
+                  <span className="text-white text-[9px] font-bold">{currentCompany?.code?.slice(0, 2) || 'TC'}</span>
                 </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+              )}
+              <span className="truncate flex-1 text-left">{currentCompany?.name || 'Select Company'}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[280px] p-2">
+            <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">
+              Switch Company
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {companies.length > 0 ? companies.map((c: CompanyInfo) => (
+              <DropdownMenuItem
+                key={c.id}
+                onClick={() => handleSwitchCompany(c)}
+                className={`flex items-center gap-3 px-2 py-2.5 rounded-md cursor-pointer ${
+                  c.id === currentCompany?.id ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''
+                }`}
+              >
+                {c.logo ? (
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarImage src={c.logo} alt={c.code} />
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-[10px] font-bold">
+                      {c.code?.slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="h-8 w-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-md flex items-center justify-center shrink-0">
+                    <span className="text-white text-[10px] font-bold">{c.code?.slice(0, 2) || 'CO'}</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-sm truncate">{c.name}</span>
+                    {c.id === currentCompany?.id && (
+                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {c.code && <span className="font-mono">{c.code}</span>}
+                    {c.employeeCount > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <Users className="h-3 w-3" />{c.employeeCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] px-1.5 py-0 ${
+                    c.status === 'active'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  }`}
+                >
+                  {c.status}
+                </Badge>
+              </DropdownMenuItem>
+            )) : (
+              <div className="px-2 py-4 text-center text-muted-foreground text-sm">
+                No companies found
+              </div>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => selectModule('masters')}
+              className="text-emerald-600 dark:text-emerald-400 justify-center gap-1.5 text-xs font-medium"
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Manage Companies in Masters
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Search */}
@@ -131,21 +218,51 @@ export function Header() {
 
       {/* Right section */}
       <div className="flex items-center gap-1.5 shrink-0">
-        {/* Mobile company info */}
+        {/* Mobile company switcher */}
         <div className="sm:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-9 gap-1">
-                <div className="w-5 h-5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded flex items-center justify-center">
-                  <span className="text-white text-[8px] font-bold">{currentCompany?.code?.slice(0,2) || 'TC'}</span>
-                </div>
+                {currentCompany?.logo ? (
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={currentCompany.logo} alt={currentCompany.code} />
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-[8px] font-bold">
+                      {currentCompany?.code?.slice(0, 2) || 'TC'}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="w-5 h-5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded flex items-center justify-center">
+                    <span className="text-white text-[8px] font-bold">{currentCompany?.code?.slice(0,2) || 'TC'}</span>
+                  </div>
+                )}
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" className="w-[260px] p-2">
+              <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1.5">Switch Company</DropdownMenuLabel>
+              <DropdownMenuSeparator />
               {companies.map((c: CompanyInfo) => (
-                <DropdownMenuItem key={c.id} onClick={() => setCurrentCompany(c)}>
-                  {c.name}
+                <DropdownMenuItem
+                  key={c.id}
+                  onClick={() => handleSwitchCompany(c)}
+                  className={`flex items-center gap-2 px-2 py-2 ${
+                    c.id === currentCompany?.id ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''
+                  }`}
+                >
+                  {c.logo ? (
+                    <Avatar className="h-6 w-6 shrink-0">
+                      <AvatarImage src={c.logo} alt={c.code} />
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-[9px] font-bold">
+                        {c.code?.slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded flex items-center justify-center shrink-0">
+                      <span className="text-white text-[8px] font-bold">{c.code?.slice(0, 2) || 'CO'}</span>
+                    </div>
+                  )}
+                  <span className="truncate flex-1">{c.name}</span>
+                  {c.id === currentCompany?.id && <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
