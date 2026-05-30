@@ -19,6 +19,6 @@ export const config = {
      * - interview page (public candidate interview access)
      * - api/ai-interview (public candidate interview API)
      */
-    '/((?!api/auth|api/public|api/health|api/ai-interview|api/db-init|api/companies|api/setup|api/migrate|api/reseed|api/seed|api/migrate-schema|api/check-schema|api/debug-auth|api/test-auth|api/auth-logs|api/alter-schema|_next/static|_next/image|favicon.ico|logo.svg|login|mobile-app|job-portal|interview|manifest.webmanifest|sw.js|robots.txt).*)',
+    '/((?!api/auth|api/public|api/health|api/ai-interview|api/db-init|api/companies|api/setup|api/migrate|api/reseed|api/seed|api/migrate-schema|api/check-schema|api/debug-auth|api/test-auth|api/auth-logs|api/alter-schema|api/fix-login|_next/static|_next/image|favicon.ico|logo.svg|login|mobile-app|job-portal|interview|manifest.webmanifest|sw.js|robots.txt).*)',
   ],
 }
