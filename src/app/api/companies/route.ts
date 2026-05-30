@@ -10,37 +10,57 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
-    if (status) {
-      where.status = status;
-    }
-    if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { code: { contains: search } },
-        { industry: { contains: search } },
-        { domain: { contains: search } },
-      ];
+    // Use raw SQL to avoid Prisma schema mismatch (DB has isActive boolean, schema has status text)
+    const whereParts: string[] = [];
+    const params: any[] = [];
+    let paramIdx = 1;
+
+    if (status === 'active') {
+      // Support both isActive (boolean) and status (text) columns
+      whereParts.push(`("isActive" = true OR status = 'active')`);
+    } else if (status === 'inactive') {
+      whereParts.push(`("isActive" = false OR status = 'inactive')`);
     }
 
-    const [companies, total] = await Promise.all([
-      db.company.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: { employees: true, departments: true, branches: true, members: true, officeLocations: true },
-          },
-          parent: { select: { id: true, name: true } },
-        },
-      }),
-      db.company.count({ where }),
-    ]);
+    if (search) {
+      whereParts.push(`(name ILIKE '%${search}%' OR code ILIKE '%${search}%' OR industry ILIKE '%${search}%' OR domain ILIKE '%${search}%')`);
+    }
+
+    const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    const companies = await db.$queryRawUnsafe(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM "Employee" WHERE "companyId" = c.id) as emp_count,
+        (SELECT COUNT(*) FROM "Department" WHERE "companyId" = c.id) as dept_count,
+        (SELECT COUNT(*) FROM "Branch" WHERE "companyId" = c.id) as branch_count,
+        (SELECT COUNT(*) FROM "CompanyMember" WHERE "companyId" = c.id) as member_count,
+        (SELECT COUNT(*) FROM "OfficeLocation" WHERE "companyId" = c.id) as location_count
+      FROM "Company" c
+      ${whereClause}
+      ORDER BY c."createdAt" DESC
+      LIMIT ${limit} OFFSET ${skip}
+    `) as any[];
+
+    const totalResult = await db.$queryRawUnsafe(`
+      SELECT COUNT(*) as count FROM "Company" c ${whereClause}
+    `) as any[];
+    const total = Number(totalResult[0]?.count || 0);
+
+    // Map to expected format with _count
+    const mappedCompanies = companies.map(c => ({
+      ...c,
+      status: c.status || (c.isActive ? 'active' : 'inactive'),
+      _count: {
+        employees: Number(c.emp_count || 0),
+        departments: Number(c.dept_count || 0),
+        branches: Number(c.branch_count || 0),
+        members: Number(c.member_count || 0),
+        officeLocations: Number(c.location_count || 0),
+      },
+    }));
 
     return NextResponse.json({
-      data: companies,
+      data: mappedCompanies,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {

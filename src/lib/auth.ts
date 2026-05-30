@@ -74,9 +74,12 @@ export const authOptions: NextAuthOptions = {
           // Step 2: Verify company code if provided
           let companyData: { id: string; name: string; code: string } | null = null
           if (credentials.companyCode) {
-            // Find company using "status" column (the Company model uses status: String, not isActive: Boolean)
-            const companies = await db.$queryRaw<Array<{ id: string; name: string; code: string; status: string }>>`
-              SELECT id, name, code, status FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
+            // Find company - use COALESCE to handle both 'status' and 'isActive' columns
+            // The DB may have either 'status' (text) or 'isActive' (boolean) depending on migration state
+            const companies = await db.$queryRaw<Array<{ id: string; name: string; code: string; isActive: boolean | null; status: string | null }>>`
+              SELECT id, name, code, "isActive",
+                CASE WHEN "isActive" IS NOT NULL THEN (CASE WHEN "isActive" = true THEN 'active' ELSE 'inactive' END) ELSE 'active' END as status
+              FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
             `
             const company = companies[0]
             if (!company) {
@@ -84,9 +87,10 @@ export const authOptions: NextAuthOptions = {
               return null
             }
 
-            // Check if company is active using status field (String: 'active'/'inactive')
-            if (company.status !== 'active') {
-              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, status=${company.status}`)
+            // Check if company is active - supports both isActive (boolean) and status (text) columns
+            const isActive = company.isActive === true || company.status === 'active'
+            if (!isActive) {
+              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, isActive=${company.isActive}, status=${company.status}`)
               return null
             }
 
