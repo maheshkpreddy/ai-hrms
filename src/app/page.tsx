@@ -7,6 +7,9 @@ import { useHRMSStore, getDashboardModule } from '@/lib/store';
 import { LoginScreen } from '@/components/hrms/login-screen';
 import { HRMSLayout } from '@/components/hrms/hrms-layout';
 
+// Force dynamic rendering - this page uses client-side auth
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const { isAuthenticated, setUserFromSession, fetchCompanies } = useAppStore();
   const { setActiveModule, setUserRole, setUserDashboard } = useHRMSStore();
