@@ -7,41 +7,42 @@ export const dynamic = 'force-dynamic';
 /**
  * Quick-fix endpoint to ensure login works.
  * Run: GET /api/fix-login
- * This will:
- * 1. Ensure the MARQ company exists with status='active'
- * 2. Ensure the admin user exists with correct password and is linked to MARQ
+ * Uses raw SQL to avoid Prisma schema mismatch issues.
  */
 export async function GET() {
   const log: string[] = [];
 
   try {
-    // Step 1: Ensure MARQ company exists with status='active'
+    // Step 1: Ensure MARQ company exists with status='active' using raw SQL
     log.push('Checking MARQ company...');
-    let marqCompany = await db.company.findUnique({ where: { code: 'MARQ' } });
+    const companies: any[] = await db.$queryRaw`
+      SELECT id, name, code, status FROM "Company" WHERE code = 'MARQ'
+    `;
 
-    if (marqCompany) {
-      if (marqCompany.status !== 'active') {
+    let marqId: string;
+
+    if (companies.length > 0) {
+      marqId = companies[0].id;
+      if (companies[0].status !== 'active') {
         await db.$executeRaw`UPDATE "Company" SET status = 'active' WHERE code = 'MARQ'`;
         log.push('Updated MARQ company status to active');
       } else {
         log.push('MARQ company already exists with active status');
       }
     } else {
-      // Create MARQ company using raw SQL (avoids schema mismatch issues)
+      // Create MARQ company using raw SQL
       await db.$executeRaw`
         INSERT INTO "Company" (id, name, code, industry, country, currency, timezone, status, "createdAt", "updatedAt")
         VALUES (gen_random_uuid(), 'MARQ AI Technologies', 'MARQ', 'AI & Technology', 'IN', 'INR', 'Asia/Kolkata', 'active', NOW(), NOW())
       `;
-      marqCompany = await db.company.findUnique({ where: { code: 'MARQ' } });
+      const newCompanies: any[] = await db.$queryRaw`
+        SELECT id, name, code, status FROM "Company" WHERE code = 'MARQ'
+      `;
+      marqId = newCompanies[0].id;
       log.push('Created MARQ company with active status');
     }
 
-    const marqId = marqCompany?.id;
-    if (!marqId) {
-      return NextResponse.json({ error: 'Failed to create/find MARQ company', log });
-    }
-
-    // Step 2: Ensure admin user exists with correct password
+    // Step 2: Ensure admin user exists with correct password using raw SQL
     log.push('Checking admin user...');
     const passwordHash = await bcrypt.hash('admin123', 10);
     const adminEmail = 'admin@marqai.com';
@@ -78,9 +79,14 @@ export async function GET() {
     const verifyUser = verifyUsers[0];
 
     const isPasswordValid = await bcrypt.compare('admin123', verifyUser.password);
-    const isCompanyActive = marqCompany?.status === 'active';
     const isUserActive = verifyUser.isActive;
     const companyMatches = verifyUser.companyId === marqId;
+
+    // Also verify company is active
+    const verifyCompanies: any[] = await db.$queryRaw`
+      SELECT id, name, code, status FROM "Company" WHERE id = ${marqId}
+    `;
+    const isCompanyActive = verifyCompanies.length > 0 && verifyCompanies[0].status === 'active';
 
     log.push(`Verification: password=${isPasswordValid}, companyActive=${isCompanyActive}, userActive=${isUserActive}, companyMatches=${companyMatches}`);
 
@@ -88,7 +94,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: allGood,
-      message: allGood ? 'Login should work now!' : 'Some issues remain',
+      message: allGood ? 'Login should work now! Use: admin@marqai.com / admin123 / MARQ' : 'Some issues remain',
       log,
       user: {
         email: verifyUser.email,
@@ -98,10 +104,10 @@ export async function GET() {
         companyId: verifyUser.companyId,
       },
       company: {
-        id: marqCompany?.id,
-        name: marqCompany?.name,
-        code: marqCompany?.code,
-        status: marqCompany?.status,
+        id: marqId,
+        name: verifyCompanies[0]?.name,
+        code: verifyCompanies[0]?.code,
+        status: verifyCompanies[0]?.status,
       },
     });
   } catch (error: any) {
