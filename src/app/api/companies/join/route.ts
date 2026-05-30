@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!company.isActive) {
+    if (company.status !== 'active') {
       return NextResponse.json(
         { error: 'Company is not accepting new members' },
         { status: 400 }

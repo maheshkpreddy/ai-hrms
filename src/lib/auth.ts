@@ -74,9 +74,9 @@ export const authOptions: NextAuthOptions = {
           // Step 2: Verify company code if provided
           let companyData: { id: string; name: string; code: string } | null = null
           if (credentials.companyCode) {
-            // Find company using only columns that exist (isActive, not status)
-            const companies = await db.$queryRaw<Array<{ id: string; name: string; code: string; isActive: boolean }>>`
-              SELECT id, name, code, "isActive" FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
+            // Find company using "status" column (the Company model uses status: String, not isActive: Boolean)
+            const companies = await db.$queryRaw<Array<{ id: string; name: string; code: string; status: string }>>`
+              SELECT id, name, code, status FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
             `
             const company = companies[0]
             if (!company) {
@@ -84,9 +84,9 @@ export const authOptions: NextAuthOptions = {
               return null
             }
 
-            // Check if company is active using isActive (boolean)
-            if (!company.isActive) {
-              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, isActive=${company.isActive}`)
+            // Check if company is active using status field (String: 'active'/'inactive')
+            if (company.status !== 'active') {
+              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, status=${company.status}`)
               return null
             }
 

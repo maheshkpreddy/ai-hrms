@@ -24,7 +24,7 @@ export function Companies() {
   const [showEditCompany, setShowEditCompany] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyInfo | null>(null);
   const [editForm, setEditForm] = useState({
-    name: '', code: '', industry: 'IT Services', country: '', currency: 'USD', isActive: true,
+    name: '', code: '', industry: 'IT Services', country: '', currency: 'USD', status: 'active',
   });
   const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -38,7 +38,7 @@ export function Companies() {
       const res = await getCompanies();
       const companyList = Array.isArray(res) ? res : [];
       // Map to CompanyInfo format
-      const mapped: CompanyInfo[] = companyList.map((c: { id: string; name: string; code: string; industry: string | null; country: string | null; currency: string; isActive: boolean; _count: { employees: number } }) => ({
+      const mapped: CompanyInfo[] = companyList.map((c: { id: string; name: string; code: string; industry: string | null; country: string | null; currency: string; status: string; _count: { employees: number } }) => ({
         id: c.id,
         name: c.name,
         code: c.code,
@@ -46,7 +46,7 @@ export function Companies() {
         country: c.country || '',
         currency: c.currency,
         employeeCount: c._count?.employees || 0,
-        isActive: c.isActive,
+        status: c.status || 'active',
       }));
       setCompanies(mapped);
     } catch {
@@ -81,7 +81,7 @@ export function Companies() {
       industry: company.industry || 'IT Services',
       country: company.country || '',
       currency: company.currency || 'USD',
-      isActive: company.isActive,
+      status: company.status || 'active',
     });
     setShowEditCompany(true);
   };
@@ -145,8 +145,8 @@ export function Companies() {
                 </div>
               </div>
               <div className="flex items-center justify-between mt-3">
-                <Badge className={`text-[10px] ${company.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                  {company.isActive ? 'Active' : 'Inactive'}
+                <Badge className={`text-[10px] ${company.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                  {company.status === 'active' ? 'Active' : 'Inactive'}
                 </Badge>
                 <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCompany(company.id)}>
@@ -309,15 +309,15 @@ export function Companies() {
                 </Select>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="editIsActive"
-                checked={editForm.isActive}
-                onChange={(e) => setEditForm(f => ({ ...f, isActive: e.target.checked }))}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <Label htmlFor="editIsActive" className="text-sm">Active</Label>
+            <div className="space-y-1">
+              <Label className="text-sm">Status</Label>
+              <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={handleEditCompany} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

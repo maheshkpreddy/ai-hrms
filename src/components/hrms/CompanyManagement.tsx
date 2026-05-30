@@ -88,7 +88,7 @@ interface Company {
   email: string | null
   foundedYear: string | null
   employeeCount: number | null
-  isActive: boolean
+  status: string
   createdBy: string | null
   createdAt: string
   updatedAt: string
@@ -355,7 +355,7 @@ export default function CompanyManagement() {
     country: '',
     phone: '',
     email: '',
-    isActive: true,
+    status: 'active',
   })
 
   // ── Add Location Form ─────────────────────────────────────────────────────
@@ -382,7 +382,7 @@ export default function CompanyManagement() {
       limit: 100,
       search: searchQuery || undefined,
       industry: filterIndustry !== 'all' ? filterIndustry : undefined,
-      isActive: filterStatus !== 'all' ? filterStatus : undefined,
+      status: filterStatus !== 'all' ? filterStatus : undefined,
     },
   })
 
@@ -511,7 +511,7 @@ export default function CompanyManagement() {
       country: company.country || '',
       phone: company.phone || '',
       email: company.email || '',
-      isActive: company.isActive,
+      status: company.status,
     })
     setEditOpen(true)
   }
@@ -536,7 +536,7 @@ export default function CompanyManagement() {
         country: editForm.country || null,
         phone: editForm.phone || null,
         email: editForm.email || null,
-        isActive: editForm.isActive,
+        status: editForm.status,
       })
       toast({
         title: 'Company Updated',
@@ -955,8 +955,8 @@ export default function CompanyManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="true">Active</SelectItem>
-                    <SelectItem value="false">Inactive</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1083,7 +1083,7 @@ export default function CompanyManagement() {
                                   <span className="text-sm font-medium">{company._count?.members || 0}</span>
                                 </div>
                               </TableCell>
-                              <TableCell>{getStatusBadge(company.isActive ? 'active' : 'inactive')}</TableCell>
+                              <TableCell>{getStatusBadge(company.status === 'active' ? 'active' : 'inactive')}</TableCell>
                               <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-1">
                                   <Button
@@ -1764,8 +1764,8 @@ export default function CompanyManagement() {
             <div className="grid gap-2">
               <Label htmlFor="editCompanyStatus">Status</Label>
               <Select
-                value={editForm.isActive ? 'true' : 'false'}
-                onValueChange={(v) => setEditForm((f) => ({ ...f, isActive: v === 'true' }))}
+                value={editForm.status === 'active' ? 'active' : 'inactive'}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, status: v }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -1814,7 +1814,7 @@ export default function CompanyManagement() {
                 <div>
                   <h3 className="text-lg font-semibold">{selectedCompany.name}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                    {getStatusBadge(selectedCompany.isActive ? 'active' : 'inactive')}
+                    {getStatusBadge(selectedCompany.status === 'active' ? 'active' : 'inactive')}
                     {selectedCompany.industry && (
                       <Badge variant="outline" className="text-[11px]">{selectedCompany.industry}</Badge>
                     )}

@@ -118,7 +118,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         country: apiCompany.country || '',
         currency: apiCompany.currency || 'USD',
         employeeCount: 0,
-        isActive: true,
+        status: 'active',
       } : null;
       
       set({
@@ -189,7 +189,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       country: '',
       currency: user.companyCurrency || 'USD',
       employeeCount: 0,
-      isActive: true,
+      status: 'active',
     } : null;
 
     set({
@@ -215,7 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   fetchCompanies: async () => {
     try {
-      const res = await fetch('/api/companies?isActive=true&limit=100');
+      const res = await fetch('/api/companies?status=active&limit=100');
       if (!res.ok) return;
       const json = await res.json();
       const apiCompanies = (json.data || []) as Array<Record<string, unknown>>;
@@ -228,7 +228,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         country: (c.country as string) || '',
         currency: (c.currency as string) || 'USD',
         employeeCount: (c._count as Record<string, number>)?.employees ?? 0,
-        isActive: c.isActive as boolean,
+        status: (c.status as string) || 'active',
       }));
       set({ companies: mapped });
 

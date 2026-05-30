@@ -4,15 +4,15 @@ import { db } from '@/lib/db';
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const isActive = url.searchParams.get('isActive');
+    const status = url.searchParams.get('status');
     const search = url.searchParams.get('search');
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
-    if (isActive !== null && isActive !== undefined) {
-      where.status = isActive === 'true' ? 'active' : 'inactive';
+    if (status) {
+      where.status = status;
     }
     if (search) {
       where.OR = [

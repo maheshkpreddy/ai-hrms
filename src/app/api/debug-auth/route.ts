@@ -28,16 +28,17 @@ export async function GET() {
     }
 
     // Step 3: Verify company code using raw SQL
+    // Company model uses "status" (String), not "isActive" (Boolean)
     if (companyCode) {
       const companies: any[] = await db.$queryRaw`
-        SELECT id, name, code, "isActive" FROM "Company" WHERE code = ${companyCode.toUpperCase()}
+        SELECT id, name, code, status FROM "Company" WHERE code = ${companyCode.toUpperCase()}
       `;
       if (!companies[0]) {
         return NextResponse.json({ step: 'company_code', error: 'Company not found', companyCode, userCompanyId: user.companyId });
       }
       const company = companies[0];
-      if (!company.isActive) {
-        return NextResponse.json({ step: 'company_active', error: 'Company is not active', companyCode, isActive: company.isActive });
+      if (company.status !== 'active') {
+        return NextResponse.json({ step: 'company_active', error: 'Company is not active', companyCode, status: company.status });
       }
       if (user.companyId && user.companyId !== company.id) {
         return NextResponse.json({ step: 'company_mismatch', error: 'User company does not match', userCompanyId: user.companyId, expectedCompanyId: company.id });

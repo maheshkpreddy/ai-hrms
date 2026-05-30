@@ -51,7 +51,7 @@ export interface CompanyInfo {
   country: string;
   currency: string;
   employeeCount: number;
-  isActive: boolean;
+  status: string;
 }
 
 export interface EmployeeInfo {

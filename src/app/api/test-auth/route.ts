@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         where: { code: companyCode.toUpperCase() },
       });
       if (!company) return NextResponse.json({ error: 'Company not found', step: 3, companyCode });
-      if (!company.isActive) return NextResponse.json({ error: 'Company not active', step: 4 });
+      if (company.status !== 'active') return NextResponse.json({ error: 'Company not active', step: 4, status: company.status });
       if (user.companyId && user.companyId !== company.id) return NextResponse.json({ error: 'Company mismatch', step: 5, userCompanyId: user.companyId, expectedCompanyId: company.id });
     }
 

@@ -580,7 +580,7 @@ function NavItemButton({
 
       {/* Sub-menu items */}
       {!collapsed && expanded && item.subItems.length > 0 && (
-        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3 max-h-[70vh] overflow-y-auto sidebar-scroll scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3 max-h-[50vh] overflow-y-auto sidebar-scroll" style={{ scrollbarWidth: 'thin', scrollbarColor: '#475569 transparent' }}>
           {item.subItems.map((subItem) => {
             const SubIcon = subItem.icon
             const isSubActive = activeSubItem === subItem.key
