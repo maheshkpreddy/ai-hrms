@@ -166,10 +166,10 @@ export default function LoginPage() {
     setVerifyingCompany(true)
     setError('')
     try {
-      const res = await fetch(`/api/companies?code=${encodeURIComponent(companyCode.toUpperCase())}`)
+      const res = await fetch(`/api/companies?search=${encodeURIComponent(companyCode.toUpperCase())}`)
       if (res.ok) {
         const data = await res.json()
-        if (data.companies && data.companies.length > 0) {
+        if (data.data && data.data.length > 0) {
           setCompanyVerified(true)
           return true
         }

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (isActive !== null && isActive !== undefined) {
-      where.isActive = isActive === 'true';
+      where.status = isActive === 'true' ? 'active' : 'inactive';
     }
     if (search) {
       where.OR = [
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, code, description, industry, logo, domain, website, address, city, state, country, pincode, phone, email, foundedYear, employeeCount, currency, timezone, isActive, parentId, createdBy } = body;
+    const { name, legalName, code, industry, logo, domain, address, city, state, country, gstVat, panTanCin, registrationNumber, currency, timezone, payrollCycle, financialYear, defaultLanguage, status, parentId } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -76,26 +76,25 @@ export async function POST(req: NextRequest) {
     const company = await db.company.create({
       data: {
         name,
+        legalName: legalName || null,
         code: companyCode,
-        description: description || null,
+        gstVat: gstVat || null,
+        panTanCin: panTanCin || null,
+        registrationNumber: registrationNumber || null,
         industry: industry || null,
         logo: logo || null,
         domain: domain || null,
-        website: website || null,
         address: address || null,
         city: city || null,
         state: state || null,
         country: country || null,
-        pincode: pincode || null,
-        phone: phone || null,
-        email: email || null,
-        foundedYear: foundedYear || null,
-        employeeCount: employeeCount || null,
         currency: currency || 'USD',
         timezone: timezone || 'UTC',
-        isActive: isActive !== undefined ? isActive : true,
+        payrollCycle: payrollCycle || null,
+        financialYear: financialYear || null,
+        defaultLanguage: defaultLanguage || null,
+        status: status || 'active',
         parentId: parentId || null,
-        createdBy: createdBy || null,
       },
       include: {
         _count: { select: { employees: true, departments: true, branches: true, members: true, officeLocations: true } },

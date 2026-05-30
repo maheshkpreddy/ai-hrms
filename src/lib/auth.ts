@@ -52,8 +52,8 @@ export const authOptions: NextAuthOptions = {
               await logToDb(`FAIL: Company not found: ${credentials.companyCode}`)
               return null
             }
-            if (!company.isActive) {
-              await logToDb(`FAIL: Company not active: ${credentials.companyCode}`)
+            if (company.status !== 'active') {
+              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, status=${company.status}`)
               return null
             }
             if (user.companyId && user.companyId !== company.id) {

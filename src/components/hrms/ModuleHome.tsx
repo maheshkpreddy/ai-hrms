@@ -69,8 +69,8 @@ const moduleDefinitions: ModuleCard[] = [
   },
   {
     key: 'masters',
-    label: 'Master Management',
-    description: 'Branches, designations, grades, leave types, and skills',
+    label: 'Masters',
+    description: 'Company, branches, departments, designations, grades, leave types, skills & more',
     icon: ClipboardCheck,
     aiPowered: false,
     gradient: 'from-slate-500 to-gray-600',
@@ -84,15 +84,6 @@ const moduleDefinitions: ModuleCard[] = [
     aiPowered: false,
     gradient: 'from-cyan-500 to-sky-600',
     iconBg: 'bg-cyan-100 text-cyan-700',
-  },
-  {
-    key: 'company',
-    label: 'Company Management',
-    description: 'Company info, branches, policies, and organization setup',
-    icon: Building2,
-    aiPowered: false,
-    gradient: 'from-gray-500 to-slate-600',
-    iconBg: 'bg-gray-100 text-gray-700',
   },
 
   // ─── Talent & Recruitment ─────────────────────
@@ -377,7 +368,7 @@ const categories: ModuleCategory[] = [
   {
     title: 'Core',
     modules: moduleDefinitions.filter(m =>
-      ['dashboard', 'masters', 'employees', 'company'].includes(m.key)
+      ['dashboard', 'masters', 'employees'].includes(m.key)
     ),
   },
   {
