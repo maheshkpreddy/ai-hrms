@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Clock,
   Users,
@@ -160,6 +160,15 @@ export default function TimesheetModule() {
     'reports': 'reports',
   }
   const [manualTab, setManualTab] = useState('my-timesheet')
+
+  // Sync sidebar sub-item to manual tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setManualTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
 

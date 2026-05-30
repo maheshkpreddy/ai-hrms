@@ -292,6 +292,14 @@ export default function RecruitmentModule() {
 
   const tabMap: Record<string, string> = { 'requisitions': 'requisitions', 'postings': 'job-postings', 'candidates': 'candidate-pool', 'interviews': 'interview-schedule', 'offers': 'offer-letters' }
 
+  // Sync sidebar sub-item to local tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setLocalTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 

@@ -188,6 +188,14 @@ export default function AuditCompliance() {
 
   const tabMap: Record<string, string> = { 'logs': 'audit-logs', 'compliance': 'compliance-reports', 'export': 'data-export', 'audit-logs-view': 'audit-logs', 'data-security': 'data-export' }
 
+  // Sync sidebar sub-item to local tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setLocalTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Ticket,
   Plus,
@@ -271,6 +271,15 @@ export default function HelpdeskModule() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const tabMap: Record<string, string> = { 'my-tickets': 'my-tickets', 'raise': 'raise-ticket', 'kb': 'knowledge-base', 'sla': 'sla-tracking', 'hr-helpdesk': 'my-tickets', 'it-helpdesk': 'my-tickets', 'knowledge-base': 'knowledge-base' }
   const [manualTab, setManualTab] = useState('my-tickets')
+
+  // Sync sidebar sub-item to manual tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setManualTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
 

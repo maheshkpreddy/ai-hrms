@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   GitBranch,
   Play,
@@ -308,6 +308,15 @@ export default function WorkflowEngine() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const tabMap: Record<string, string> = { 'builder': 'builder', 'workflow-builder': 'builder', 'active': 'active-workflows', 'active-workflows': 'active-workflows', 'history': 'workflow-history', 'workflow-templates': 'builder', 'templates': 'builder' }
   const [manualTab, setManualTab] = useState('builder')
+
+  // Sync sidebar sub-item to manual tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setManualTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
 

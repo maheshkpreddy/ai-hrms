@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: {
-            select: { employees: true, departments: true, branches: true },
+            select: { employees: true, departments: true, branches: true, members: true, officeLocations: true },
           },
           parent: { select: { id: true, name: true } },
         },
@@ -52,17 +52,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, code, industry, logo, domain, country, currency, timezone, isActive, parentId } = body;
+    const { name, code, description, industry, logo, domain, website, address, city, state, country, pincode, phone, email, foundedYear, employeeCount, currency, timezone, isActive, parentId, createdBy } = body;
 
-    if (!name || !code) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, code' },
+        { error: 'Missing required field: name' },
         { status: 400 }
       );
     }
 
+    // Generate code from name if not provided
+    const companyCode = code || name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 6);
+
     // Check unique code
-    const existing = await db.company.findUnique({ where: { code } });
+    const existing = await db.company.findUnique({ where: { code: companyCode } });
     if (existing) {
       return NextResponse.json(
         { error: 'Company code already exists' },
@@ -72,14 +75,30 @@ export async function POST(req: NextRequest) {
 
     const company = await db.company.create({
       data: {
-        name, code, industry, logo, domain, country,
+        name,
+        code: companyCode,
+        description: description || null,
+        industry: industry || null,
+        logo: logo || null,
+        domain: domain || null,
+        website: website || null,
+        address: address || null,
+        city: city || null,
+        state: state || null,
+        country: country || null,
+        pincode: pincode || null,
+        phone: phone || null,
+        email: email || null,
+        foundedYear: foundedYear || null,
+        employeeCount: employeeCount || null,
         currency: currency || 'USD',
         timezone: timezone || 'UTC',
         isActive: isActive !== undefined ? isActive : true,
-        parentId,
+        parentId: parentId || null,
+        createdBy: createdBy || null,
       },
       include: {
-        _count: { select: { employees: true, departments: true, branches: true } },
+        _count: { select: { employees: true, departments: true, branches: true, members: true, officeLocations: true } },
         parent: true,
       },
     });
@@ -89,8 +108,8 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         entity: 'Company',
         entityId: company.id,
-        userId: body.createdBy,
-        details: `Company created: ${name} (${code})`,
+        userId: body.createdBy || null,
+        details: `Company created: ${name} (${companyCode})`,
       },
     });
 
@@ -130,7 +149,7 @@ export async function PUT(req: NextRequest) {
       where: { id },
       data: updateData,
       include: {
-        _count: { select: { employees: true, departments: true, branches: true } },
+        _count: { select: { employees: true, departments: true, branches: true, members: true, officeLocations: true } },
         parent: true,
       },
     });

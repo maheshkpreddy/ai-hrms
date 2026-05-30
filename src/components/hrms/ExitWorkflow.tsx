@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LogOut,
   ClipboardList,
@@ -332,6 +332,15 @@ export default function ExitWorkflow() {
     'interview': 'exit-interview',
   }
   const [manualTab, setManualTab] = useState('resignation')
+
+  // Sync sidebar sub-item to manual tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setManualTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
 

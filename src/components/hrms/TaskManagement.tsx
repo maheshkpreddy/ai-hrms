@@ -288,7 +288,7 @@ export default function TaskManagement() {
     if (activeSubItem) {
       switch (activeSubItem) {
         case 'my-tasks':
-          setActiveTab('all')
+          setActiveTab('my')
           break
         case 'team-tasks':
           setActiveTab('all')

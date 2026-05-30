@@ -229,6 +229,15 @@ export default function OnboardingModule() {
     'probation': 'probation-tracking',
   }
   const [manualTab, setManualTab] = useState('new-hires')
+
+  // Sync sidebar sub-item to manual tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setManualTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then manual tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab
 

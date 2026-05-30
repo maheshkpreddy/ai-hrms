@@ -354,7 +354,7 @@ export default function Performance() {
           setActivePerfTab('okrs')
           break
         case 'feedback':
-          setActivePerfTab('attrition')
+          setActivePerfTab('reviews')
           break
         default:
           break

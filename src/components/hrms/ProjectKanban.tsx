@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FolderKanban, Plus, ChevronLeft, ChevronRight, Search, Loader2, X, MoreHorizontal, Calendar, User, Tag, MessageSquare, Trash2 } from 'lucide-react'
+import { FolderKanban, Plus, ChevronLeft, ChevronRight, Search, Loader2, X, MoreHorizontal, Calendar, User, Tag, MessageSquare, Trash2, LayoutList, Timeline, GanttChart } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -115,18 +115,21 @@ export default function ProjectKanban() {
   const { toast } = useToast()
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
 
+  // View mode state for sub-item navigation
+  const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'timeline'>('kanban')
+
   // Handle sub-item navigation from sidebar
   useEffect(() => {
     if (activeSubItem) {
       switch (activeSubItem) {
         case 'kanban-board':
-          // Default view - no action needed
+          setViewMode('kanban')
           break
         case 'project-list':
-          // Could switch to project list view if available
+          setViewMode('list')
           break
         case 'timelines':
-          // Could switch to timeline view if available
+          setViewMode('timeline')
           break
       }
       setActiveSubItem(null)
@@ -421,9 +424,38 @@ export default function ProjectKanban() {
               <p className="text-muted-foreground text-sm">Visualize and manage project tasks with Kanban boards</p>
             </div>
           </div>
-          <Button onClick={() => setAddBoardOpen(true)} className="gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800 shadow-sm">
-            <Plus className="h-4 w-4" /> New Board
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* View mode toggles */}
+            <div className="flex items-center rounded-lg border bg-muted/50 p-0.5">
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setViewMode('kanban')}
+              >
+                <FolderKanban className="h-3.5 w-3.5" /> Kanban
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setViewMode('list')}
+              >
+                <LayoutList className="h-3.5 w-3.5" /> List
+              </Button>
+              <Button
+                variant={viewMode === 'timeline' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => setViewMode('timeline')}
+              >
+                <Calendar className="h-3.5 w-3.5" /> Timeline
+              </Button>
+            </div>
+            <Button onClick={() => setAddBoardOpen(true)} className="gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800 shadow-sm">
+              <Plus className="h-4 w-4" /> New Board
+            </Button>
+          </div>
         </div>
 
         {/* ─── Stats Cards ─────────────────────────────────────────────────── */}
@@ -521,7 +553,7 @@ export default function ProjectKanban() {
             </div>
 
             {/* ─── Board Header ────────────────────────────────────────────── */}
-            {activeBoard && (
+            {activeBoard && viewMode === 'kanban' && (
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold">{activeBoard.name}</h2>
@@ -545,7 +577,8 @@ export default function ProjectKanban() {
               </div>
             )}
 
-            {/* ─── Kanban Board ────────────────────────────────────────────── */}
+            {/* ─── Kanban View ───────────────────────────────────────────── */}
+            {viewMode === 'kanban' && (
             <ScrollArea className="w-full">
               <div className="flex gap-4 pb-4" style={{ minWidth: 'max-content' }}>
                 {filteredColumns.map((column, colIndex) => {
@@ -732,6 +765,121 @@ export default function ProjectKanban() {
                 </div>
               </div>
             </ScrollArea>
+            )}
+
+            {/* ─── List View ─────────────────────────────────────────────── */}
+            {viewMode === 'list' && (
+              <div className="space-y-2">
+                {filteredColumns.flatMap(col =>
+                  (col.cards || []).map(card => ({ ...card, columnTitle: col.title, columnColor: col.color }))
+                ).sort((a, b) => a.position - b.position).map(card => {
+                  const pCfg = getPriority(card.priority)
+                  const assignee = card.assigneeId ? employeeMap.get(card.assigneeId) : null
+                  return (
+                    <Card key={card.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => openCardDetail(card)}>
+                      <CardContent className="p-3 flex items-center gap-4">
+                        <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: card.columnColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{card.title}</p>
+                          <p className="text-xs text-muted-foreground">{card.columnTitle}</p>
+                        </div>
+                        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border shrink-0', pCfg.bg, pCfg.text, pCfg.border)}>
+                          <span className={cn('size-1.5 rounded-full', pCfg.dot)} />{pCfg.label}
+                        </span>
+                        {card.dueDate && (
+                          <span className={cn('text-[10px] flex items-center gap-0.5 shrink-0', isOverdue(card.dueDate) ? 'text-rose-600 font-medium' : 'text-muted-foreground')}>
+                            <Calendar className="h-3 w-3" />{formatDate(card.dueDate)}
+                          </span>
+                        )}
+                        {assignee && (
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-800" title={`${assignee.firstName} ${assignee.lastName}`}>
+                            {getInitials(assignee.firstName, assignee.lastName)}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+                {filteredColumns.every(col => !col.cards || col.cards.length === 0) && (
+                  <Card className="border-dashed">
+                    <CardContent className="p-8 text-center text-muted-foreground">
+                      <LayoutList className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">No cards to display</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ─── Timeline View ──────────────────────────────────────────── */}
+            {viewMode === 'timeline' && (
+              <div className="space-y-4">
+                {filteredColumns.flatMap(col =>
+                  (col.cards || []).filter(c => c.dueDate).map(card => ({ ...card, columnTitle: col.title, columnColor: col.color }))
+                ).sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()).map(card => {
+                  const pCfg = getPriority(card.priority)
+                  const assignee = card.assigneeId ? employeeMap.get(card.assigneeId) : null
+                  return (
+                    <Card key={card.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => openCardDetail(card)}>
+                      <CardContent className="p-3 flex items-center gap-4">
+                        <div className="flex items-center gap-2 w-36 shrink-0">
+                          <Calendar className={cn('h-4 w-4', isOverdue(card.dueDate) ? 'text-rose-500' : 'text-emerald-500')} />
+                          <span className={cn('text-sm font-medium', isOverdue(card.dueDate) ? 'text-rose-600' : '')}>{formatDate(card.dueDate)}</span>
+                        </div>
+                        <div className="w-2 h-8 rounded-full shrink-0" style={{ backgroundColor: card.columnColor }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{card.title}</p>
+                          <p className="text-xs text-muted-foreground">{card.columnTitle}</p>
+                        </div>
+                        <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border shrink-0', pCfg.bg, pCfg.text, pCfg.border)}>
+                          <span className={cn('size-1.5 rounded-full', pCfg.dot)} />{pCfg.label}
+                        </span>
+                        {assignee && (
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-800" title={`${assignee.firstName} ${assignee.lastName}`}>
+                            {getInitials(assignee.firstName, assignee.lastName)}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+                {filteredColumns.flatMap(col => (col.cards || []).filter(c => !c.dueDate)).length > 0 && (
+                  <div className="pt-4 border-t">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">No due date</p>
+                    <div className="space-y-2">
+                      {filteredColumns.flatMap(col =>
+                        (col.cards || []).filter(c => !c.dueDate).map(card => ({ ...card, columnTitle: col.title, columnColor: col.color }))
+                      ).map(card => {
+                        const pCfg = getPriority(card.priority)
+                        return (
+                          <Card key={card.id} className="cursor-pointer hover:shadow-sm transition-shadow" onClick={() => openCardDetail(card)}>
+                            <CardContent className="p-3 flex items-center gap-4">
+                              <div className="w-36 shrink-0 text-sm text-muted-foreground">No date</div>
+                              <div className="w-2 h-8 rounded-full shrink-0" style={{ backgroundColor: card.columnColor }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{card.title}</p>
+                                <p className="text-xs text-muted-foreground">{card.columnTitle}</p>
+                              </div>
+                              <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border shrink-0', pCfg.bg, pCfg.text, pCfg.border)}>
+                                <span className={cn('size-1.5 rounded-full', pCfg.dot)} />{pCfg.label}
+                              </span>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {filteredColumns.every(col => !col.cards || col.cards.length === 0) && (
+                  <Card className="border-dashed">
+                    <CardContent className="p-8 text-center text-muted-foreground">
+                      <Calendar className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">No cards with due dates</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

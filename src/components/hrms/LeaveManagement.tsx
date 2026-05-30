@@ -189,6 +189,14 @@ export default function LeaveManagement() {
 
   const tabMap: Record<string, string> = { 'my-leaves': 'my-leaves', 'balance': 'leave-balance', 'policy': 'leave-policy', 'calendar': 'team-calendar', 'leave-requests': 'my-leaves', 'leave-balance': 'leave-balance', 'leave-calendar': 'team-calendar' }
 
+  // Sync sidebar sub-item to local tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setLocalTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 

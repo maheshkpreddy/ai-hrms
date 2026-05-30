@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
-          select: { members: true, employees: true, departments: true, branches: true },
+          select: { members: true, employees: true, departments: true, branches: true, officeLocations: true },
         },
       },
     })
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate code if provided
+    const companyCode = body.code || `COMP-${Date.now().toString(36).toUpperCase()}`
     if (body.code) {
       const existingCode = await db.company.findUnique({
         where: { code: body.code },
@@ -74,9 +75,9 @@ export async function POST(request: NextRequest) {
     const record = await db.company.create({
       data: {
         name: body.name,
-        code: body.code || `COMP-${Date.now().toString(36).toUpperCase()}`,
-        description: body.legalName || body.description || null,
-        industry: body.industryType || body.industry || null,
+        code: companyCode,
+        description: body.description || null,
+        industry: body.industry || null,
         website: body.website || null,
         logo: body.logo || null,
         address: body.address || null,
@@ -86,9 +87,12 @@ export async function POST(request: NextRequest) {
         pincode: body.pincode || null,
         phone: body.phone || null,
         email: body.email || null,
-        gstNumber: body.gstVat || body.gstNumber || null,
-        panNumber: body.panTanCin || body.panNumber || null,
-        isActive: body.isActive ?? (body.status === 'inactive' ? false : true),
+        foundedYear: body.foundedYear || null,
+        employeeCount: body.employeeCount || null,
+        currency: body.currency || 'USD',
+        timezone: body.timezone || 'UTC',
+        isActive: body.isActive ?? true,
+        createdBy: body.createdBy || null,
       },
     })
 

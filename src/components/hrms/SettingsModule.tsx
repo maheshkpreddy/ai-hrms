@@ -142,6 +142,14 @@ export default function SettingsModule() {
 
   const tabMap: Record<string, string> = { 'general': 'general', 'integrations': 'integrations', 'notifications': 'notifications', 'email-templates': 'email-templates', 'general-settings': 'general', 'notification-settings': 'notifications', 'integration-settings': 'integrations' }
 
+  // Sync sidebar sub-item to local tab and clear it
+  useEffect(() => {
+    if (activeSubItem && tabMap[activeSubItem]) {
+      setLocalTab(tabMap[activeSubItem])
+      setActiveSubItem(null)
+    }
+  }, [activeSubItem, setActiveSubItem])
+
   // Derive active tab: sidebar sub-item takes priority, then local tab
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
