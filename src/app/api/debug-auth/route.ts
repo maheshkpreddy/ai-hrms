@@ -33,8 +33,8 @@ export async function GET() {
       if (!company) {
         return NextResponse.json({ step: 'company_code', error: 'Company not found', companyCode, userCompanyId: user.companyId });
       }
-      if (!company.isActive) {
-        return NextResponse.json({ step: 'company_active', error: 'Company is not active', companyCode });
+      if (company.status !== 'active') {
+        return NextResponse.json({ step: 'company_active', error: 'Company is not active', companyCode, companyStatus: company.status });
       }
       if (user.companyId && user.companyId !== company.id) {
         return NextResponse.json({ step: 'company_mismatch', error: 'User company does not match', userCompanyId: user.companyId, expectedCompanyId: company.id });

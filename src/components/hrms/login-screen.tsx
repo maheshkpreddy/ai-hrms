@@ -218,22 +218,22 @@ export function LoginScreen() {
           className="text-center mb-6"
         >
           <motion.div
-            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl shadow-2xl shadow-emerald-500/30 mb-4 overflow-hidden"
-            animate={{ rotateY: [0, 360] }}
-            transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+            className="inline-flex items-center justify-center w-20 h-20 rounded-2xl shadow-2xl shadow-emerald-500/30 mb-4 overflow-hidden bg-white/10 backdrop-blur-sm border border-white/10"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/eh2r-logo.png"
               alt="eh2r AI"
-              className="w-full h-full object-contain rounded-2xl"
+              className="w-14 h-14 object-contain"
             />
           </motion.div>
           <h1 className="text-4xl font-bold text-white tracking-tight">eh2r AI</h1>
           <div className="flex items-center gap-1.5 justify-center mt-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/marq-logo.png"
               alt="MARQ AI"
-              className="h-4 w-4 rounded-sm object-contain"
+              className="h-4 w-4 object-contain"
             />
             <p className="text-emerald-200/80 text-sm font-medium uppercase tracking-[0.2em]">An AI Product of MARQ AI</p>
           </div>

@@ -199,8 +199,14 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError(result.error)
-      } else {
+        // Translate NextAuth errors to user-friendly messages
+        const errorMessages: Record<string, string> = {
+          'CredentialsSignin': 'Invalid email, password, or company code. Please check your credentials and try again.',
+          'SessionRequired': 'Please sign in to access this page.',
+          'Default': 'Login failed. Please check your credentials and try again.',
+        }
+        setError(errorMessages[result.error] || errorMessages['Default'])
+      } else if (result?.ok) {
         router.push('/')
         router.refresh()
       }
@@ -435,21 +441,23 @@ export default function LoginPage() {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl overflow-hidden mb-5">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden mb-4 bg-white/10 backdrop-blur-sm border border-white/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/eh2r-logo.png"
                     alt="eh2r AI"
-                    className="w-full h-full object-contain rounded-2xl"
+                    className="w-12 h-12 object-contain"
                   />
                 </div>
                 <h1 className="text-4xl font-bold text-white mb-1 tracking-tight">
                   eh2r AI
                 </h1>
                 <div className="flex items-center gap-1.5 justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/marq-logo.png"
                     alt="MARQ AI"
-                    className="h-4 w-4 rounded-sm object-contain"
+                    className="h-4 w-4 object-contain"
                   />
                   <p className="text-emerald-400/80 text-sm font-medium uppercase tracking-[0.2em]">
                     An AI Product of MARQ AI
@@ -544,19 +552,21 @@ export default function LoginPage() {
               animate={{ opacity: 1, y: 0 }}
               className="lg:hidden text-center mb-6"
             >
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl overflow-hidden mb-3">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden mb-3 bg-white/10 backdrop-blur-sm border border-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/eh2r-logo.png"
                   alt="eh2r AI"
-                  className="w-full h-full object-contain rounded-2xl"
+                  className="w-12 h-12 object-contain"
                 />
               </div>
               <h1 className="text-2xl font-bold text-white">eh2r AI</h1>
               <div className="flex items-center gap-1.5 justify-center mt-0.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/marq-logo.png"
                   alt="MARQ AI"
-                  className="h-3 w-3 rounded-sm object-contain"
+                  className="h-3 w-3 object-contain"
                 />
                 <p className="text-emerald-400/80 text-[10px] font-medium uppercase tracking-[0.2em]">
                   An AI Product of MARQ AI

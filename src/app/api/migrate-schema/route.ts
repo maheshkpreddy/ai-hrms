@@ -16,21 +16,22 @@ export async function POST() {
     const existingCols = new Set(companyColumns.map(c => c.column_name));
     results.push(`Company columns: ${Array.from(existingCols).join(', ')}`);
 
-    // Add missing Company columns
+    // Add missing Company columns (matching current Prisma schema)
     const companyMigrations: [string, string][] = [
-      ['description', 'TEXT'],
+      ['legalName', 'TEXT'],
+      ['gstVat', 'TEXT'],
+      ['panTanCin', 'TEXT'],
+      ['registrationNumber', 'TEXT'],
       ['logo', 'TEXT'],
       ['domain', 'TEXT'],
-      ['website', 'TEXT'],
       ['address', 'TEXT'],
       ['city', 'TEXT'],
       ['state', 'TEXT'],
-      ['pincode', 'TEXT'],
-      ['phone', 'TEXT'],
-      ['email', 'TEXT'],
-      ['foundedYear', 'INTEGER'],
-      ['employeeCount', 'INTEGER'],
-      ['createdBy', 'TEXT'],
+      ['country', 'TEXT'],
+      ['payrollCycle', 'TEXT'],
+      ['financialYear', 'TEXT'],
+      ['defaultLanguage', 'TEXT'],
+      ['status', `TEXT DEFAULT 'active'`],
       ['parentId', 'TEXT'],
     ];
 
@@ -51,6 +52,17 @@ export async function POST() {
         } catch (e: any) {
           results.push(`Skip Company.${col}: ${e.message?.substring(0, 100)}`);
         }
+      }
+    }
+
+    // Migrate Company.isActive (boolean) -> Company.status (text) if needed
+    if (existingCols.has('isActive') && !existingCols.has('status')) {
+      try {
+        await db.$executeRawUnsafe(`ALTER TABLE "Company" ADD COLUMN "status" TEXT DEFAULT 'active'`);
+        await db.$executeRawUnsafe(`UPDATE "Company" SET "status" = CASE WHEN "isActive" = true THEN 'active' ELSE 'inactive' END`);
+        results.push('Migrated Company.isActive -> Company.status');
+      } catch (e: any) {
+        results.push(`Skip Company isActive->status migration: ${e.message?.substring(0, 100)}`);
       }
     }
 

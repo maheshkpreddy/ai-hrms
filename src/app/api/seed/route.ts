@@ -13,22 +13,23 @@ export async function GET() {
       update: {},
       create: {
         name: 'MARQ AI Technologies',
+        legalName: 'MARQ AI Technologies Pvt. Ltd.',
         code: 'MARQ',
-        description: 'Leading AI & Machine Learning solutions provider',
+        gstVat: '06AABCM1234F1Z5',
+        panTanCin: 'AABCM1234F',
+        registrationNumber: 'U72200HR2018PTC123456',
         industry: 'Technology',
-        website: 'https://marqai.tech',
+        domain: 'marqai.tech',
         address: '101, Cyber City, DLF Phase 2',
         city: 'Gurugram',
         state: 'Haryana',
-        country: 'India',
-        pincode: '122002',
-        phone: '+91-124-4567890',
-        email: 'info@marqai.tech',
-        foundedYear: 2018,
-        employeeCount: 25,
+        country: 'IN',
         currency: 'INR',
         timezone: 'Asia/Kolkata',
-        isActive: true,
+        payrollCycle: 'monthly',
+        financialYear: 'April-March',
+        defaultLanguage: 'en',
+        status: 'active',
       },
     });
 
@@ -37,22 +38,23 @@ export async function GET() {
       update: {},
       create: {
         name: 'Acme Corp',
+        legalName: 'Acme Corporation India Pvt. Ltd.',
         code: 'ACME',
-        description: 'Global manufacturing and supply chain solutions',
+        gstVat: '29AABCA1234F1Z8',
+        panTanCin: 'AABCA1234F',
+        registrationNumber: 'U74999KA2010PTC123789',
         industry: 'Manufacturing',
-        website: 'https://acmecorp.in',
+        domain: 'acmecorp.in',
         address: '42, Industrial Area, Whitefield',
         city: 'Bengaluru',
         state: 'Karnataka',
-        country: 'India',
-        pincode: '560066',
-        phone: '+91-80-23456789',
-        email: 'contact@acmecorp.in',
-        foundedYear: 2010,
-        employeeCount: 20,
+        country: 'IN',
         currency: 'INR',
         timezone: 'Asia/Kolkata',
-        isActive: true,
+        payrollCycle: 'monthly',
+        financialYear: 'April-March',
+        defaultLanguage: 'en',
+        status: 'active',
       },
     });
 
@@ -128,7 +130,7 @@ export async function GET() {
     counts.officeLocations = officeLocations.length;
 
     // ─── 8. EMPLOYEES ─────────────────────────────────────────────────
-    const passwordHash = await hash('Pass@123', 10);
+    const passwordHash = await hash('admin123', 12);
 
     // MARQ Employees
     const marqEmployeeData = [
