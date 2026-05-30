@@ -132,16 +132,23 @@ const navItems: NavItem[] = [
   },
   {
     key: 'masters',
-    label: 'Company Masters',
+    label: 'Masters',
     icon: ClipboardList,
     aiPowered: false,
     color: 'from-emerald-500 to-teal-600',
     subItems: [
+      { key: 'company-masters', label: 'Company Masters', icon: Building2 },
       { key: 'branches', label: 'Branches', icon: Globe },
       { key: 'departments-master', label: 'Departments', icon: Building2 },
       { key: 'sub-departments', label: 'Sub-Departments', icon: Users },
+      { key: 'designations', label: 'Designations', icon: Award },
       { key: 'roles-master', label: 'Roles', icon: Shield },
       { key: 'employee-types', label: 'Employee Types', icon: UserCheck },
+      { key: 'grade-master', label: 'Grades/Bands', icon: Layers },
+      { key: 'shift-master', label: 'Shifts', icon: Clock },
+      { key: 'leave-type-master', label: 'Leave Types', icon: CalendarDays },
+      { key: 'skill-master', label: 'Skills', icon: Wrench },
+      { key: 'document-type-master', label: 'Document Types', icon: FileText },
     ],
   },
   {
@@ -581,7 +588,7 @@ function NavItemButton({
 
       {/* Sub-menu items */}
       {!collapsed && expanded && item.subItems.length > 0 && (
-        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3">
+        <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-700/50 pl-3 max-h-60 overflow-y-auto sidebar-scroll">
           {item.subItems.map((subItem) => {
             const SubIcon = subItem.icon
             const isSubActive = activeSubItem === subItem.key

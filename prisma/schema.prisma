@@ -3,27 +3,36 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ==================== MULTI-TENANT CORE ====================
 
 model Company {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique
-  industry    String?
-  logo        String?
-  domain      String?
-  country     String?
-  currency    String   @default("USD")
-  timezone    String   @default("UTC")
-  isActive    Boolean  @default(true)
-  parentId    String?
-  parent      Company?  @relation("CompanyHierarchy", fields: [parentId], references: [id])
-  children    Company[] @relation("CompanyHierarchy")
+  id                  String   @id @default(cuid())
+  name                String
+  legalName           String?
+  code                String   @unique
+  gstVat              String?
+  panTanCin           String?
+  registrationNumber  String?
+  industry            String?
+  logo                String?
+  domain              String?
+  address             String?
+  country             String?
+  state               String?
+  city                String?
+  currency            String   @default("USD")
+  timezone            String   @default("UTC")
+  payrollCycle        String?
+  financialYear       String?
+  defaultLanguage     String?
+  status              String   @default("active")
+  parentId            String?
+  parent              Company?  @relation("CompanyHierarchy", fields: [parentId], references: [id])
+  children            Company[] @relation("CompanyHierarchy")
   branches    Branch[]
   departments Department[]
   employees   Employee[]
