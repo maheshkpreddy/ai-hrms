@@ -53,16 +53,8 @@ interface AppState {
   toggleDarkMode: () => void;
   setNotificationCount: (count: number) => void;
   setCompanies: (companies: CompanyInfo[]) => void;
+  fetchCompanies: () => Promise<void>;
 }
-
-const DEMO_COMPANIES: CompanyInfo[] = [
-  { id: 'c0', name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology', country: 'IN', currency: 'INR', employeeCount: 500, isActive: true },
-  { id: 'c1', name: 'TechCorp Global', code: 'TCG', industry: 'IT Services', country: 'US', currency: 'USD', employeeCount: 2450, isActive: true },
-  { id: 'c2', name: 'ManufactPro Industries', code: 'MPI', industry: 'Manufacturing', country: 'IN', currency: 'INR', employeeCount: 5800, isActive: true },
-  { id: 'c3', name: 'HealthFirst Solutions', code: 'HFS', industry: 'Healthcare', country: 'GB', currency: 'GBP', employeeCount: 1200, isActive: true },
-  { id: 'c4', name: 'RetailMax Group', code: 'RMG', industry: 'Retail', country: 'DE', currency: 'EUR', employeeCount: 8900, isActive: true },
-  { id: 'c5', name: 'LogiTrans Worldwide', code: 'LTW', industry: 'Logistics', country: 'SG', currency: 'SGD', employeeCount: 3200, isActive: true },
-];
 
 export const useAppStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
@@ -74,8 +66,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   userEmail: '',
   userAvatar: '',
   
-  currentCompany: DEMO_COMPANIES[0],
-  companies: DEMO_COMPANIES,
+  currentCompany: null,
+  companies: [],
   
   activeModule: 'dashboard',
   sidebarOpen: true,
@@ -118,7 +110,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         companyCurrency: apiCompany?.currency,
       };
       
-      // Use company from API data, or fall back to demo company
       const company = apiCompany ? {
         id: apiCompany.id,
         name: apiCompany.name,
@@ -128,7 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         currency: apiCompany.currency || 'USD',
         employeeCount: 0,
         isActive: true,
-      } : DEMO_COMPANIES[0];
+      } : null;
       
       set({
         isAuthenticated: true,
@@ -152,7 +143,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       email,
       name,
       role,
-      companyId: DEMO_COMPANIES[0].id,
+      companyId: null,
       avatar: null,
     };
     set({
@@ -190,7 +181,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setUserFromSession: (user: AuthUser) => {
-    // Use actual companyId from the session user if available
     const company = user.companyId ? {
       id: user.companyId,
       name: user.companyName || 'Unknown',
@@ -200,7 +190,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currency: user.companyCurrency || 'USD',
       employeeCount: 0,
       isActive: true,
-    } : DEMO_COMPANIES[0];
+    } : null;
 
     set({
       isAuthenticated: true,
@@ -222,4 +212,42 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
   setNotificationCount: (count) => set({ notificationCount: count }),
   setCompanies: (companies) => set({ companies }),
+
+  fetchCompanies: async () => {
+    try {
+      const res = await fetch('/api/companies?isActive=true&limit=100');
+      if (!res.ok) return;
+      const json = await res.json();
+      const apiCompanies = (json.data || []) as Array<Record<string, unknown>>;
+      const mapped: CompanyInfo[] = apiCompanies.map((c) => ({
+        id: c.id as string,
+        name: c.name as string,
+        code: (c.code as string) || '',
+        industry: (c.industry as string) || '',
+        logo: c.logo as string | undefined,
+        country: (c.country as string) || '',
+        currency: (c.currency as string) || 'USD',
+        employeeCount: (c._count as Record<string, number>)?.employees ?? 0,
+        isActive: c.isActive as boolean,
+      }));
+      set({ companies: mapped });
+
+      // If currentCompany is set but not found in loaded companies, update it
+      const { currentCompany } = get();
+      if (currentCompany) {
+        const match = mapped.find(c => c.id === currentCompany.id);
+        if (!match && mapped.length > 0) {
+          set({ currentCompany: mapped[0] });
+        } else if (match) {
+          // Update with full data from API (includes employeeCount, etc.)
+          set({ currentCompany: match });
+        }
+      } else if (!currentCompany && mapped.length > 0) {
+        // No current company set yet — pick the first one
+        set({ currentCompany: mapped[0] });
+      }
+    } catch {
+      // Silently fail — dropdown will just be empty
+    }
+  },
 }));

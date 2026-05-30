@@ -134,12 +134,13 @@ interface ExpenseRecord {
 }
 
 interface PayrollApiResponse {
-  records: PayrollRecord[]
+  data: PayrollRecord[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
+  summary?: { totalGross: number; totalDeductions: number; totalNet: number; recordCount: number }
 }
 
 interface ExpenseApiResponse {
-  expenses: ExpenseRecord[]
+  data: ExpenseRecord[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
@@ -180,41 +181,45 @@ interface ExpenseRow {
 }
 
 function flattenPayroll(r: PayrollRecord): PayrollRow {
+  const dept = r.employee?.department
+  const deptName = typeof dept === 'string' ? dept : (dept as any)?.name || ''
   return {
     id: r.id,
-    employeeId: r.employee.employeeId,
+    employeeId: r.employee?.employeeId || '',
     dbEmployeeId: r.employeeId,
-    name: `${r.employee.firstName} ${r.employee.lastName}`,
-    month: r.month,
+    name: r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : 'Unknown',
+    month: String(r.month),
     year: r.year,
-    basicSalary: r.basicSalary,
-    hra: r.hra,
-    da: r.da,
-    conveyance: r.conveyance,
-    medical: r.medical,
-    bonus: r.bonus,
-    grossPay: r.grossPay,
-    pf: r.pf,
-    esi: r.esi,
-    tax: r.tax,
-    professionalTax: r.professionalTax,
-    totalDeductions: r.totalDeductions,
-    netPay: r.netPay,
-    status: r.status,
+    basicSalary: r.basicSalary ?? r.basicPay ?? 0,
+    hra: r.hra ?? 0,
+    da: r.da ?? 0,
+    conveyance: r.conveyance ?? 0,
+    medical: r.medical ?? 0,
+    bonus: r.bonus ?? 0,
+    grossPay: r.grossPay ?? r.grossSalary ?? 0,
+    pf: r.pf ?? 0,
+    esi: r.esi ?? 0,
+    tax: r.tax ?? 0,
+    professionalTax: r.professionalTax ?? 0,
+    totalDeductions: r.totalDeductions ?? 0,
+    netPay: r.netPay ?? r.netSalary ?? 0,
+    status: r.status || 'pending',
   }
 }
 
 function flattenExpense(r: ExpenseRecord): ExpenseRow {
+  const dept = (r as any).employee?.department
+  const deptName = typeof dept === 'string' ? dept : dept?.name || null
   return {
     id: r.id,
-    employeeId: r.employee.employeeId,
-    name: `${r.employee.firstName} ${r.employee.lastName}`,
-    category: r.category,
+    employeeId: r.employee?.employeeId || '',
+    name: r.employee ? `${r.employee.firstName} ${r.employee.lastName}` : 'Unknown',
+    category: (r as any).type || r.category || 'Other',
     amount: r.amount,
     description: r.description ?? '',
     date: r.date,
     status: r.status,
-    approvedBy: r.approvedBy,
+    approvedBy: r.approvedBy || (r as any).approver ? `${(r as any).approver?.firstName || ''} ${(r as any).approver?.lastName || ''}`.trim() || null : null,
   }
 }
 
@@ -599,6 +604,9 @@ export default function PayrollExpense() {
   const [processingAll, setProcessingAll] = useState(false)
   const [mutationError, setMutationError] = useState<string | null>(null)
 
+  // Convert month name to numeric for API
+  const selectedMonthNum = MONTH_INDEX[selectedMonth] || 1
+
   // ─── Fetch payroll data from API ────────────────────────────────────────
   const {
     data: payrollResponse,
@@ -610,7 +618,7 @@ export default function PayrollExpense() {
     params: {
       page: 1,
       limit: 50,
-      month: selectedMonth,
+      month: selectedMonthNum,
       year: Number(selectedYear),
     },
   })
@@ -631,12 +639,12 @@ export default function PayrollExpense() {
 
   // ─── Flatten API data for display ───────────────────────────────────────
   const payrollRows: PayrollRow[] = useMemo(
-    () => (payrollResponse?.records ?? []).map(flattenPayroll),
+    () => (payrollResponse?.data ?? []).map(flattenPayroll),
     [payrollResponse]
   )
 
   const expenseRows: ExpenseRow[] = useMemo(
-    () => (expenseResponse?.expenses ?? []).map(flattenExpense),
+    () => (expenseResponse?.data ?? []).map(flattenExpense),
     [expenseResponse]
   )
 
@@ -730,8 +738,12 @@ export default function PayrollExpense() {
         for (const row of pending) {
           await apiPost('/api/payroll', {
             employeeId: row.dbEmployeeId,
-            month: selectedMonth,
+            month: selectedMonthNum,
             year: Number(selectedYear),
+            basicPay: row.basicSalary,
+            grossSalary: row.grossPay,
+            totalDeductions: row.totalDeductions,
+            netSalary: row.netPay,
           })
         }
       } else {
@@ -740,8 +752,12 @@ export default function PayrollExpense() {
         const dbId = targetRow?.dbEmployeeId ?? employeeId
         await apiPost('/api/payroll', {
           employeeId: dbId,
-          month: selectedMonth,
+          month: selectedMonthNum,
           year: Number(selectedYear),
+          basicPay: targetRow?.basicSalary ?? 0,
+          grossSalary: targetRow?.grossPay ?? 0,
+          totalDeductions: targetRow?.totalDeductions ?? 0,
+          netSalary: targetRow?.netPay ?? 0,
         })
       }
       refetchPayroll()
@@ -790,8 +806,8 @@ export default function PayrollExpense() {
     try {
       await apiPatch('/api/expenses', {
         id,
-        status,
-        approvedBy: 'HR Admin', // would be current user in production
+        action: status === 'approved' ? 'approve' : 'reject',
+        approverId: 'hr-admin', // would be current user in production
       })
       refetchExpenses()
     } catch (err) {

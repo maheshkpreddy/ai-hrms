@@ -32,7 +32,7 @@ interface NotificationData {
 export function Header() {
   const {
     userRole, userName, userEmail, currentCompany, companies, user,
-    setCurrentCompany,
+    setCurrentCompany, fetchCompanies,
     logout, setNotificationCount,
   } = useAppStore();
   const { selectModule, sidebarOpen, setSidebarOpen } = useHRMSStore();
@@ -54,7 +54,13 @@ export function Header() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, setNotificationCount]);
+
+  // Fetch companies from the API when authenticated
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchCompanies();
+  }, [user?.id, fetchCompanies]);
 
   const handleMarkRead = async (id: string) => {
     try {

@@ -136,7 +136,8 @@ interface OfficeLocation {
 }
 
 interface CompaniesResponse {
-  companies: Company[]
+  companies?: Company[]
+  data?: Company[]
   pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
@@ -416,7 +417,7 @@ export default function CompanyManagement() {
     enabled: !!locationCompanyId,
   })
 
-  const companies = companiesData?.companies ?? []
+  const companies = companiesData?.companies ?? companiesData?.data ?? []
   const members = membersData?.members ?? []
   const locations = locationsData?.locations ?? []
 

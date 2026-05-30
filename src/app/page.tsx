@@ -8,7 +8,7 @@ import { LoginScreen } from '@/components/hrms/login-screen';
 import { HRMSLayout } from '@/components/hrms/hrms-layout';
 
 export default function Home() {
-  const { isAuthenticated, setUserFromSession } = useAppStore();
+  const { isAuthenticated, setUserFromSession, fetchCompanies } = useAppStore();
   const { setActiveModule, setUserRole, setUserDashboard } = useHRMSStore();
   const { data: session, status } = useSession();
 
@@ -34,8 +34,11 @@ export default function Home() {
       setUserRole(role);
       setUserDashboard(dashboard);
       setActiveModule(getDashboardModule(dashboard));
+
+      // Fetch real companies from the API
+      fetchCompanies();
     }
-  }, [session, isAuthenticated, setUserFromSession, setActiveModule, setUserRole, setUserDashboard]);
+  }, [session, isAuthenticated, setUserFromSession, setActiveModule, setUserRole, setUserDashboard, fetchCompanies]);
 
   // Show loading while session is being fetched
   if (status === 'loading') {
