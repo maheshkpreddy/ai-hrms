@@ -124,22 +124,15 @@ export async function POST(req: NextRequest) {
     //           email, foundedYear, employeeCount, createdBy
     // =====================================================================
 
-    const marq = await db.company.create({
-      data: {
-        name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology',
-        country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', domain: 'marqai.com',
-        isActive: true,
-      }
-    });
+    // Use raw SQL to create companies since Prisma client includes columns that don't exist in DB
+    await db.$executeRawUnsafe(`INSERT INTO "Company" (id, name, code, industry, country, currency, timezone, domain, "isActive") VALUES (gen_random_uuid()::text, 'MARQ AI Technologies', 'MARQ', 'AI & Technology', 'IN', 'INR', 'Asia/Kolkata', 'marqai.com', true)`);
+    const marqRows: { id: string }[] = await db.$queryRawUnsafe(`SELECT id FROM "Company" WHERE code = 'MARQ'`);
+    const marq = marqRows[0];
     console.log('Company MARQ created:', marq.id);
 
-    const tcg = await db.company.create({
-      data: {
-        name: 'TechCorp Global', code: 'TCGC', industry: 'IT Services',
-        country: 'US', currency: 'USD', timezone: 'America/Los_Angeles', domain: 'techcorp.com',
-        isActive: true,
-      }
-    });
+    await db.$executeRawUnsafe(`INSERT INTO "Company" (id, name, code, industry, country, currency, timezone, domain, "isActive") VALUES (gen_random_uuid()::text, 'TechCorp Global', 'TCGC', 'IT Services', 'US', 'USD', 'America/Los_Angeles', 'techcorp.com', true)`);
+    const tcgRows: { id: string }[] = await db.$queryRawUnsafe(`SELECT id FROM "Company" WHERE code = 'TCGC'`);
+    const tcg = tcgRows[0];
     console.log('Company TCGC created:', tcg.id);
 
     // =====================================================================
