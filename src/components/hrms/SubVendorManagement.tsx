@@ -255,6 +255,7 @@ export default function SubVendorManagement() {
   useEffect(() => {
     if (activeSubItem) {
       switch (activeSubItem) {
+        case 'subvendor-list':
         case 'vendor-list':
           setActiveVendorTab('vendors')
           break
@@ -262,7 +263,7 @@ export default function SubVendorManagement() {
           setActiveVendorTab('resumes')
           break
         case 'vendor-assignments':
-          setActiveVendorTab('vendors')
+          setActiveVendorTab('assignments')
           break
         default:
           break

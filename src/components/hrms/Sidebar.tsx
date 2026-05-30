@@ -317,7 +317,7 @@ const navItems: NavItem[] = [
   },
   {
     key: 'projects',
-    label: 'Project Kanban',
+    label: 'Project Management',
     icon: FolderKanban,
     aiPowered: false,
     color: 'from-indigo-500 to-blue-600',
@@ -325,6 +325,9 @@ const navItems: NavItem[] = [
       { key: 'kanban-board', label: 'Kanban Board', icon: FolderKanban },
       { key: 'project-list', label: 'Projects', icon: ClipboardList },
       { key: 'timelines', label: 'Timelines', icon: CalendarCheck },
+      { key: 'task-board', label: 'Task Board', icon: ListTodo, moduleKey: 'tasks' as ModuleKey },
+      { key: 'my-tasks', label: 'My Tasks', icon: ListTodo, moduleKey: 'tasks' as ModuleKey },
+      { key: 'team-tasks', label: 'Team Tasks', icon: Users, moduleKey: 'tasks' as ModuleKey },
     ],
   },
   {

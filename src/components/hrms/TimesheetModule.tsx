@@ -154,7 +154,9 @@ export default function TimesheetModule() {
   const tabMap: Record<string, string> = {
     'my-timesheet': 'my-timesheet',
     'team': 'team-timesheet',
+    'team-timesheet': 'team-timesheet',
     'approval': 'approval-queue',
+    'timesheet-reports': 'reports',
     'reports': 'reports',
   }
   const [manualTab, setManualTab] = useState('my-timesheet')

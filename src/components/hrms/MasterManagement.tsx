@@ -227,9 +227,12 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   { key: 'companies', label: 'Company', icon: Building2, subItemKey: 'company-masters', apiEndpoint: '/api/masters/companies' },
-  { key: 'branches', label: 'Branch', icon: GitBranch, subItemKey: 'branch-master', apiEndpoint: '/api/masters/branches' },
-  { key: 'departments', label: 'Department', icon: Network, subItemKey: 'department-master', apiEndpoint: '/api/masters/departments' },
+  { key: 'branches', label: 'Branch', icon: GitBranch, subItemKey: 'branches', apiEndpoint: '/api/masters/branches' },
+  { key: 'departments', label: 'Department', icon: Network, subItemKey: 'departments-master', apiEndpoint: '/api/masters/departments' },
+  { key: 'sub-departments', label: 'Sub-Department', icon: Users, subItemKey: 'sub-departments', apiEndpoint: '/api/masters/departments' },
   { key: 'designations', label: 'Designation', icon: Award, subItemKey: 'designation-master', apiEndpoint: '/api/masters/designations' },
+  { key: 'roles', label: 'Roles', icon: Shield, subItemKey: 'roles-master', apiEndpoint: '/api/masters/roles' },
+  { key: 'employee-types', label: 'Employee Types', icon: UserCheck, subItemKey: 'employee-types', apiEndpoint: '/api/masters/employee-types' },
   { key: 'grades', label: 'Grade/Band', icon: Layers, subItemKey: 'grade-master', apiEndpoint: '/api/masters/grades' },
   { key: 'shifts', label: 'Shift', icon: Clock, subItemKey: 'shift-master', apiEndpoint: '/api/masters/shifts' },
   { key: 'leave-types', label: 'Leave Type', icon: CalendarDays, subItemKey: 'leave-type-master', apiEndpoint: '/api/masters/leave-types' },

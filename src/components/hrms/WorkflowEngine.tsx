@@ -306,7 +306,7 @@ function formatDate(d: string): string {
 
 export default function WorkflowEngine() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
-  const tabMap: Record<string, string> = { 'builder': 'builder', 'active': 'active-workflows', 'history': 'workflow-history' }
+  const tabMap: Record<string, string> = { 'builder': 'builder', 'workflow-builder': 'builder', 'active': 'active-workflows', 'active-workflows': 'active-workflows', 'history': 'workflow-history', 'workflow-templates': 'builder', 'templates': 'builder' }
   const [manualTab, setManualTab] = useState('builder')
   // Derive active tab from sidebar sub-item, fallback to manual selection
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab

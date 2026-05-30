@@ -140,7 +140,7 @@ export default function SettingsModule() {
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
-  const tabMap: Record<string, string> = { 'general': 'general', 'integrations': 'integrations', 'notifications': 'notifications', 'email-templates': 'email-templates' }
+  const tabMap: Record<string, string> = { 'general': 'general', 'integrations': 'integrations', 'notifications': 'notifications', 'email-templates': 'email-templates', 'general-settings': 'general', 'notification-settings': 'notifications', 'integration-settings': 'integrations' }
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
   useEffect(() => {

@@ -186,7 +186,7 @@ export default function AuditCompliance() {
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv')
   const [exporting, setExporting] = useState(false)
 
-  const tabMap: Record<string, string> = { 'logs': 'audit-logs', 'compliance': 'compliance-reports', 'export': 'data-export' }
+  const tabMap: Record<string, string> = { 'logs': 'audit-logs', 'compliance': 'compliance-reports', 'export': 'data-export', 'audit-logs-view': 'audit-logs', 'data-security': 'data-export' }
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
   useEffect(() => {

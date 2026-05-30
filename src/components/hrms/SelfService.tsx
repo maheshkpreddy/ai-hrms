@@ -530,11 +530,30 @@ export default function SelfService() {
     setMarkingAttendance(true)
     setAttendanceError(null)
     try {
+      // Try to get GPS location
+      let gpsLatitude: number | undefined
+      let gpsLongitude: number | undefined
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: false,
+            timeout: 5000,
+            maximumAge: 60000,
+          })
+        })
+        gpsLatitude = position.coords.latitude
+        gpsLongitude = position.coords.longitude
+      } catch {
+        console.log('GPS not available - check-in will proceed without location')
+      }
+
       await apiPost('/api/attendance', {
         employeeId: currentEmployeeId,
         date: todayLocal,
         checkIn: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }),
         status: 'present',
+        ...(gpsLatitude != null && { gpsLatitude }),
+        ...(gpsLongitude != null && { gpsLongitude }),
       })
       refetchMyTodayAttendance()
       refetchAttendanceHistory()

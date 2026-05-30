@@ -187,7 +187,7 @@ export default function LeaveManagement() {
     attachment: null as string | null,
   })
 
-  const tabMap: Record<string, string> = { 'my-leaves': 'my-leaves', 'balance': 'leave-balance', 'policy': 'leave-policy', 'calendar': 'team-calendar' }
+  const tabMap: Record<string, string> = { 'my-leaves': 'my-leaves', 'balance': 'leave-balance', 'policy': 'leave-policy', 'calendar': 'team-calendar', 'leave-requests': 'my-leaves', 'leave-balance': 'leave-balance', 'leave-calendar': 'team-calendar' }
   const activeTab = (activeSubItem && tabMap[activeSubItem]) || localTab
 
   useEffect(() => {

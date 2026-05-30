@@ -269,7 +269,7 @@ function formatDate(d: string): string {
 
 export default function HelpdeskModule() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
-  const tabMap: Record<string, string> = { 'my-tickets': 'my-tickets', 'raise': 'raise-ticket', 'kb': 'knowledge-base', 'sla': 'sla-tracking' }
+  const tabMap: Record<string, string> = { 'my-tickets': 'my-tickets', 'raise': 'raise-ticket', 'kb': 'knowledge-base', 'sla': 'sla-tracking', 'hr-helpdesk': 'my-tickets', 'it-helpdesk': 'my-tickets', 'knowledge-base': 'knowledge-base' }
   const [manualTab, setManualTab] = useState('my-tickets')
   // Derive active tab from sidebar sub-item, fallback to manual selection
   const activeTab = (activeSubItem && tabMap[activeSubItem]) ? tabMap[activeSubItem] : manualTab

@@ -266,19 +266,21 @@ model AIInterview {
 // ==================== ATTENDANCE ====================
 
 model Attendance {
-  id          String   @id @default(cuid())
-  date        DateTime
-  checkIn     DateTime?
-  checkOut    DateTime?
+  id           String   @id @default(cuid())
+  date         DateTime
+  checkIn      DateTime?
+  checkOut     DateTime?
   breakDuration Int?
-  workHours   Float?
-  status      String   @default("present")
-  source      String   @default("web")
-  notes       String?
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  workHours    Float?
+  status       String   @default("present")
+  source       String   @default("web")
+  notes        String?
+  gpsLatitude  Float?
+  gpsLongitude Float?
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([employeeId, date])
 }

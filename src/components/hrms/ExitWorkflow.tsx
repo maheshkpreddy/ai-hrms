@@ -324,8 +324,11 @@ export default function ExitWorkflow() {
   const { activeSubItem, setActiveSubItem } = useHRMSStore()
   const tabMap: Record<string, string> = {
     'resignation': 'resignation',
+    'resignations': 'resignation',
     'clearance': 'clearance',
+    'exit-clearance': 'clearance',
     'fnf': 'fnf-settlement',
+    'fnf-settlement': 'fnf-settlement',
     'interview': 'exit-interview',
   }
   const [manualTab, setManualTab] = useState('resignation')

@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { employeeId, date, checkIn, source, notes } = body;
+    const { employeeId, date, checkIn, source, notes, gpsLatitude, gpsLongitude } = body;
 
     if (!employeeId) {
       return NextResponse.json(
@@ -94,7 +94,9 @@ export async function POST(req: NextRequest) {
         checkIn: checkInTime,
         status: 'present',
         source: source || 'web',
-        notes,
+        notes: notes || (gpsLatitude && gpsLongitude ? `GPS: ${gpsLatitude}, ${gpsLongitude}` : undefined),
+        ...(gpsLatitude != null && { gpsLatitude }),
+        ...(gpsLongitude != null && { gpsLongitude }),
       },
       include: {
         employee: {

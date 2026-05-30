@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getVendors, getJobs, getCandidates } from '@/lib/api';
 import { useAppStore } from '@/store/app-store';
+import { useHRMSStore } from '@/lib/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,10 +38,30 @@ interface CandidateData {
 
 export function VendorPortal() {
   const { currentCompany } = useAppStore();
+  const { activeSubItem, setActiveSubItem } = useHRMSStore();
   const [vendors, setVendors] = useState<VendorData[]>([]);
   const [jobs, setJobs] = useState<JobData[]>([]);
   const [candidates, setCandidates] = useState<CandidateData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeVendorTab, setActiveVendorTab] = useState('dashboard');
+
+  // Handle sub-item navigation from sidebar
+  useEffect(() => {
+    if (activeSubItem) {
+      switch (activeSubItem) {
+        case 'vendor-list':
+          setActiveVendorTab('dashboard');
+          break;
+        case 'vendor-candidates':
+          setActiveVendorTab('submissions');
+          break;
+        case 'vendor-invoices':
+          setActiveVendorTab('invoices');
+          break;
+      }
+      setActiveSubItem(null);
+    }
+  }, [activeSubItem, setActiveSubItem]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -111,7 +132,7 @@ export function VendorPortal() {
         </Card>
       </div>
 
-      <Tabs defaultValue="dashboard" className="space-y-4">
+      <Tabs value={activeVendorTab} onValueChange={setActiveVendorTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="assignments">Job Assignments</TabsTrigger>
