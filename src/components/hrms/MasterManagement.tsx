@@ -26,6 +26,8 @@ import {
   MapPin,
   Globe,
   UserCircle,
+  Users,
+  UserCheck,
   Target,
   DollarSign,
   Briefcase,
