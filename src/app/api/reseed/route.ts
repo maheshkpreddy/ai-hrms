@@ -98,9 +98,8 @@ export async function POST(req: NextRequest) {
       data: {
         name: 'MARQ AI Technologies', code: 'MARQ', industry: 'AI & Technology',
         country: 'IN', currency: 'INR', timezone: 'Asia/Kolkata', domain: 'marqai.com',
-        isActive: true, website: 'https://marqai.com', address: '101, Cyber City, DLF Phase 2',
+        isActive: true, address: '101, Cyber City, DLF Phase 2',
         city: 'Gurugram', state: 'Haryana', phone: '+91-124-4567890', email: 'info@marqai.com',
-        foundedYear: 2018, employeeCount: 250,
       }
     });
 
@@ -124,9 +123,8 @@ export async function POST(req: NextRequest) {
       data: {
         name: 'TechCorp Global', code: 'TCGC', industry: 'IT Services',
         country: 'US', currency: 'USD', timezone: 'America/Los_Angeles', domain: 'techcorp.com',
-        isActive: true, website: 'https://techcorp.com', address: '101 Market St',
+        isActive: true, address: '101 Market St',
         city: 'San Francisco', state: 'CA', phone: '+1-415-555-0100', email: 'info@techcorp.com',
-        foundedYear: 2015, employeeCount: 180,
       }
     });
 
