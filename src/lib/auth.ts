@@ -13,16 +13,17 @@ export const authOptions: NextAuthOptions = {
         companyCode: { label: 'Company Code', type: 'text' },
       },
       async authorize(credentials) {
-        // Debug: Log what credentials we receive
-        console.log('[AUTH DEBUG] credentials received:', {
-          email: credentials?.email,
-          hasPassword: !!credentials?.password,
-          companyCode: credentials?.companyCode,
-          allKeys: credentials ? Object.keys(credentials) : [],
-        })
+        // Debug: Log to database so we can see what's happening
+        const logToDb = async (msg: string) => {
+          try {
+            await db.auditLog.create({ data: { action: 'AUTH_DEBUG', entity: 'Auth', details: msg, userId: 'system' } })
+          } catch {}
+        }
+
+        await logToDb(`Credentials: email=${credentials?.email}, hasPwd=${!!credentials?.password}, companyCode=${credentials?.companyCode}, keys=${credentials ? Object.keys(credentials).join(',') : 'none'}`)
 
         if (!credentials?.email || !credentials?.password) {
-          console.log('[AUTH DEBUG] Missing email or password')
+          await logToDb('FAIL: Missing email or password')
           return null
         }
 
@@ -33,12 +34,12 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
-            console.log('[AUTH DEBUG] User not found:', credentials.email)
+            await logToDb(`FAIL: User not found: ${credentials.email}`)
             return null
           }
 
           if (!user.isActive) {
-            console.log('[AUTH DEBUG] User not active:', credentials.email)
+            await logToDb(`FAIL: User not active: ${credentials.email}`)
             return null
           }
 
@@ -48,15 +49,15 @@ export const authOptions: NextAuthOptions = {
               where: { code: credentials.companyCode.toUpperCase() },
             })
             if (!company) {
-              console.log('[AUTH DEBUG] Company not found:', credentials.companyCode)
+              await logToDb(`FAIL: Company not found: ${credentials.companyCode}`)
               return null
             }
             if (!company.isActive) {
-              console.log('[AUTH DEBUG] Company not active:', credentials.companyCode)
+              await logToDb(`FAIL: Company not active: ${credentials.companyCode}`)
               return null
             }
             if (user.companyId && user.companyId !== company.id) {
-              console.log('[AUTH DEBUG] Company mismatch:', { userCompanyId: user.companyId, expectedCompanyId: company.id })
+              await logToDb(`FAIL: Company mismatch: userComp=${user.companyId}, expectedComp=${company.id}`)
               return null
             }
           }
@@ -65,11 +66,11 @@ export const authOptions: NextAuthOptions = {
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
           if (!isPasswordValid) {
-            console.log('[AUTH DEBUG] Invalid password for:', credentials.email)
+            await logToDb(`FAIL: Invalid password for: ${credentials.email}`)
             return null
           }
 
-          console.log('[AUTH DEBUG] Login successful for:', credentials.email)
+          await logToDb(`SUCCESS: Login for: ${credentials.email}, role: ${user.role}`)
 
           // Update last login (non-critical)
           try {
@@ -128,6 +129,7 @@ export const authOptions: NextAuthOptions = {
           }
         } catch (error) {
           console.error('[AUTH DEBUG] Auth error:', error)
+          await logToDb(`ERROR: ${error instanceof Error ? error.message : String(error)}`)
           return null
         }
       },
