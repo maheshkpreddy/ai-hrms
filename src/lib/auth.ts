@@ -24,16 +24,6 @@ interface RawEmployee {
   avatar: string | null
 }
 
-interface RawCompany {
-  id: string
-  name: string
-  code: string
-  // Use isActive (boolean) which exists in current DB, fallback to status check
-  isActive: boolean | null
-  // status might or might not exist yet
-  status: string | null
-}
-
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -84,9 +74,9 @@ export const authOptions: NextAuthOptions = {
           // Step 2: Verify company code if provided
           let companyData: { id: string; name: string; code: string } | null = null
           if (credentials.companyCode) {
-            // Try to find company using only columns that exist
-            const companies: RawCompany[] = await db.$queryRaw`
-              SELECT id, name, code, "isActive", status FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
+            // Find company using only columns that exist (isActive, not status)
+            const companies = await db.$queryRaw<Array<{ id: string; name: string; code: string; isActive: boolean }>>`
+              SELECT id, name, code, "isActive" FROM "Company" WHERE code = ${credentials.companyCode.toUpperCase()}
             `
             const company = companies[0]
             if (!company) {
@@ -94,10 +84,9 @@ export const authOptions: NextAuthOptions = {
               return null
             }
 
-            // Check if company is active - support both isActive (boolean) and status (text)
-            const isActive = company.status === 'active' || company.isActive === true
-            if (!isActive) {
-              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, isActive=${company.isActive}, status=${company.status}`)
+            // Check if company is active using isActive (boolean)
+            if (!company.isActive) {
+              await logToDb(`FAIL: Company not active: ${credentials.companyCode}, isActive=${company.isActive}`)
               return null
             }
 

@@ -8,124 +8,80 @@ export async function GET() {
 
   try {
     // ─── 1. COMPANIES ─────────────────────────────────────────────────
-    const marqCompany = await db.company.upsert({
-      where: { code: 'MARQ' },
-      update: {},
-      create: {
-        name: 'MARQ AI Technologies',
-        legalName: 'MARQ AI Technologies Pvt. Ltd.',
-        code: 'MARQ',
-        gstVat: '06AABCM1234F1Z5',
-        panTanCin: 'AABCM1234F',
-        registrationNumber: 'U72200HR2018PTC123456',
-        industry: 'Technology',
-        domain: 'marqai.tech',
-        address: '101, Cyber City, DLF Phase 2',
-        city: 'Gurugram',
-        state: 'Haryana',
-        country: 'IN',
-        currency: 'INR',
-        timezone: 'Asia/Kolkata',
-        payrollCycle: 'monthly',
-        financialYear: 'April-March',
-        defaultLanguage: 'en',
-        status: 'active',
-      },
-    });
+    const marqCompany = await db.$queryRawUnsafe(`INSERT INTO "Company" (id, name, code, industry, domain, address, city, state, country, currency, timezone, "isActive", "createdAt", "updatedAt") VALUES (gen_random_uuid()::text, 'MARQ AI Technologies', 'MARQ', 'Technology', 'marqai.tech', '101, Cyber City, DLF Phase 2', 'Gurugram', 'Haryana', 'IN', 'INR', 'Asia/Kolkata', true, NOW(), NOW()) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`);
+    const marqCompanyId = marqCompany[0].id;
 
-    const acmeCompany = await db.company.upsert({
-      where: { code: 'ACME' },
-      update: {},
-      create: {
-        name: 'Acme Corp',
-        legalName: 'Acme Corporation India Pvt. Ltd.',
-        code: 'ACME',
-        gstVat: '29AABCA1234F1Z8',
-        panTanCin: 'AABCA1234F',
-        registrationNumber: 'U74999KA2010PTC123789',
-        industry: 'Manufacturing',
-        domain: 'acmecorp.in',
-        address: '42, Industrial Area, Whitefield',
-        city: 'Bengaluru',
-        state: 'Karnataka',
-        country: 'IN',
-        currency: 'INR',
-        timezone: 'Asia/Kolkata',
-        payrollCycle: 'monthly',
-        financialYear: 'April-March',
-        defaultLanguage: 'en',
-        status: 'active',
-      },
-    });
+    const acmeCompany = await db.$queryRawUnsafe(`INSERT INTO "Company" (id, name, code, industry, domain, address, city, state, country, currency, timezone, "isActive", "createdAt", "updatedAt") VALUES (gen_random_uuid()::text, 'Acme Corp', 'ACME', 'Manufacturing', 'acmecorp.in', '42, Industrial Area, Whitefield', 'Bengaluru', 'Karnataka', 'IN', 'INR', 'Asia/Kolkata', true, NOW(), NOW()) ON CONFLICT (code) DO UPDATE SET name=EXCLUDED.name RETURNING id`);
+    const acmeCompanyId = acmeCompany[0].id;
 
     counts.companies = 2;
 
     // ─── 2. BRANCHES ──────────────────────────────────────────────────
     const branches = await db.$transaction([
-      db.branch.upsert({ where: { id: 'branch-marq-hq' }, update: {}, create: { id: 'branch-marq-hq', name: 'MARQ HQ - Gurugram', code: 'MARQ-HQ', address: '101, Cyber City', city: 'Gurugram', state: 'Haryana', country: 'India', isActive: true, companyId: marqCompany.id } }),
-      db.branch.upsert({ where: { id: 'branch-marq-blr' }, update: {}, create: { id: 'branch-marq-blr', name: 'MARQ Bengaluru', code: 'MARQ-BLR', address: '5, Outer Ring Road', city: 'Bengaluru', state: 'Karnataka', country: 'India', isActive: true, companyId: marqCompany.id } }),
-      db.branch.upsert({ where: { id: 'branch-acme-hq' }, update: {}, create: { id: 'branch-acme-hq', name: 'Acme HQ - Bengaluru', code: 'ACME-HQ', address: '42, Industrial Area', city: 'Bengaluru', state: 'Karnataka', country: 'India', isActive: true, companyId: acmeCompany.id } }),
-      db.branch.upsert({ where: { id: 'branch-acme-mum' }, update: {}, create: { id: 'branch-acme-mum', name: 'Acme Mumbai', code: 'ACME-MUM', address: '88, MIDC Andheri', city: 'Mumbai', state: 'Maharashtra', country: 'India', isActive: true, companyId: acmeCompany.id } }),
+      db.branch.upsert({ where: { id: 'branch-marq-hq' }, update: {}, create: { id: 'branch-marq-hq', name: 'MARQ HQ - Gurugram', code: 'MARQ-HQ', address: '101, Cyber City', city: 'Gurugram', state: 'Haryana', country: 'India', isActive: true, companyId: marqCompanyId } }),
+      db.branch.upsert({ where: { id: 'branch-marq-blr' }, update: {}, create: { id: 'branch-marq-blr', name: 'MARQ Bengaluru', code: 'MARQ-BLR', address: '5, Outer Ring Road', city: 'Bengaluru', state: 'Karnataka', country: 'India', isActive: true, companyId: marqCompanyId } }),
+      db.branch.upsert({ where: { id: 'branch-acme-hq' }, update: {}, create: { id: 'branch-acme-hq', name: 'Acme HQ - Bengaluru', code: 'ACME-HQ', address: '42, Industrial Area', city: 'Bengaluru', state: 'Karnataka', country: 'India', isActive: true, companyId: acmeCompanyId } }),
+      db.branch.upsert({ where: { id: 'branch-acme-mum' }, update: {}, create: { id: 'branch-acme-mum', name: 'Acme Mumbai', code: 'ACME-MUM', address: '88, MIDC Andheri', city: 'Mumbai', state: 'Maharashtra', country: 'India', isActive: true, companyId: acmeCompanyId } }),
     ]);
     counts.branches = branches.length;
 
     // ─── 3. DEPARTMENTS ───────────────────────────────────────────────
     const marqDepts = await db.$transaction([
-      db.department.upsert({ where: { id: 'dept-marq-eng' }, update: {}, create: { id: 'dept-marq-eng', name: 'Engineering', code: 'ENG', description: 'Software Engineering & AI Development', isActive: true, companyId: marqCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-marq-hr' }, update: {}, create: { id: 'dept-marq-hr', name: 'Human Resources', code: 'HR', description: 'HR & People Operations', isActive: true, companyId: marqCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-marq-sales' }, update: {}, create: { id: 'dept-marq-sales', name: 'Sales & Marketing', code: 'SM', description: 'Sales, Marketing & Business Development', isActive: true, companyId: marqCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-marq-finance' }, update: {}, create: { id: 'dept-marq-finance', name: 'Finance', code: 'FIN', description: 'Finance & Accounting', isActive: true, companyId: marqCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-marq-product' }, update: {}, create: { id: 'dept-marq-product', name: 'Product', code: 'PROD', description: 'Product Management & Design', isActive: true, companyId: marqCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-marq-qa' }, update: {}, create: { id: 'dept-marq-qa', name: 'Quality Assurance', code: 'QA', description: 'QA & Testing', isActive: true, companyId: marqCompany.id } }),
+      db.department.upsert({ where: { id: 'dept-marq-eng' }, update: {}, create: { id: 'dept-marq-eng', name: 'Engineering', code: 'ENG', description: 'Software Engineering & AI Development', isActive: true, companyId: marqCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-marq-hr' }, update: {}, create: { id: 'dept-marq-hr', name: 'Human Resources', code: 'HR', description: 'HR & People Operations', isActive: true, companyId: marqCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-marq-sales' }, update: {}, create: { id: 'dept-marq-sales', name: 'Sales & Marketing', code: 'SM', description: 'Sales, Marketing & Business Development', isActive: true, companyId: marqCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-marq-finance' }, update: {}, create: { id: 'dept-marq-finance', name: 'Finance', code: 'FIN', description: 'Finance & Accounting', isActive: true, companyId: marqCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-marq-product' }, update: {}, create: { id: 'dept-marq-product', name: 'Product', code: 'PROD', description: 'Product Management & Design', isActive: true, companyId: marqCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-marq-qa' }, update: {}, create: { id: 'dept-marq-qa', name: 'Quality Assurance', code: 'QA', description: 'QA & Testing', isActive: true, companyId: marqCompanyId } }),
     ]);
 
     const acmeDepts = await db.$transaction([
-      db.department.upsert({ where: { id: 'dept-acme-prod' }, update: {}, create: { id: 'dept-acme-prod', name: 'Production', code: 'PROD', description: 'Manufacturing & Production', isActive: true, companyId: acmeCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-acme-hr' }, update: {}, create: { id: 'dept-acme-hr', name: 'Human Resources', code: 'HR', description: 'HR & Administration', isActive: true, companyId: acmeCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-acme-supply' }, update: {}, create: { id: 'dept-acme-supply', name: 'Supply Chain', code: 'SCM', description: 'Supply Chain & Logistics', isActive: true, companyId: acmeCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-acme-finance' }, update: {}, create: { id: 'dept-acme-finance', name: 'Finance', code: 'FIN', description: 'Finance & Accounts', isActive: true, companyId: acmeCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-acme-rnd' }, update: {}, create: { id: 'dept-acme-rnd', name: 'R&D', code: 'RND', description: 'Research & Development', isActive: true, companyId: acmeCompany.id } }),
-      db.department.upsert({ where: { id: 'dept-acme-quality' }, update: {}, create: { id: 'dept-acme-quality', name: 'Quality Control', code: 'QC', description: 'Quality Control & Compliance', isActive: true, companyId: acmeCompany.id } }),
+      db.department.upsert({ where: { id: 'dept-acme-prod' }, update: {}, create: { id: 'dept-acme-prod', name: 'Production', code: 'PROD', description: 'Manufacturing & Production', isActive: true, companyId: acmeCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-acme-hr' }, update: {}, create: { id: 'dept-acme-hr', name: 'Human Resources', code: 'HR', description: 'HR & Administration', isActive: true, companyId: acmeCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-acme-supply' }, update: {}, create: { id: 'dept-acme-supply', name: 'Supply Chain', code: 'SCM', description: 'Supply Chain & Logistics', isActive: true, companyId: acmeCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-acme-finance' }, update: {}, create: { id: 'dept-acme-finance', name: 'Finance', code: 'FIN', description: 'Finance & Accounts', isActive: true, companyId: acmeCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-acme-rnd' }, update: {}, create: { id: 'dept-acme-rnd', name: 'R&D', code: 'RND', description: 'Research & Development', isActive: true, companyId: acmeCompanyId } }),
+      db.department.upsert({ where: { id: 'dept-acme-quality' }, update: {}, create: { id: 'dept-acme-quality', name: 'Quality Control', code: 'QC', description: 'Quality Control & Compliance', isActive: true, companyId: acmeCompanyId } }),
     ]);
     counts.departments = marqDepts.length + acmeDepts.length;
 
     // ─── 4. SHIFTS ────────────────────────────────────────────────────
     const shifts = await db.$transaction([
-      db.shift.upsert({ where: { id: 'shift-marq-general' }, update: {}, create: { id: 'shift-marq-general', name: 'General Shift', startTime: '09:00', endTime: '18:00', breakMinutes: 60, isActive: true, companyId: marqCompany.id } }),
-      db.shift.upsert({ where: { id: 'shift-marq-night' }, update: {}, create: { id: 'shift-marq-night', name: 'Night Shift', startTime: '21:00', endTime: '06:00', breakMinutes: 45, isActive: true, companyId: marqCompany.id } }),
-      db.shift.upsert({ where: { id: 'shift-acme-general' }, update: {}, create: { id: 'shift-acme-general', name: 'General Shift', startTime: '08:00', endTime: '17:00', breakMinutes: 60, isActive: true, companyId: acmeCompany.id } }),
-      db.shift.upsert({ where: { id: 'shift-acme-night' }, update: {}, create: { id: 'shift-acme-night', name: 'Night Shift', startTime: '20:00', endTime: '05:00', breakMinutes: 45, isActive: true, companyId: acmeCompany.id } }),
+      db.shift.upsert({ where: { id: 'shift-marq-general' }, update: {}, create: { id: 'shift-marq-general', name: 'General Shift', startTime: '09:00', endTime: '18:00', breakMinutes: 60, isActive: true, companyId: marqCompanyId } }),
+      db.shift.upsert({ where: { id: 'shift-marq-night' }, update: {}, create: { id: 'shift-marq-night', name: 'Night Shift', startTime: '21:00', endTime: '06:00', breakMinutes: 45, isActive: true, companyId: marqCompanyId } }),
+      db.shift.upsert({ where: { id: 'shift-acme-general' }, update: {}, create: { id: 'shift-acme-general', name: 'General Shift', startTime: '08:00', endTime: '17:00', breakMinutes: 60, isActive: true, companyId: acmeCompanyId } }),
+      db.shift.upsert({ where: { id: 'shift-acme-night' }, update: {}, create: { id: 'shift-acme-night', name: 'Night Shift', startTime: '20:00', endTime: '05:00', breakMinutes: 45, isActive: true, companyId: acmeCompanyId } }),
     ]);
     counts.shifts = shifts.length;
 
     // ─── 5. LEAVE POLICIES ────────────────────────────────────────────
     const leavePolicies = await db.$transaction([
-      db.leavePolicy.upsert({ where: { id: 'lp-marq-cl' }, update: {}, create: { id: 'lp-marq-cl', name: 'Casual Leave', type: 'casual', totalDays: 12, carryForward: true, maxCarryDays: 3, isPaid: true, companyId: marqCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-marq-sl' }, update: {}, create: { id: 'lp-marq-sl', name: 'Sick Leave', type: 'sick', totalDays: 10, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: marqCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-marq-el' }, update: {}, create: { id: 'lp-marq-el', name: 'Earned Leave', type: 'earned', totalDays: 15, carryForward: true, maxCarryDays: 5, isPaid: true, companyId: marqCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-marq-ml' }, update: {}, create: { id: 'lp-marq-ml', name: 'Maternity Leave', type: 'maternity', totalDays: 180, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: marqCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-acme-cl' }, update: {}, create: { id: 'lp-acme-cl', name: 'Casual Leave', type: 'casual', totalDays: 10, carryForward: true, maxCarryDays: 2, isPaid: true, companyId: acmeCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-acme-sl' }, update: {}, create: { id: 'lp-acme-sl', name: 'Sick Leave', type: 'sick', totalDays: 7, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: acmeCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-acme-el' }, update: {}, create: { id: 'lp-acme-el', name: 'Earned Leave', type: 'earned', totalDays: 12, carryForward: true, maxCarryDays: 3, isPaid: true, companyId: acmeCompany.id } }),
-      db.leavePolicy.upsert({ where: { id: 'lp-acme-pl' }, update: {}, create: { id: 'lp-acme-pl', name: 'Paternity Leave', type: 'paternity', totalDays: 15, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: acmeCompany.id } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-marq-cl' }, update: {}, create: { id: 'lp-marq-cl', name: 'Casual Leave', type: 'casual', totalDays: 12, carryForward: true, maxCarryDays: 3, isPaid: true, companyId: marqCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-marq-sl' }, update: {}, create: { id: 'lp-marq-sl', name: 'Sick Leave', type: 'sick', totalDays: 10, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: marqCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-marq-el' }, update: {}, create: { id: 'lp-marq-el', name: 'Earned Leave', type: 'earned', totalDays: 15, carryForward: true, maxCarryDays: 5, isPaid: true, companyId: marqCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-marq-ml' }, update: {}, create: { id: 'lp-marq-ml', name: 'Maternity Leave', type: 'maternity', totalDays: 180, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: marqCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-acme-cl' }, update: {}, create: { id: 'lp-acme-cl', name: 'Casual Leave', type: 'casual', totalDays: 10, carryForward: true, maxCarryDays: 2, isPaid: true, companyId: acmeCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-acme-sl' }, update: {}, create: { id: 'lp-acme-sl', name: 'Sick Leave', type: 'sick', totalDays: 7, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: acmeCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-acme-el' }, update: {}, create: { id: 'lp-acme-el', name: 'Earned Leave', type: 'earned', totalDays: 12, carryForward: true, maxCarryDays: 3, isPaid: true, companyId: acmeCompanyId } }),
+      db.leavePolicy.upsert({ where: { id: 'lp-acme-pl' }, update: {}, create: { id: 'lp-acme-pl', name: 'Paternity Leave', type: 'paternity', totalDays: 15, carryForward: false, maxCarryDays: 0, isPaid: true, companyId: acmeCompanyId } }),
     ]);
     counts.leavePolicies = leavePolicies.length;
 
     // ─── 6. PAYROLL STRUCTURES ────────────────────────────────────────
     const payrollStructures = await db.$transaction([
-      db.payrollStructure.upsert({ where: { id: 'ps-marq-sde' }, update: {}, create: { id: 'ps-marq-sde', name: 'SDE Pay Structure', basicPay: 50000, hra: 20000, da: 5000, transportAllowance: 3000, medicalAllowance: 2500, specialAllowance: 10000, pfEmployee: 6000, pfEmployer: 6000, esiEmployee: 0, esiEmployer: 0, taxDeduction: 8000, companyId: marqCompany.id } }),
-      db.payrollStructure.upsert({ where: { id: 'ps-marq-lead' }, update: {}, create: { id: 'ps-marq-lead', name: 'Tech Lead Pay Structure', basicPay: 75000, hra: 30000, da: 7500, transportAllowance: 5000, medicalAllowance: 3500, specialAllowance: 15000, pfEmployee: 9000, pfEmployer: 9000, esiEmployee: 0, esiEmployer: 0, taxDeduction: 15000, companyId: marqCompany.id } }),
-      db.payrollStructure.upsert({ where: { id: 'ps-acme-supervisor' }, update: {}, create: { id: 'ps-acme-supervisor', name: 'Supervisor Pay Structure', basicPay: 35000, hra: 14000, da: 3500, transportAllowance: 2500, medicalAllowance: 2000, specialAllowance: 7000, pfEmployee: 4200, pfEmployer: 4200, esiEmployee: 630, esiEmployer: 1837, taxDeduction: 3000, companyId: acmeCompany.id } }),
-      db.payrollStructure.upsert({ where: { id: 'ps-acme-manager' }, update: {}, create: { id: 'ps-acme-manager', name: 'Manager Pay Structure', basicPay: 60000, hra: 24000, da: 6000, transportAllowance: 4000, medicalAllowance: 3000, specialAllowance: 12000, pfEmployee: 7200, pfEmployer: 7200, esiEmployee: 0, esiEmployer: 0, taxDeduction: 10000, companyId: acmeCompany.id } }),
+      db.payrollStructure.upsert({ where: { id: 'ps-marq-sde' }, update: {}, create: { id: 'ps-marq-sde', name: 'SDE Pay Structure', basicPay: 50000, hra: 20000, da: 5000, transportAllowance: 3000, medicalAllowance: 2500, specialAllowance: 10000, pfEmployee: 6000, pfEmployer: 6000, esiEmployee: 0, esiEmployer: 0, taxDeduction: 8000, companyId: marqCompanyId } }),
+      db.payrollStructure.upsert({ where: { id: 'ps-marq-lead' }, update: {}, create: { id: 'ps-marq-lead', name: 'Tech Lead Pay Structure', basicPay: 75000, hra: 30000, da: 7500, transportAllowance: 5000, medicalAllowance: 3500, specialAllowance: 15000, pfEmployee: 9000, pfEmployer: 9000, esiEmployee: 0, esiEmployer: 0, taxDeduction: 15000, companyId: marqCompanyId } }),
+      db.payrollStructure.upsert({ where: { id: 'ps-acme-supervisor' }, update: {}, create: { id: 'ps-acme-supervisor', name: 'Supervisor Pay Structure', basicPay: 35000, hra: 14000, da: 3500, transportAllowance: 2500, medicalAllowance: 2000, specialAllowance: 7000, pfEmployee: 4200, pfEmployer: 4200, esiEmployee: 630, esiEmployer: 1837, taxDeduction: 3000, companyId: acmeCompanyId } }),
+      db.payrollStructure.upsert({ where: { id: 'ps-acme-manager' }, update: {}, create: { id: 'ps-acme-manager', name: 'Manager Pay Structure', basicPay: 60000, hra: 24000, da: 6000, transportAllowance: 4000, medicalAllowance: 3000, specialAllowance: 12000, pfEmployee: 7200, pfEmployer: 7200, esiEmployee: 0, esiEmployer: 0, taxDeduction: 10000, companyId: acmeCompanyId } }),
     ]);
     counts.payrollStructures = payrollStructures.length;
 
     // ─── 7. OFFICE LOCATIONS ──────────────────────────────────────────
     const officeLocations = await db.$transaction([
-      db.officeLocation.upsert({ where: { id: 'ol-marq-ggn' }, update: {}, create: { id: 'ol-marq-ggn', name: 'MARQ Cyber City Office', address: '101, Cyber City, DLF Phase 2, Gurugram', latitude: 28.4947, longitude: 77.0887, radius: 500, isActive: true, companyId: marqCompany.id } }),
-      db.officeLocation.upsert({ where: { id: 'ol-marq-blr' }, update: {}, create: { id: 'ol-marq-blr', name: 'MARQ Bengaluru Office', address: '5, Outer Ring Road, Bengaluru', latitude: 12.9716, longitude: 77.5946, radius: 500, isActive: true, companyId: marqCompany.id } }),
-      db.officeLocation.upsert({ where: { id: 'ol-acme-blr' }, update: {}, create: { id: 'ol-acme-blr', name: 'Acme Whitefield Plant', address: '42, Industrial Area, Whitefield, Bengaluru', latitude: 12.9698, longitude: 77.7500, radius: 800, isActive: true, companyId: acmeCompany.id } }),
-      db.officeLocation.upsert({ where: { id: 'ol-acme-mum' }, update: {}, create: { id: 'ol-acme-mum', name: 'Acme Mumbai Warehouse', address: '88, MIDC Andheri, Mumbai', latitude: 19.1136, longitude: 72.8697, radius: 600, isActive: true, companyId: acmeCompany.id } }),
+      db.officeLocation.upsert({ where: { id: 'ol-marq-ggn' }, update: {}, create: { id: 'ol-marq-ggn', name: 'MARQ Cyber City Office', address: '101, Cyber City, DLF Phase 2, Gurugram', latitude: 28.4947, longitude: 77.0887, radius: 500, isActive: true, companyId: marqCompanyId } }),
+      db.officeLocation.upsert({ where: { id: 'ol-marq-blr' }, update: {}, create: { id: 'ol-marq-blr', name: 'MARQ Bengaluru Office', address: '5, Outer Ring Road, Bengaluru', latitude: 12.9716, longitude: 77.5946, radius: 500, isActive: true, companyId: marqCompanyId } }),
+      db.officeLocation.upsert({ where: { id: 'ol-acme-blr' }, update: {}, create: { id: 'ol-acme-blr', name: 'Acme Whitefield Plant', address: '42, Industrial Area, Whitefield, Bengaluru', latitude: 12.9698, longitude: 77.7500, radius: 800, isActive: true, companyId: acmeCompanyId } }),
+      db.officeLocation.upsert({ where: { id: 'ol-acme-mum' }, update: {}, create: { id: 'ol-acme-mum', name: 'Acme Mumbai Warehouse', address: '88, MIDC Andheri, Mumbai', latitude: 19.1136, longitude: 72.8697, radius: 600, isActive: true, companyId: acmeCompanyId } }),
     ]);
     counts.officeLocations = officeLocations.length;
 
@@ -165,8 +121,8 @@ export async function GET() {
     ];
 
     const allEmployeeData = [
-      ...marqEmployeeData.map(e => ({ ...e, companyId: marqCompany.id })),
-      ...acmeEmployeeData.map(e => ({ ...e, companyId: acmeCompany.id })),
+      ...marqEmployeeData.map(e => ({ ...e, companyId: marqCompanyId })),
+      ...acmeEmployeeData.map(e => ({ ...e, companyId: acmeCompanyId })),
     ];
 
     // Create employees
@@ -289,8 +245,8 @@ export async function GET() {
     counts.attendance = attendanceData.length;
 
     // ─── 11. LEAVE REQUESTS ───────────────────────────────────────────
-    const marqEmps = createdEmployees.filter(e => e.companyId === marqCompany.id);
-    const acmeEmps = createdEmployees.filter(e => e.companyId === acmeCompany.id);
+    const marqEmps = createdEmployees.filter(e => e.companyId === marqCompanyId);
+    const acmeEmps = createdEmployees.filter(e => e.companyId === acmeCompanyId);
 
     const leaveData = [
       { employeeId: marqEmps[2]?.id, type: 'casual', startDate: new Date('2025-02-10'), endDate: new Date('2025-02-11'), totalDays: 2, reason: 'Personal work', status: 'approved' },
@@ -329,19 +285,19 @@ export async function GET() {
 
     // ─── 13. PROJECTS ─────────────────────────────────────────────────
     const projects = await db.$transaction([
-      db.project.create({ data: { name: 'MARQ AI Platform v2', description: 'Next-gen AI platform with LLM integration', status: 'in_progress', priority: 'high', startDate: new Date('2025-01-15'), endDate: new Date('2025-09-30'), budget: 5000000, progress: 45, companyId: marqCompany.id, createdBy: marqEmps[0]?.id } }),
-      db.project.create({ data: { name: 'Mobile App Redesign', description: 'Redesigning the MARQ mobile application', status: 'planning', priority: 'medium', startDate: new Date('2025-04-01'), endDate: new Date('2025-08-31'), budget: 1500000, progress: 10, companyId: marqCompany.id, createdBy: marqEmps[6]?.id } }),
-      db.project.create({ data: { name: 'Data Pipeline Optimization', description: 'Optimize ETL data pipelines for performance', status: 'completed', priority: 'high', startDate: new Date('2024-10-01'), endDate: new Date('2025-02-28'), budget: 800000, progress: 100, companyId: marqCompany.id, createdBy: marqEmps[0]?.id } }),
-      db.project.create({ data: { name: 'Smart Factory Initiative', description: 'IoT-enabled smart factory setup', status: 'in_progress', priority: 'high', startDate: new Date('2025-02-01'), endDate: new Date('2025-12-31'), budget: 8000000, progress: 30, companyId: acmeCompany.id, createdBy: acmeEmps[0]?.id } }),
-      db.project.create({ data: { name: 'Supply Chain Digitization', description: 'End-to-end supply chain digital transformation', status: 'planning', priority: 'medium', startDate: new Date('2025-05-01'), endDate: new Date('2026-03-31'), budget: 3000000, progress: 5, companyId: acmeCompany.id, createdBy: acmeEmps[0]?.id } }),
-      db.project.create({ data: { name: 'Quality Management System', description: 'QMS implementation for ISO compliance', status: 'in_progress', priority: 'medium', startDate: new Date('2025-01-01'), endDate: new Date('2025-06-30'), budget: 1200000, progress: 60, companyId: acmeCompany.id, createdBy: acmeEmps[0]?.id } }),
+      db.project.create({ data: { name: 'MARQ AI Platform v2', description: 'Next-gen AI platform with LLM integration', status: 'in_progress', priority: 'high', startDate: new Date('2025-01-15'), endDate: new Date('2025-09-30'), budget: 5000000, progress: 45, companyId: marqCompanyId, createdBy: marqEmps[0]?.id } }),
+      db.project.create({ data: { name: 'Mobile App Redesign', description: 'Redesigning the MARQ mobile application', status: 'planning', priority: 'medium', startDate: new Date('2025-04-01'), endDate: new Date('2025-08-31'), budget: 1500000, progress: 10, companyId: marqCompanyId, createdBy: marqEmps[6]?.id } }),
+      db.project.create({ data: { name: 'Data Pipeline Optimization', description: 'Optimize ETL data pipelines for performance', status: 'completed', priority: 'high', startDate: new Date('2024-10-01'), endDate: new Date('2025-02-28'), budget: 800000, progress: 100, companyId: marqCompanyId, createdBy: marqEmps[0]?.id } }),
+      db.project.create({ data: { name: 'Smart Factory Initiative', description: 'IoT-enabled smart factory setup', status: 'in_progress', priority: 'high', startDate: new Date('2025-02-01'), endDate: new Date('2025-12-31'), budget: 8000000, progress: 30, companyId: acmeCompanyId, createdBy: acmeEmps[0]?.id } }),
+      db.project.create({ data: { name: 'Supply Chain Digitization', description: 'End-to-end supply chain digital transformation', status: 'planning', priority: 'medium', startDate: new Date('2025-05-01'), endDate: new Date('2026-03-31'), budget: 3000000, progress: 5, companyId: acmeCompanyId, createdBy: acmeEmps[0]?.id } }),
+      db.project.create({ data: { name: 'Quality Management System', description: 'QMS implementation for ISO compliance', status: 'in_progress', priority: 'medium', startDate: new Date('2025-01-01'), endDate: new Date('2025-06-30'), budget: 1200000, progress: 60, companyId: acmeCompanyId, createdBy: acmeEmps[0]?.id } }),
     ]);
     counts.projects = projects.length;
 
     // ─── 14. PROJECT MEMBERS ──────────────────────────────────────────
     const projectMembersData: any[] = [];
     for (const project of projects) {
-      const empList = project.companyId === marqCompany.id ? marqEmps : acmeEmps;
+      const empList = project.companyId === marqCompanyId ? marqEmps : acmeEmps;
       // Add 3-4 members per project
       for (let j = 0; j < Math.min(4, empList.length); j++) {
         projectMembersData.push({
@@ -357,20 +313,20 @@ export async function GET() {
     // ─── 15. TASKS ────────────────────────────────────────────────────
     const tasks = [];
     const taskData = [
-      { title: 'Implement LLM API Gateway', priority: 'high', status: 'in_progress', companyId: marqCompany.id, projectIdx: 0 },
-      { title: 'Design new onboarding flow', priority: 'medium', status: 'todo', companyId: marqCompany.id, projectIdx: 1 },
-      { title: 'Fix data pipeline memory leak', priority: 'high', status: 'completed', companyId: marqCompany.id, projectIdx: 2 },
-      { title: 'Set up IoT sensor network', priority: 'high', status: 'in_progress', companyId: acmeCompany.id, projectIdx: 3 },
-      { title: 'Vendor integration API', priority: 'medium', status: 'todo', companyId: acmeCompany.id, projectIdx: 4 },
-      { title: 'QMS audit preparation', priority: 'high', status: 'in_progress', companyId: acmeCompany.id, projectIdx: 5 },
-      { title: 'Unit test coverage improvement', priority: 'low', status: 'todo', companyId: marqCompany.id, projectIdx: 0 },
-      { title: 'Deploy monitoring dashboards', priority: 'medium', status: 'in_progress', companyId: marqCompany.id, projectIdx: 2 },
-      { title: 'RFID tag installation', priority: 'medium', status: 'todo', companyId: acmeCompany.id, projectIdx: 3 },
-      { title: 'Supplier onboarding portal', priority: 'medium', status: 'todo', companyId: acmeCompany.id, projectIdx: 4 },
+      { title: 'Implement LLM API Gateway', priority: 'high', status: 'in_progress', companyId: marqCompanyId, projectIdx: 0 },
+      { title: 'Design new onboarding flow', priority: 'medium', status: 'todo', companyId: marqCompanyId, projectIdx: 1 },
+      { title: 'Fix data pipeline memory leak', priority: 'high', status: 'completed', companyId: marqCompanyId, projectIdx: 2 },
+      { title: 'Set up IoT sensor network', priority: 'high', status: 'in_progress', companyId: acmeCompanyId, projectIdx: 3 },
+      { title: 'Vendor integration API', priority: 'medium', status: 'todo', companyId: acmeCompanyId, projectIdx: 4 },
+      { title: 'QMS audit preparation', priority: 'high', status: 'in_progress', companyId: acmeCompanyId, projectIdx: 5 },
+      { title: 'Unit test coverage improvement', priority: 'low', status: 'todo', companyId: marqCompanyId, projectIdx: 0 },
+      { title: 'Deploy monitoring dashboards', priority: 'medium', status: 'in_progress', companyId: marqCompanyId, projectIdx: 2 },
+      { title: 'RFID tag installation', priority: 'medium', status: 'todo', companyId: acmeCompanyId, projectIdx: 3 },
+      { title: 'Supplier onboarding portal', priority: 'medium', status: 'todo', companyId: acmeCompanyId, projectIdx: 4 },
     ];
     for (const t of taskData) {
       const project = projects[t.projectIdx];
-      const empList = t.companyId === marqCompany.id ? marqEmps : acmeEmps;
+      const empList = t.companyId === marqCompanyId ? marqEmps : acmeEmps;
       const task = await db.task.create({
         data: {
           title: t.title,
@@ -392,9 +348,9 @@ export async function GET() {
 
     // ─── 16. JOBS & AI INTERVIEWS ─────────────────────────────────────
     const jobs = await db.$transaction([
-      db.job.create({ data: { title: 'Senior ML Engineer', description: 'Build and deploy ML models', department: 'Engineering', location: 'Gurugram', employmentType: 'full-time', experienceMin: 4, experienceMax: 8, salaryMin: 1500000, salaryMax: 3000000, status: 'published', priority: 'high', positions: 2, filledPositions: 0, postedDate: new Date('2025-05-01'), closingDate: new Date('2025-06-30'), companyId: marqCompany.id } }),
-      db.job.create({ data: { title: 'Product Designer', description: 'Design intuitive product experiences', department: 'Product', location: 'Bengaluru', employmentType: 'full-time', experienceMin: 3, experienceMax: 6, salaryMin: 1200000, salaryMax: 2500000, status: 'published', priority: 'medium', positions: 1, filledPositions: 0, postedDate: new Date('2025-05-10'), closingDate: new Date('2025-07-15'), companyId: marqCompany.id } }),
-      db.job.create({ data: { title: 'Production Engineer', description: 'Manage production line operations', department: 'Production', location: 'Bengaluru', employmentType: 'full-time', experienceMin: 2, experienceMax: 5, salaryMin: 800000, salaryMax: 1500000, status: 'published', priority: 'high', positions: 3, filledPositions: 1, postedDate: new Date('2025-04-15'), closingDate: new Date('2025-06-15'), companyId: acmeCompany.id } }),
+      db.job.create({ data: { title: 'Senior ML Engineer', description: 'Build and deploy ML models', department: 'Engineering', location: 'Gurugram', employmentType: 'full-time', experienceMin: 4, experienceMax: 8, salaryMin: 1500000, salaryMax: 3000000, status: 'published', priority: 'high', positions: 2, filledPositions: 0, postedDate: new Date('2025-05-01'), closingDate: new Date('2025-06-30'), companyId: marqCompanyId } }),
+      db.job.create({ data: { title: 'Product Designer', description: 'Design intuitive product experiences', department: 'Product', location: 'Bengaluru', employmentType: 'full-time', experienceMin: 3, experienceMax: 6, salaryMin: 1200000, salaryMax: 2500000, status: 'published', priority: 'medium', positions: 1, filledPositions: 0, postedDate: new Date('2025-05-10'), closingDate: new Date('2025-07-15'), companyId: marqCompanyId } }),
+      db.job.create({ data: { title: 'Production Engineer', description: 'Manage production line operations', department: 'Production', location: 'Bengaluru', employmentType: 'full-time', experienceMin: 2, experienceMax: 5, salaryMin: 800000, salaryMax: 1500000, status: 'published', priority: 'high', positions: 3, filledPositions: 1, postedDate: new Date('2025-04-15'), closingDate: new Date('2025-06-15'), companyId: acmeCompanyId } }),
     ]);
 
     const candidates = await db.$transaction([
@@ -415,10 +371,10 @@ export async function GET() {
 
     // ─── 17. HELPDESK TICKETS ─────────────────────────────────────────
     const helpdeskTickets = await db.$transaction([
-      db.helpdeskTicket.create({ data: { ticketId: 'HD-MARQ-001', category: 'IT', subCategory: 'Hardware', priority: 'high', subject: 'Laptop screen flickering', description: 'My laptop screen has been flickering since yesterday', status: 'open', companyId: marqCompany.id, requesterId: marqEmps[2]?.id } }),
-      db.helpdeskTicket.create({ data: { ticketId: 'HD-MARQ-002', category: 'HR', subCategory: 'Policy', priority: 'medium', subject: 'Leave policy clarification', description: 'Need clarification on carry forward leave policy', status: 'in_progress', companyId: marqCompany.id, requesterId: marqEmps[4]?.id, assignedAgentId: marqEmps[1]?.id } }),
-      db.helpdeskTicket.create({ data: { ticketId: 'HD-ACME-001', category: 'IT', subCategory: 'Software', priority: 'high', subject: 'ERP system slow response', description: 'ERP taking 5+ minutes to load any page', status: 'open', companyId: acmeCompany.id, requesterId: acmeEmps[2]?.id } }),
-      db.helpdeskTicket.create({ data: { ticketId: 'HD-ACME-002', category: 'Facilities', subCategory: 'AC', priority: 'low', subject: 'AC not working in Bay 3', description: 'Air conditioning not working in production bay 3', status: 'resolved', companyId: acmeCompany.id, requesterId: acmeEmps[7]?.id, resolution: 'AC compressor replaced, working now' } }),
+      db.helpdeskTicket.create({ data: { ticketId: 'HD-MARQ-001', category: 'IT', subCategory: 'Hardware', priority: 'high', subject: 'Laptop screen flickering', description: 'My laptop screen has been flickering since yesterday', status: 'open', companyId: marqCompanyId, requesterId: marqEmps[2]?.id } }),
+      db.helpdeskTicket.create({ data: { ticketId: 'HD-MARQ-002', category: 'HR', subCategory: 'Policy', priority: 'medium', subject: 'Leave policy clarification', description: 'Need clarification on carry forward leave policy', status: 'in_progress', companyId: marqCompanyId, requesterId: marqEmps[4]?.id, assignedAgentId: marqEmps[1]?.id } }),
+      db.helpdeskTicket.create({ data: { ticketId: 'HD-ACME-001', category: 'IT', subCategory: 'Software', priority: 'high', subject: 'ERP system slow response', description: 'ERP taking 5+ minutes to load any page', status: 'open', companyId: acmeCompanyId, requesterId: acmeEmps[2]?.id } }),
+      db.helpdeskTicket.create({ data: { ticketId: 'HD-ACME-002', category: 'Facilities', subCategory: 'AC', priority: 'low', subject: 'AC not working in Bay 3', description: 'Air conditioning not working in production bay 3', status: 'resolved', companyId: acmeCompanyId, requesterId: acmeEmps[7]?.id, resolution: 'AC compressor replaced, working now' } }),
     ]);
     counts.helpdeskTickets = helpdeskTickets.length;
 
@@ -434,17 +390,17 @@ export async function GET() {
 
     // ─── 19. COMPANY POLICIES ─────────────────────────────────────────
     const policies = await db.$transaction([
-      db.companyPolicy.create({ data: { title: 'Remote Work Policy', content: 'Employees are allowed to work remotely up to 3 days per week. Must be available during core hours (10 AM - 4 PM IST).', category: 'HR', version: '2.0', effectiveDate: new Date('2025-01-01'), status: 'active', companyId: marqCompany.id } }),
-      db.companyPolicy.create({ data: { title: 'Code of Conduct', content: 'All employees must adhere to professional conduct standards. Harassment of any kind will not be tolerated.', category: 'Compliance', version: '1.5', effectiveDate: new Date('2024-06-01'), status: 'active', companyId: marqCompany.id } }),
-      db.companyPolicy.create({ data: { title: 'Data Security Policy', content: 'All proprietary data must be handled according to ISO 27001 standards. Use only approved devices and networks.', category: 'IT Security', version: '3.0', effectiveDate: new Date('2025-02-01'), status: 'active', companyId: marqCompany.id } }),
-      db.companyPolicy.create({ data: { title: 'Safety & Health Policy', content: 'All factory personnel must wear PPE at all times. Report any safety incidents immediately.', category: 'Safety', version: '1.2', effectiveDate: new Date('2024-01-01'), status: 'active', companyId: acmeCompany.id } }),
-      db.companyPolicy.create({ data: { title: 'Attendance & Shift Policy', content: 'All shifts are 8 hours with 1 hour break. Overtime must be pre-approved by department head.', category: 'HR', version: '2.1', effectiveDate: new Date('2024-03-01'), status: 'active', companyId: acmeCompany.id } }),
+      db.companyPolicy.create({ data: { title: 'Remote Work Policy', content: 'Employees are allowed to work remotely up to 3 days per week. Must be available during core hours (10 AM - 4 PM IST).', category: 'HR', version: '2.0', effectiveDate: new Date('2025-01-01'), status: 'active', companyId: marqCompanyId } }),
+      db.companyPolicy.create({ data: { title: 'Code of Conduct', content: 'All employees must adhere to professional conduct standards. Harassment of any kind will not be tolerated.', category: 'Compliance', version: '1.5', effectiveDate: new Date('2024-06-01'), status: 'active', companyId: marqCompanyId } }),
+      db.companyPolicy.create({ data: { title: 'Data Security Policy', content: 'All proprietary data must be handled according to ISO 27001 standards. Use only approved devices and networks.', category: 'IT Security', version: '3.0', effectiveDate: new Date('2025-02-01'), status: 'active', companyId: marqCompanyId } }),
+      db.companyPolicy.create({ data: { title: 'Safety & Health Policy', content: 'All factory personnel must wear PPE at all times. Report any safety incidents immediately.', category: 'Safety', version: '1.2', effectiveDate: new Date('2024-01-01'), status: 'active', companyId: acmeCompanyId } }),
+      db.companyPolicy.create({ data: { title: 'Attendance & Shift Policy', content: 'All shifts are 8 hours with 1 hour break. Overtime must be pre-approved by department head.', category: 'HR', version: '2.1', effectiveDate: new Date('2024-03-01'), status: 'active', companyId: acmeCompanyId } }),
     ]);
     counts.policies = policies.length;
 
     // ─── 20. PERFORMANCE REVIEWS ──────────────────────────────────────
     const reviewCycle = await db.reviewCycle.create({
-      data: { name: 'H1 2025 Review', type: 'half_yearly', startDate: new Date('2025-01-01'), endDate: new Date('2025-06-30'), status: 'active', companyId: marqCompany.id },
+      data: { name: 'H1 2025 Review', type: 'half_yearly', startDate: new Date('2025-01-01'), endDate: new Date('2025-06-30'), status: 'active', companyId: marqCompanyId },
     });
 
     const perfReviews = [];
@@ -500,10 +456,10 @@ export async function GET() {
 
     // ─── 22. VENDORS & SUB-VENDORS ────────────────────────────────────
     const vendors = await db.$transaction([
-      db.vendor.create({ data: { name: 'TechParts India', email: 'sales@techparts.in', phone: '+91-11-23456789', vendorCompany: 'TechParts India Pvt Ltd', serviceType: 'IT Hardware', status: 'active', rating: 4.5, companyId: marqCompany.id } }),
-      db.vendor.create({ data: { name: 'CloudInfra Solutions', email: 'info@cloudinfra.in', phone: '+91-80-98765432', vendorCompany: 'CloudInfra Solutions Ltd', serviceType: 'Cloud Services', status: 'active', rating: 4.2, companyId: marqCompany.id } }),
-      db.vendor.create({ data: { name: 'SteelCraft Industries', email: 'orders@steelcraft.in', phone: '+91-22-34567890', vendorCompany: 'SteelCraft Industries Ltd', serviceType: 'Raw Materials', status: 'active', rating: 4.0, companyId: acmeCompany.id } }),
-      db.vendor.create({ data: { name: 'SafeGuard Equipments', email: 'sales@safeguard.in', phone: '+91-80-45678901', vendorCompany: 'SafeGuard Equipments Pvt Ltd', serviceType: 'Safety Equipment', status: 'active', rating: 3.8, companyId: acmeCompany.id } }),
+      db.vendor.create({ data: { name: 'TechParts India', email: 'sales@techparts.in', phone: '+91-11-23456789', vendorCompany: 'TechParts India Pvt Ltd', serviceType: 'IT Hardware', status: 'active', rating: 4.5, companyId: marqCompanyId } }),
+      db.vendor.create({ data: { name: 'CloudInfra Solutions', email: 'info@cloudinfra.in', phone: '+91-80-98765432', vendorCompany: 'CloudInfra Solutions Ltd', serviceType: 'Cloud Services', status: 'active', rating: 4.2, companyId: marqCompanyId } }),
+      db.vendor.create({ data: { name: 'SteelCraft Industries', email: 'orders@steelcraft.in', phone: '+91-22-34567890', vendorCompany: 'SteelCraft Industries Ltd', serviceType: 'Raw Materials', status: 'active', rating: 4.0, companyId: acmeCompanyId } }),
+      db.vendor.create({ data: { name: 'SafeGuard Equipments', email: 'sales@safeguard.in', phone: '+91-80-45678901', vendorCompany: 'SafeGuard Equipments Pvt Ltd', serviceType: 'Safety Equipment', status: 'active', rating: 3.8, companyId: acmeCompanyId } }),
     ]);
     counts.vendors = vendors.length;
 
@@ -516,15 +472,15 @@ export async function GET() {
 
     // ─── 23. WORKFLOW DEFINITIONS ─────────────────────────────────────
     const workflowDefs = await db.$transaction([
-      db.workflowDefinition.create({ data: { name: 'Leave Approval Workflow', type: 'approval', entity: 'leave', description: 'Standard leave approval process', isActive: true, companyId: marqCompany.id, steps: { create: [
+      db.workflowDefinition.create({ data: { name: 'Leave Approval Workflow', type: 'approval', entity: 'leave', description: 'Standard leave approval process', isActive: true, companyId: marqCompanyId, steps: { create: [
         { name: 'Manager Approval', stepOrder: 1, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
         { name: 'HR Approval', stepOrder: 2, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
       ] } } }),
-      db.workflowDefinition.create({ data: { name: 'Expense Approval Workflow', type: 'approval', entity: 'expense', description: 'Expense claim approval process', isActive: true, companyId: marqCompany.id, steps: { create: [
+      db.workflowDefinition.create({ data: { name: 'Expense Approval Workflow', type: 'approval', entity: 'expense', description: 'Expense claim approval process', isActive: true, companyId: marqCompanyId, steps: { create: [
         { name: 'Manager Approval', stepOrder: 1, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
         { name: 'Finance Approval', stepOrder: 2, approverRole: 'finance', approverType: 'role', action: 'approve_reject' },
       ] } } }),
-      db.workflowDefinition.create({ data: { name: 'Leave Approval Workflow', type: 'approval', entity: 'leave', description: 'Standard leave approval process', isActive: true, companyId: acmeCompany.id, steps: { create: [
+      db.workflowDefinition.create({ data: { name: 'Leave Approval Workflow', type: 'approval', entity: 'leave', description: 'Standard leave approval process', isActive: true, companyId: acmeCompanyId, steps: { create: [
         { name: 'Supervisor Approval', stepOrder: 1, approverRole: 'reporting_manager', approverType: 'role', action: 'approve_reject' },
         { name: 'HR Approval', stepOrder: 2, approverRole: 'company_hr_admin', approverType: 'role', action: 'approve_reject' },
       ] } } }),
@@ -532,8 +488,8 @@ export async function GET() {
     counts.workflowDefinitions = workflowDefs.length;
 
     // ─── 24. AUDIT LOGS ───────────────────────────────────────────────
-    const marqUsers = await db.user.findMany({ where: { companyId: marqCompany.id }, take: 6 });
-    const acmeUsers = await db.user.findMany({ where: { companyId: acmeCompany.id }, take: 6 });
+    const marqUsers = await db.user.findMany({ where: { companyId: marqCompanyId }, take: 6 });
+    const acmeUsers = await db.user.findMany({ where: { companyId: acmeCompanyId }, take: 6 });
 
     const auditLogs = [
       { action: 'CREATE', entity: 'Company', details: 'Company MARQ AI Technologies created', userId: marqUsers[0]?.id, module: 'companies' },
@@ -551,21 +507,21 @@ export async function GET() {
 
     // ─── 25. MEETINGS ─────────────────────────────────────────────────
     const meetings = await db.$transaction([
-      db.meeting.create({ data: { companyId: marqCompany.id, title: 'Weekly Engineering Standup', description: 'Weekly sync for engineering team', date: new Date('2025-06-02'), startTime: '10:00', endTime: '10:30', location: 'Conference Room A', meetingType: 'in_person', status: 'scheduled', createdBy: marqEmps[0]?.id, invitations: { create: [
+      db.meeting.create({ data: { companyId: marqCompanyId, title: 'Weekly Engineering Standup', description: 'Weekly sync for engineering team', date: new Date('2025-06-02'), startTime: '10:00', endTime: '10:30', location: 'Conference Room A', meetingType: 'in_person', status: 'scheduled', createdBy: marqEmps[0]?.id, invitations: { create: [
         { employeeId: marqEmps[2]?.id, rsvpStatus: 'accepted' },
         { employeeId: marqEmps[3]?.id, rsvpStatus: 'accepted' },
         { employeeId: marqEmps[8]?.id, rsvpStatus: 'pending' },
       ].filter(i => i.employeeId) } } }),
-      db.meeting.create({ data: { companyId: marqCompany.id, title: 'Q2 Business Review', description: 'Quarterly business performance review', date: new Date('2025-06-05'), startTime: '14:00', endTime: '16:00', location: 'Main Conference Hall', meetingType: 'hybrid', status: 'scheduled', createdBy: marqEmps[0]?.id, invitations: { create: [
+      db.meeting.create({ data: { companyId: marqCompanyId, title: 'Q2 Business Review', description: 'Quarterly business performance review', date: new Date('2025-06-05'), startTime: '14:00', endTime: '16:00', location: 'Main Conference Hall', meetingType: 'hybrid', status: 'scheduled', createdBy: marqEmps[0]?.id, invitations: { create: [
         { employeeId: marqEmps[1]?.id, rsvpStatus: 'accepted' },
         { employeeId: marqEmps[4]?.id, rsvpStatus: 'tentative' },
         { employeeId: marqEmps[5]?.id, rsvpStatus: 'accepted' },
       ].filter(i => i.employeeId) } } }),
-      db.meeting.create({ data: { companyId: acmeCompany.id, title: 'Safety Committee Meeting', description: 'Monthly safety review and updates', date: new Date('2025-06-03'), startTime: '09:00', endTime: '10:00', location: 'Factory Conference Room', meetingType: 'in_person', status: 'scheduled', createdBy: acmeEmps[0]?.id, invitations: { create: [
+      db.meeting.create({ data: { companyId: acmeCompanyId, title: 'Safety Committee Meeting', description: 'Monthly safety review and updates', date: new Date('2025-06-03'), startTime: '09:00', endTime: '10:00', location: 'Factory Conference Room', meetingType: 'in_person', status: 'scheduled', createdBy: acmeEmps[0]?.id, invitations: { create: [
         { employeeId: acmeEmps[2]?.id, rsvpStatus: 'accepted' },
         { employeeId: acmeEmps[6]?.id, rsvpStatus: 'accepted' },
       ].filter(i => i.employeeId) } } }),
-      db.meeting.create({ data: { companyId: acmeCompany.id, title: 'Vendor Review Meeting', description: 'Review vendor performance and contracts', date: new Date('2025-06-10'), startTime: '11:00', endTime: '12:00', meetingType: 'virtual', status: 'scheduled', createdBy: acmeEmps[0]?.id, invitations: { create: [
+      db.meeting.create({ data: { companyId: acmeCompanyId, title: 'Vendor Review Meeting', description: 'Review vendor performance and contracts', date: new Date('2025-06-10'), startTime: '11:00', endTime: '12:00', meetingType: 'virtual', status: 'scheduled', createdBy: acmeEmps[0]?.id, invitations: { create: [
         { employeeId: acmeEmps[3]?.id, rsvpStatus: 'pending' },
         { employeeId: acmeEmps[8]?.id, rsvpStatus: 'accepted' },
       ].filter(i => i.employeeId) } } }),
@@ -619,9 +575,9 @@ export async function GET() {
 
     // ─── 30. CLIENTS ──────────────────────────────────────────────────
     const clients = await db.$transaction([
-      db.client.create({ data: { name: 'Bharat Bank', email: 'procurement@bharatbank.in', phone: '+91-22-11111111', clientCompany: 'Bharat Bank Ltd', industry: 'Banking', contractStart: new Date('2024-01-01'), contractEnd: new Date('2026-12-31'), status: 'active', companyId: marqCompany.id } }),
-      db.client.create({ data: { name: 'MediCare Hospitals', email: 'it@medicare.in', phone: '+91-80-22222222', clientCompany: 'MediCare Hospitals Group', industry: 'Healthcare', contractStart: new Date('2024-06-01'), contractEnd: new Date('2025-12-31'), status: 'active', companyId: marqCompany.id } }),
-      db.client.create({ data: { name: 'AutoTech Motors', email: 'supply@autotech.in', phone: '+91-20-33333333', clientCompany: 'AutoTech Motors Ltd', industry: 'Automotive', contractStart: new Date('2023-01-01'), contractEnd: new Date('2027-01-01'), status: 'active', companyId: acmeCompany.id } }),
+      db.client.create({ data: { name: 'Bharat Bank', email: 'procurement@bharatbank.in', phone: '+91-22-11111111', clientCompany: 'Bharat Bank Ltd', industry: 'Banking', contractStart: new Date('2024-01-01'), contractEnd: new Date('2026-12-31'), status: 'active', companyId: marqCompanyId } }),
+      db.client.create({ data: { name: 'MediCare Hospitals', email: 'it@medicare.in', phone: '+91-80-22222222', clientCompany: 'MediCare Hospitals Group', industry: 'Healthcare', contractStart: new Date('2024-06-01'), contractEnd: new Date('2025-12-31'), status: 'active', companyId: marqCompanyId } }),
+      db.client.create({ data: { name: 'AutoTech Motors', email: 'supply@autotech.in', phone: '+91-20-33333333', clientCompany: 'AutoTech Motors Ltd', industry: 'Automotive', contractStart: new Date('2023-01-01'), contractEnd: new Date('2027-01-01'), status: 'active', companyId: acmeCompanyId } }),
     ]);
     counts.clients = clients.length;
 
@@ -691,12 +647,12 @@ export async function GET() {
 
     // ─── 36. SURVEYS ──────────────────────────────────────────────────
     const surveys = await db.$transaction([
-      db.survey.create({ data: { title: 'Employee Engagement Q2 2025', description: 'Quarterly employee engagement survey', type: 'pulse', status: 'active', startDate: new Date('2025-06-01'), endDate: new Date('2025-06-15'), companyId: marqCompany.id, questions: { create: [
+      db.survey.create({ data: { title: 'Employee Engagement Q2 2025', description: 'Quarterly employee engagement survey', type: 'pulse', status: 'active', startDate: new Date('2025-06-01'), endDate: new Date('2025-06-15'), companyId: marqCompanyId, questions: { create: [
         { question: 'How satisfied are you with your role?', type: 'rating', required: true, order: 1 },
         { question: 'How would you rate work-life balance?', type: 'rating', required: true, order: 2 },
         { question: 'Any suggestions for improvement?', type: 'text', required: false, order: 3 },
       ] } } }),
-      db.survey.create({ data: { title: 'Workplace Safety Survey', description: 'Annual safety culture assessment', type: 'annual', status: 'active', startDate: new Date('2025-06-01'), endDate: new Date('2025-06-30'), companyId: acmeCompany.id, questions: { create: [
+      db.survey.create({ data: { title: 'Workplace Safety Survey', description: 'Annual safety culture assessment', type: 'annual', status: 'active', startDate: new Date('2025-06-01'), endDate: new Date('2025-06-30'), companyId: acmeCompanyId, questions: { create: [
         { question: 'How safe do you feel at the workplace?', type: 'rating', required: true, order: 1 },
         { question: 'Are safety protocols followed consistently?', type: 'rating', required: true, order: 2 },
       ] } } }),
@@ -717,9 +673,9 @@ export async function GET() {
 
     // ─── 38. COMPLIANCE ITEMS ─────────────────────────────────────────
     const complianceItems = [
-      { title: 'Annual Fire Safety Audit', description: 'Fire safety compliance audit for all premises', category: 'safety', dueDate: new Date('2025-07-31'), status: 'in_progress', assignee: acmeEmps[6]?.id, companyId: acmeCompany.id },
-      { title: 'GDPR Compliance Review', description: 'Annual GDPR compliance review', category: 'data_privacy', dueDate: new Date('2025-09-30'), status: 'pending', assignee: marqEmps[0]?.id, companyId: marqCompany.id },
-      { title: 'ISO 27001 Recertification', description: 'ISO 27001 information security recertification', category: 'certification', dueDate: new Date('2025-12-31'), status: 'in_progress', assignee: marqEmps[8]?.id, companyId: marqCompany.id },
+      { title: 'Annual Fire Safety Audit', description: 'Fire safety compliance audit for all premises', category: 'safety', dueDate: new Date('2025-07-31'), status: 'in_progress', assignee: acmeEmps[6]?.id, companyId: acmeCompanyId },
+      { title: 'GDPR Compliance Review', description: 'Annual GDPR compliance review', category: 'data_privacy', dueDate: new Date('2025-09-30'), status: 'pending', assignee: marqEmps[0]?.id, companyId: marqCompanyId },
+      { title: 'ISO 27001 Recertification', description: 'ISO 27001 information security recertification', category: 'certification', dueDate: new Date('2025-12-31'), status: 'in_progress', assignee: marqEmps[8]?.id, companyId: marqCompanyId },
     ].filter(c => c.assignee);
 
     await db.complianceItem.createMany({ data: complianceItems as any });
@@ -736,7 +692,7 @@ export async function GET() {
         weekEnd,
         totalHours: 40,
         status: 'approved',
-        approvedBy: emp.companyId === marqCompany.id ? marqEmps[0]?.id : acmeEmps[0]?.id,
+        approvedBy: emp.companyId === marqCompanyId ? marqEmps[0]?.id : acmeEmps[0]?.id,
         approvedAt: new Date('2025-06-01'),
       });
     }
